@@ -1,0 +1,44 @@
+module App
+
+contract Spawnable {
+    mut fn onSpawn()
+}
+
+struct Entity: Spawnable {
+    mut fn onSpawn() {
+    }
+}
+
+class World {
+    var name: String
+    var lifetime: Float = 0
+    var entities: [Entity] = []
+
+    init {}
+
+    mut fn start() {
+        lifetime = 0
+    }
+
+    mut fn tick() {
+        lifetime += 1
+    }
+
+    mut fn spawn(entity: Entity) {
+        entities.push(entity)
+        entity.onSpawn()
+    }
+}
+
+/*
+This is a multiline comment
+*/
+fn main() -> Int {
+    // This is a comment
+    var world = World()
+    val world2 = world
+    let world3 = world
+
+    world.spawn(entity: Entity {})
+    return world.start()
+}

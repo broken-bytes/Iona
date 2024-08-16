@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "Iona": {
+      "commandName": "Project",
+      "commandLineArgs": "\"D:\\Projects\\Iona\\tests\\iona\\app.iona\""
+    }
+  }
+}
