@@ -1,15 +1,10 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Linq.Expressions;
-using System.Text;
-using System.Threading.Tasks;
+﻿using AST.Types;
 
 namespace AST.Nodes
 {
-    public interface IExpressionNode
+    public interface IExpressionNode : INode
     {
-        public ExpressionType ExpressionType { get; set; }
-        public ITypeNode ResultType { get; set; }
+        public ExpressionType ExpressionType { get; }
+        public ITypeNode? ResultType { get; set; }
     }
 }
