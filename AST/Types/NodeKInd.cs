@@ -9,6 +9,7 @@ namespace AST.Types
     public enum NodeKind
     {
         Array,
+        Class,
         Contract,
         Enum,
         File,

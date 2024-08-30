@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace AST.Nodes
 {
-    public class BinaryExpressionNode : INode
+    public class BinaryExpressionNode : IExpressionNode
     {
         public string Name { get; set; }
         public string Module { get; set; }
@@ -17,7 +17,7 @@ namespace AST.Nodes
         public IExpressionNode Right { get; set; }
         public BinaryOperation Operation { get; set; }
         public ExpressionType ExpressionType { get; set; }
-        public ITypeNode ResultType { get; set; }
+        public ITypeNode? ResultType { get; set; }
 
         public AssignmentType AssignmentType { get; set; }
         public INode Root { get => Utils.GetRoot(this); }
@@ -28,7 +28,7 @@ namespace AST.Nodes
             IExpressionNode left,
             IExpressionNode right,
             BinaryOperation operation,
-            ITypeNode resultType,
+            ITypeNode? resultType,
             AssignmentType assignmentType,
             INode parent
         )

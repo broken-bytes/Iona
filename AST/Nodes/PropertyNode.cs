@@ -1,32 +1,33 @@
-﻿using AST.Types;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using AST.Types;
 
 namespace AST.Nodes
 {
-    public class ContractNode : IAccessLevelNode, IStatementNode
+    public class PropertyNode : IAccessLevelNode, IStatementNode
     {
         public string Name { get; set; }
         public string Module { get; set; }
         public INode Parent { get; set; }
         public NodeType Type { get; set; }
+        public INode Root => Utils.GetRoot(this);
         public AccessLevel AccessLevel { get; set; }
         public StatementType StatementType { get; set; }
-        public List<IdentifierNode> Refinements { get; set; } = new List<IdentifierNode>();
-        public INode Root => Utils.GetRoot(this);
-        public BlockNode? Body { get; set; }
+        public ITypeNode TypeNode { get; set; }
+        public IExpressionNode Value { get; set; }
 
-        public ContractNode(string name, string module, AccessLevel access, INode parent)
+        public PropertyNode(string name, ITypeNode type, IExpressionNode value, INode parent)
         {
             Name = name;
-            Module = module;
+            Module = "";
+            Value = value;
             Parent = parent;
             Type = NodeType.Declaration;
-            StatementType = StatementType.ContractDeclaration;
-            AccessLevel = access;
+            TypeNode = type;
+            StatementType = StatementType.PropertyDeclaration;
         }
     }
 }

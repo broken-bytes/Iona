@@ -9,6 +9,12 @@ namespace AST.Types
     public enum StatementType
     {
         Import,
+        ClassDeclaration,
+        ContractDeclaration,
+        FunctionDeclaration,
+        ModuleDeclaration,
+        PropertyDeclaration,
+        ReturnStatement,
         VariableDeclaration,
         VariableAssignment,
         Return,
