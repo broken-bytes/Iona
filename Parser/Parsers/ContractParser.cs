@@ -1,11 +1,11 @@
 ﻿using AST.Nodes;
 using Lexer.Tokens;
 
-namespace Parser
+namespace Parser.Parsers
 {
-    public class Parser : IParser
+    public class ContractParser : IParser
     {
-        internal Parser()
+        internal ContractParser()
         {
         }
 

@@ -7,7 +7,7 @@ namespace AST.Nodes
     {
         public string Name { get; set; }
         public string Module { get; set; }
-        public INode Parent { get; set; }
+         public INode? Parent { get; set; }
         public NodeType Type { get; set; }
         public StatementType StatementType { get; set; }
         public AssignmentType AssignmentType { get; set; }
@@ -21,7 +21,7 @@ namespace AST.Nodes
             AssignmentType assignmentType,
             INode target,
             IExpressionNode value,
-            INode parent
+            INode? parent
         )
         {
             Name = name;

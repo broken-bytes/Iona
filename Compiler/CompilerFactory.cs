@@ -1,4 +1,5 @@
-﻿using Parser;
+﻿using Lexer;
+using Parser;
 
 namespace Compiler
 {
@@ -6,9 +7,10 @@ namespace Compiler
     {
         public static ICompiler Create()
         {
+            var lexer = LexerFactory.Create();
             var parser = ParserFactory.Create();
 
-            return new Compiler(parser);
+            return new Compiler(lexer, parser);
         }
     }
 }

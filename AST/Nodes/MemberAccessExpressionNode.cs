@@ -7,13 +7,13 @@ namespace AST.Nodes
     {
         public string Name { get; set; }
         public string Module { get; set; }
-        public INode Parent { get; set; }
+         public INode? Parent { get; set; }
         public NodeType Type { get; set; }
         public INode Root => Utils.GetRoot(this);
         public INode Target { get; set; }
         public INode Member { get; set; }
 
-        public MemberAccessExpressionNode(string name, string module, INode target, INode member, INode parent)
+        public MemberAccessExpressionNode(string name, string module, INode target, INode member, INode? parent)
         {
             Name = name;
             Module = module;

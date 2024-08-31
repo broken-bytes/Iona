@@ -7,7 +7,7 @@ namespace AST.Nodes
     {
         public string Name { get; set; }
         public string Module { get; set; }
-        public INode Parent { get; set; }
+         public INode? Parent { get; set; }
         public NodeType Type { get; set; }
         public INode Root => Utils.GetRoot(this);
         public ExpressionType ExpressionType => ExpressionType.Literal;
@@ -15,7 +15,7 @@ namespace AST.Nodes
         public LiteralType LiteralType { get; set; }
         public string Value { get; set; }
 
-        public LiteralNode(string name, string module, INode parent, LiteralType literalType, string value)
+        public LiteralNode(string name, string module, INode? parent, LiteralType literalType, string value)
         {
             Name = name;
             Module = module;

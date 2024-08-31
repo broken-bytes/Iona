@@ -8,6 +8,6 @@ namespace Compiler
 {
     public interface ICompiler
     {
-        public void Compile(string source);
+        public void Compile(string source, string filename);
     }
 }

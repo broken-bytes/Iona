@@ -1,14 +1,13 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace Lexer.Tokens
+﻿namespace Lexer.Tokens
 {
-    public class TokenStreamException: Exception
+    public class TokenStreamWrongTypeException: Exception
     {
-        public TokenStreamException(string message) : base(message) { }
+        public TokenStreamWrongTypeException(string message) : base(message) { }
+    }
+
+    public class TokenStreamEmptyException : Exception
+    {
+        public TokenStreamEmptyException() : base("End of file") { }
     }
 
     public class TokenStream : IEnumerable<Token>
@@ -31,7 +30,7 @@ namespace Lexer.Tokens
         {
             if (IsEmpty())
             {
-                throw new TokenStreamException("End of file");
+                throw new TokenStreamEmptyException();
             }
 
             Token token = tokens.Dequeue();
@@ -39,19 +38,19 @@ namespace Lexer.Tokens
             return token;
         }
 
-        public Token ConsumeExpectingType(TokenType expectedType)
+        public Token Consume(TokenType expectedType)
         {
             Token token = Consume();
 
             if (token.Type != expectedType)
             {
-                throw new TokenStreamException("Unexpected token");
+                throw new TokenStreamWrongTypeException("Unexpected token");
             }
 
             return token;
         }
 
-        public Token? Peek()
+        public Token Peek()
         {
             return tokens.FirstOrDefault(); // Returns null if empty
         }
@@ -60,7 +59,7 @@ namespace Lexer.Tokens
         {
             if (currentPosition + count >= tokens.Count)
             {
-                throw new TokenStreamException("Peeked past end of token stream");
+                throw new TokenStreamEmptyException();
             }
 
             return tokens.Skip(currentPosition).Take(count).ToList();
@@ -77,7 +76,7 @@ namespace Lexer.Tokens
                 }
             }
 
-            throw new TokenStreamException("Peeked past end of token stream");
+            throw new TokenStreamEmptyException();
         }
 
         public bool IsEmpty()

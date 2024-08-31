@@ -7,7 +7,7 @@ namespace AST.Nodes
     {
         public string Name { get; set; }
         public string Module { get; set; }
-        public INode Parent { get; set; }
+         public INode? Parent { get; set; }
         public NodeType Type { get; set; }
         public IExpressionNode Left { get; set; }
         public IExpressionNode Right { get; set; }
@@ -26,7 +26,7 @@ namespace AST.Nodes
             BinaryOperation operation,
             ITypeNode? resultType,
             AssignmentType assignmentType,
-            INode parent
+            INode? parent
         )
         {
             Name = name;

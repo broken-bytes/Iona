@@ -7,7 +7,7 @@ namespace AST.Nodes
     {
         public string Name { get; set; }
         public string Module { get; set; }
-        public INode Parent { get; set; }
+         public INode? Parent { get; set; }
         public NodeType Type { get; set; }
         public INode Root => Utils.GetRoot(this);
         public int Line { get; set; }
@@ -16,7 +16,7 @@ namespace AST.Nodes
         public string Message { get; set; }
 
 
-        public ErrorNode(string name, int line, int startColumn, int endColumn, string message, INode parent)
+        public ErrorNode(string name, int line, int startColumn, int endColumn, string message, INode? parent)
         {
             Name = name;
             Module = "";

@@ -7,7 +7,7 @@ namespace AST.Nodes
     {
         public string Name { get; set; }
         public string Module { get; set; }
-        public INode Parent { get; set; }
+         public INode? Parent { get; set; }
         public NodeType Type { get; set; }
         public NodeKind Kind { get; set; }
         public ITypeNode ItemType { get; set; }
@@ -16,7 +16,7 @@ namespace AST.Nodes
         public ArrayNode(
             string name, 
             string module, 
-            INode parent, 
+            INode? parent, 
             NodeType type, 
             NodeKind kind,
             ITypeNode itemType

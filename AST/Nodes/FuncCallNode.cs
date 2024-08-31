@@ -7,13 +7,13 @@ namespace AST.Nodes
     {
         public string Name { get; set; }
         public string Module { get; set; }
-        public INode Parent { get; set; }
+         public INode? Parent { get; set; }
         public NodeType Type { get; set; }
         public INode Root => Utils.GetRoot(this);
         public INode Target { get; set; }
         public List<FuncCallArg> Args { get; set; }
 
-        public FuncCallNode(string name, string module, INode target, List<FuncCallArg> args, INode parent)
+        public FuncCallNode(string name, string module, INode target, List<FuncCallArg> args, INode? parent)
         {
             Name = name;
             Module = module;
