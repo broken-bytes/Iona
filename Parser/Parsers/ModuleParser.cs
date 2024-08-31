@@ -14,26 +14,42 @@ namespace Parser.Parsers
         public INode Parse(TokenStream stream)
         {
             // Peek so we have a valid token to begin with
-            var token = stream.Peek();
-            INode? node = null;
+            ModuleNode? module = null;
 
             try
             {
-                token = stream.Consume(TokenType.Contract);
+                stream.Consume(TokenType.Module, TokenFamily.Keyword);
 
-                var module = new ModuleNode(token.Value, null);
-                node = module;
-            }
-            catch (TokenStreamWrongTypeException exception)
-            {
-                node = new ErrorNode("ERROR", token.ColumnStart, token.ColumnEnd, token.Line, exception.Message, node);
-            }
-            catch(TokenStreamEmptyException exception)
-            {
-                node = new ErrorNode("ERROR", 0, 0, 0, exception.Message, node);
-            }
+                module = new ModuleNode("", null);
 
-            return node;
+                var token = stream.Consume(TokenType.Identifier, TokenFamily.Identifier);
+                module.Name = token.Value;
+
+                token = stream.Peek();
+                // Parse until we reach the end of the module declaration (whitespace or linebreak)
+                while (token.Type == TokenType.Dot)
+                {
+                    stream.Consume(TokenType.Dot, TokenFamily.Keyword);
+                    token = stream.Consume(TokenType.Identifier, TokenFamily.Keyword);
+                    module.Module += token.Value;
+                    token = stream.Peek();
+                }
+            }
+            catch(TokenStreamException exception)
+            {
+                var error = new ErrorNode("ERROR", 0, 0, 0, exception.Message, module);
+
+                if (module != null)
+                {
+                    module.Children.Add(error);
+
+                    return module;
+                }
+
+                return error;
+            } 
+
+            return module;
         }
     }
 }

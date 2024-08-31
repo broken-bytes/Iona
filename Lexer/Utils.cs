@@ -15,7 +15,7 @@ namespace Lexer
             {
                 // Identifiers
                 case TokenType.Identifier:
-                    return TokenFamily.IdentifierFamily;
+                    return TokenFamily.Identifier;
 
                 // Literals
                 case TokenType.Boolean:

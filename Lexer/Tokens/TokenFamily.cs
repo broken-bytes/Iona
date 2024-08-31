@@ -13,8 +13,8 @@ namespace Lexer.Tokens
         Operator,
         Special,
         Grouping,
-        IdentifierFamily,
-        ErrorFamily,
+        Identifier,
+        Error,
         Unknown,
     }
 }

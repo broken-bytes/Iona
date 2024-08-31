@@ -1,13 +1,28 @@
-﻿namespace Lexer.Tokens
+﻿using System.Reflection.Metadata;
+using static System.Runtime.InteropServices.JavaScript.JSType;
+
+namespace Lexer.Tokens
 {
-    public class TokenStreamWrongTypeException: Exception
+    public class TokenStreamException : Exception
     {
-        public TokenStreamWrongTypeException(string message) : base(message) { }
+        public Token ErrorToken { get; }
+
+        public TokenStreamException(Token errorToken, string message) : base(message) {
+            this.ErrorToken = errorToken;
+        }
     }
 
-    public class TokenStreamEmptyException : Exception
+    public class TokenStreamWrongTypeException: TokenStreamException
     {
-        public TokenStreamEmptyException() : base("End of file") { }
+        public TokenStreamWrongTypeException(Token errorToken, string message) : base(errorToken, message) 
+        {
+            
+        }
+    }
+
+    public class TokenStreamEmptyException : TokenStreamException
+    {
+        public TokenStreamEmptyException(Token errorToken, string message) : base(errorToken, message) { }
     }
 
     public class TokenStream : IEnumerable<Token>
@@ -30,7 +45,20 @@
         {
             if (IsEmpty())
             {
-                throw new TokenStreamEmptyException();
+                throw new TokenStreamEmptyException(
+                     new Token
+                     {
+                         Family = TokenFamily.Error,
+                         Type = TokenType.Error,
+                         Value = "",
+                         File = this.First().File,
+                         Line = 0,
+                         ColumnStart = 0,
+                         ColumnEnd = 0,
+                         Error = $"Expected token, got EOF"
+                     },
+                    $"Expected token, got EOF"
+                );
             }
 
             Token token = tokens.Dequeue();
@@ -38,13 +66,89 @@
             return token;
         }
 
-        public Token Consume(TokenType expectedType)
+        public Token Consume(TokenType expectedType, TokenType panicUntil)
         {
+            if(IsEmpty())
+            {
+                throw new TokenStreamEmptyException(
+                    new Token
+                    {
+                        Family = TokenFamily.Error,
+                        Type = TokenType.Error,
+                        Value = "",
+                        File = this.First().File,
+                        Line = 0,
+                        ColumnStart = 0,
+                        ColumnEnd = 0,
+                        Error = $"Expected {expectedType}, got EOF"
+                    },
+                    $"Expected {expectedType}, got EOF"
+                );
+            }
+
             Token token = Consume();
 
             if (token.Type != expectedType)
             {
-                throw new TokenStreamWrongTypeException("Unexpected token");
+                var errorToken = new Token
+                {
+                    Family = TokenFamily.Error,
+                    Type = TokenType.Error,
+                    Value = token.Value,
+                    File = token.File,
+                    Line = token.Line,
+                    ColumnStart = token.ColumnStart,
+                    ColumnEnd = token.ColumnEnd,
+                    Error = $"Expected {expectedType}, got {token.Type}"
+                };
+
+                Panic(panicUntil);
+
+                throw new TokenStreamWrongTypeException(errorToken, $"Expected {expectedType}, got {token.Type}");
+            }
+
+            return token;
+        }
+
+        public Token Consume(TokenType expectedType, TokenFamily panicUntil)
+        {
+            if (IsEmpty())
+            {
+                throw new TokenStreamEmptyException(
+                    new Token
+                    {
+                        Family = TokenFamily.Error,
+                        Type = TokenType.Error,
+                        Value = "",
+                        File = this.First().File,
+                        Line = 0,
+                        ColumnStart = 0,
+                        ColumnEnd = 0,
+                        Error = $"Expected {expectedType}, got EOF"
+                    },
+                    $"Expected {expectedType}, got EOF"
+                );
+            }
+
+            Token token = Consume();
+
+            if (token.Type != expectedType)
+            {
+                var errorToken = new Token
+                {
+                    Family = TokenFamily.Error,
+                    Type = TokenType.Error,
+                    Value = token.Value,
+                    File = token.File,
+                    Line = token.Line,
+                    ColumnStart = token.ColumnStart,
+                    ColumnEnd = token.ColumnEnd,
+                    Error = $"Expected {expectedType}, got {token.Type}"
+                };
+
+                Panic(panicUntil);
+
+                throw new TokenStreamWrongTypeException(errorToken,$"Expected {expectedType}, got {token.Type}");
             }
 
             return token;
@@ -59,7 +163,19 @@
         {
             if (currentPosition + count >= tokens.Count)
             {
-                throw new TokenStreamEmptyException();
+                var errorToken = new Token
+                {
+                    Family = TokenFamily.Error,
+                    Type = TokenType.Error,
+                    Value = "",
+                    File = this.First().File,
+                    Line = 0,
+                    ColumnStart = 0,
+                    ColumnEnd = 0,
+                    Error = $"Got EOF"
+                };
+
+                throw new TokenStreamEmptyException(errorToken, $"Expected {count} tokens, got EOF");
             }
 
             return tokens.Skip(currentPosition).Take(count).ToList();
@@ -76,7 +192,19 @@
                 }
             }
 
-            throw new TokenStreamEmptyException();
+            var errorToken = new Token
+            {
+                Family = TokenFamily.Error,
+                Type = TokenType.Error,
+                Value = "",
+                File = this.First().File,
+                Line = 0,
+                ColumnStart = 0,
+                ColumnEnd = 0,
+                Error = $"Got EOF"
+            };
+
+            throw new TokenStreamEmptyException(errorToken, $"Expected token, got EOF");
         }
 
         public bool IsEmpty()
@@ -94,6 +222,37 @@
         {
             return GetEnumerator();
 
+        }
+
+        /// <summary>
+        /// Panics until a token of the given type is found
+        /// </summary>
+        /// <param name="type"></param>
+        private void Panic(TokenType type)
+        {
+            while (!IsEmpty())
+            {
+                if (Consume().Type == type)
+                {
+                    return;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Panics until a token of the given family is found
+        /// </summary>
+        /// <param name="family"></param>
+        /// <exception cref="TokenStreamEmptyException"></exception>
+        private void Panic(TokenFamily family)
+        {
+            while (!IsEmpty())
+            {
+                if (Consume().Family == family)
+                {
+                    return;
+                }
+            }
         }
     }
 }

@@ -11,6 +11,7 @@ namespace AST.Nodes
         public NodeType Type { get; set; }
         public INode Root => Utils.GetRoot(this);
         public StatementType StatementType { get; set; }
+        public List<INode> Children { get; set; } = new List<INode>();
 
         public ModuleNode(string name, INode? parent)
         {
