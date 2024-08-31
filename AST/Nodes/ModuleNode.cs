@@ -1,9 +1,5 @@
 ﻿using AST.Types;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using AST.Visitors;
 
 namespace AST.Nodes
 {
@@ -23,6 +19,11 @@ namespace AST.Nodes
             Parent = parent;
             Type = NodeType.Declaration;
             StatementType = StatementType.ModuleDeclaration;
+        }
+
+        public void Accept(IModuleVisitor visitor)
+        {
+            visitor.Visit(this);
         }
     }
 }

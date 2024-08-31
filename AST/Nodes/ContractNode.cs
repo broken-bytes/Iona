@@ -1,9 +1,5 @@
 ﻿using AST.Types;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using AST.Visitors;
 
 namespace AST.Nodes
 {
@@ -27,6 +23,11 @@ namespace AST.Nodes
             Type = NodeType.Declaration;
             StatementType = StatementType.ContractDeclaration;
             AccessLevel = access;
+        }
+
+        public void Accept(IContractVisitor visitor)
+        {
+            visitor.Visit(this);
         }
     }
 }

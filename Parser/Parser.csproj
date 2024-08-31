@@ -10,4 +10,8 @@
     <ProjectReference Include="..\Lexer\Lexer.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Visitors\" />
+  </ItemGroup>
+
 </Project>

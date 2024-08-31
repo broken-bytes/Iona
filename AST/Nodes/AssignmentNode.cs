@@ -1,9 +1,5 @@
 ﻿using AST.Types;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using AST.Visitors;
 
 namespace AST.Nodes
 {
@@ -36,6 +32,11 @@ namespace AST.Nodes
             AssignmentType = assignmentType;
             Target = target;
             Value = value;
+        }
+
+        public void Accept(IAssignmentVisitor visitor)
+        {
+            visitor.Visit(this);
         }
     }
 }

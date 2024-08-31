@@ -1,9 +1,5 @@
 ﻿using AST.Types;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using AST.Visitors;
 
 namespace AST.Nodes
 {
@@ -25,6 +21,11 @@ namespace AST.Nodes
             Parent = parent;
             Type = NodeType.Statement;
             StatementType = StatementType.ReturnStatement;
+        }
+
+        public void Accept(IReturnVisitor visitor)
+        {
+            visitor.Visit(this);
         }
     }
 }

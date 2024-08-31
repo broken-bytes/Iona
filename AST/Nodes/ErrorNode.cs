@@ -1,4 +1,5 @@
 ﻿using AST.Types;
+using AST.Visitors;
 
 namespace AST.Nodes
 {
@@ -25,6 +26,11 @@ namespace AST.Nodes
             StartColumn = startColumn;
             EndColumn = endColumn;
             Message = message;
+        }
+
+        public void Accept(IErrorVisitor visitor)
+        {
+            visitor.Visit(this);
         }
     }
 }

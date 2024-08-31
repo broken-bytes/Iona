@@ -1,9 +1,5 @@
 ﻿using AST.Types;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using AST.Visitors;
 
 namespace AST.Nodes
 {
@@ -39,6 +35,11 @@ namespace AST.Nodes
             AccessLevel = access;
             IsMutable = isMutable;
             IsStatic = isStatic;
+        }
+
+        public void Accept(IFuncVisitor visitor)
+        {
+            visitor.Visit(this);
         }
     }
 }

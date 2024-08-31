@@ -3,7 +3,7 @@ using AST.Visitors;
 
 namespace AST.Nodes
 {
-    public class ClassNode : IAccessLevelNode, IStatementNode
+    public class EnumNode : IAccessLevelNode, IStatementNode
     {
         public string Name { get; set; }
         public string Module { get; set; }
@@ -15,7 +15,7 @@ namespace AST.Nodes
         public List<IdentifierNode> Contracts { get; set; }
         public BlockNode? Body { get; set; }
 
-        public ClassNode(string name, string module, AccessLevel accessLevel, List<IdentifierNode> contracts, INode parent)
+        public EnumNode(string name, string module, AccessLevel accessLevel, List<IdentifierNode> contracts, INode parent)
         {
             Name = name;
             Module = module;
@@ -23,10 +23,10 @@ namespace AST.Nodes
             Type = NodeType.Declaration;
             AccessLevel = accessLevel;
             Contracts = contracts;
-            StatementType = StatementType.ClassDeclaration;
+            StatementType = StatementType.EnumDeclaration;
         }
 
-        public void Accept(IClassVisitor visitor)
+        public void Accept(IEnumVisitor visitor)
         {
             visitor.Visit(this);
         }

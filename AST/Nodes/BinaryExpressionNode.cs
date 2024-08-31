@@ -1,9 +1,5 @@
 ﻿using AST.Types;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using AST.Visitors;
 
 namespace AST.Nodes
 {
@@ -42,6 +38,11 @@ namespace AST.Nodes
             Operation = operation;
             ResultType = resultType;
             AssignmentType = assignmentType;
+        }
+
+        public void Accept(IBinaryExpressionVisitor visitor)
+        {
+            visitor.Visit(this);
         }
     }
 }

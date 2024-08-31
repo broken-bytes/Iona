@@ -14,6 +14,7 @@ namespace Compiler
         public void Compile(string source)
         {
             var ast = parser.Parse(source);
+            Console.WriteLine(ast);
             // Do something with the AST
         }
     }

@@ -1,9 +1,5 @@
 ﻿using AST.Types;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using AST.Visitors;
 
 namespace AST.Nodes
 {
@@ -31,6 +27,11 @@ namespace AST.Nodes
             Type = NodeType.ObjectLiteral;
             Target = target;
             Arguments = arguments;
+        }
+
+        public void Accept(IObjectLiteralVisitor visitor)
+        {
+            visitor.Visit(this);
         }
     }
 }

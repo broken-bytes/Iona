@@ -11,6 +11,7 @@ namespace AST.Types
         Import,
         ClassDeclaration,
         ContractDeclaration,
+        EnumDeclaration,
         FunctionDeclaration,
         ModuleDeclaration,
         PropertyDeclaration,

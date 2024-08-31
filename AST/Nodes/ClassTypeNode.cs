@@ -1,13 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using AST.Types;
+﻿using AST.Types;
+using AST.Visitors;
 
 namespace AST.Nodes
 {
-    internal class ClassTypeNode : ITypeNode
+    public class ClassTypeNode : ITypeNode
     {
         public string Name { get; set; }
         public string Module { get; set; }
@@ -23,6 +19,11 @@ namespace AST.Nodes
             Parent = parent;
             Type = NodeType.NominalType;
             Kind = NodeKind.Class;
+        }
+
+        public void Accept(IClassTypeVisitor visitor)
+        {
+            visitor.Visit(this);
         }
     }
 }

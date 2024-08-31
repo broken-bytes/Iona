@@ -1,9 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using AST.Types;
+﻿using AST.Types;
+using AST.Visitors;
 
 namespace AST.Nodes
 {
@@ -28,6 +24,11 @@ namespace AST.Nodes
             Type = NodeType.Declaration;
             TypeNode = type;
             StatementType = StatementType.VariableDeclaration;
+        }
+
+        public void Accept(IVariableVisitor visitor)
+        {
+            visitor.Visit(this);
         }
     }
 }

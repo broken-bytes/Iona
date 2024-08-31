@@ -1,9 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using AST.Types;
+﻿using AST.Types;
+using AST.Visitors;
 
 namespace AST.Nodes
 {
@@ -25,6 +21,11 @@ namespace AST.Nodes
             Type = NodeType.MemberAccess;
             Target = target;
             Member = member;
+        }
+
+        public void Accept(IMemberAccessVisitor visitor)
+        {
+            visitor.Visit(this);
         }
     }
 }

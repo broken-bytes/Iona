@@ -1,9 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using AST.Types;
+﻿using AST.Types;
+using AST.Visitors;
 
 namespace AST.Nodes
 {
@@ -27,6 +23,11 @@ namespace AST.Nodes
             Type = NodeType.Literal;
             LiteralType = literalType;
             Value = value;
+        }
+
+        public void Accept(ILiteralVisitor visitor)
+        {
+            visitor.Visit(this);
         }
     }
 }
