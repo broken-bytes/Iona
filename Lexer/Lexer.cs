@@ -1,30 +1,15 @@
 ﻿using Lexer.Processors;
 using Lexer.Tokens;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Lexer
 {
-    public class Lexer
+    public class Lexer : ILexer
     {
-        private List<IProcessor> processors;
+        private readonly List<IProcessor> processors;
 
-        public Lexer()
+        internal Lexer(List<IProcessor> processors)
         {
-            processors = new List<IProcessor>();
-            var numberProcessor = new NumberProcessor();
-
-            processors.Add(new ControlFlowProcessor());
-            processors.Add(new GroupingProcessor());
-            processors.Add(new KeywordProcessor());
-            processors.Add(new OperatorProcessor());
-            processors.Add(new PunctuationProcessor());
-            processors.Add(new SpecialProcessor());
-            processors.Add(new IdentifierProcessor());
-            processors.Add(new LiteralProcessor(numberProcessor));
+            this.processors = processors;
         }
 
         public TokenStream Tokenize(string code, string fileName)

@@ -4,8 +4,14 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 VisualStudioVersion = 17.9.34728.123
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Lexer", "Lexer\Lexer.csproj", "{18C380D5-8180-4278-9E67-1B041AE46E4A}"
+	ProjectSection(ProjectDependencies) = postProject
+		{83211A7D-1662-4A68-9CBE-C022FEAB733D} = {83211A7D-1662-4A68-9CBE-C022FEAB733D}
+	EndProjectSection
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Parser", "Parser\Parser.csproj", "{305C1E87-91EF-4AA1-A91F-0F6BA6460EB5}"
+	ProjectSection(ProjectDependencies) = postProject
+		{18C380D5-8180-4278-9E67-1B041AE46E4A} = {18C380D5-8180-4278-9E67-1B041AE46E4A}
+	EndProjectSection
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Compiler", "Compiler\Compiler.csproj", "{98AF7849-0C18-445B-BDDC-3ECB13FD05CF}"
 EndProject

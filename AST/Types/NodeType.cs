@@ -40,5 +40,6 @@ namespace AST.Types
         Annotation,
         Program,
         CodeBlock,
+        Error,
     }
 }
