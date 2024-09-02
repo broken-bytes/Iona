@@ -13,16 +13,17 @@ namespace AST.Nodes
         public AccessLevel AccessLevel { get; set; }
         public StatementType StatementType { get; set; }
         public Type? VariableType { get; set; }
-        public IExpressionNode? Value { get; set; }
+        public INode? Value { get; set; }
 
-        public VariableNode(string name, INode? parent)
+        public VariableNode(string name, Type? type = null, IExpressionNode? value = null, INode? parent = null)
         {
             Name = name;
             Module = "";
             Value = null;
             Parent = parent;
             Type = NodeType.Declaration;
-            VariableType = null;
+            VariableType = type;
+            Value = value;
             StatementType = StatementType.VariableDeclaration;
         }
 

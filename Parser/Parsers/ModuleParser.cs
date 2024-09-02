@@ -31,13 +31,19 @@ namespace Parser.Parsers
                 {
                     stream.Consume(TokenType.Dot, TokenFamily.Keyword);
                     token = stream.Consume(TokenType.Identifier, TokenFamily.Keyword);
-                    module.Module += token.Value;
+                    module.Name += token.Value;
                     token = stream.Peek();
                 }
             }
             catch(TokenStreamException exception)
             {
-                var error = new ErrorNode("ERROR", 0, 0, 0, exception.Message, module);
+                var error = new ErrorNode(
+                    exception.ErrorToken.Line, 
+                    exception.ErrorToken.ColumnStart, 
+                    exception.ErrorToken.ColumnEnd, 
+                    exception.ErrorToken.File, 
+                    exception.Message
+                );
 
                 if (module != null)
                 {

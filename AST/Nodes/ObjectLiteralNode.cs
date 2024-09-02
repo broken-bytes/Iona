@@ -11,9 +11,7 @@ namespace AST.Nodes
             public IExpressionNode Value;
         }
 
-        public string Name { get; set; }
-        public string Module { get; set; }
-         public INode? Parent { get; set; }
+        public INode? Parent { get; set; }
         public NodeType Type { get; set; }
         public INode Root => Utils.GetRoot(this);
         public IdentifierNode Target { get; set; }
@@ -21,8 +19,6 @@ namespace AST.Nodes
 
         public ObjectLiteralNode(IdentifierNode target, List<Argument> arguments, INode? parent)
         {
-            Name = target.Name;
-            Module = target.Module;
             Parent = parent;
             Type = NodeType.ObjectLiteral;
             Target = target;

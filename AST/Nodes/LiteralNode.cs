@@ -5,20 +5,17 @@ namespace AST.Nodes
 {
     public class LiteralNode: IExpressionNode
     {
-        public string Name { get; set; }
-        public string Module { get; set; }
-         public INode? Parent { get; set; }
+        public string Value { get; set; }
+        public INode? Parent { get; set; }
         public NodeType Type { get; set; }
         public INode Root => Utils.GetRoot(this);
         public ExpressionType ExpressionType => ExpressionType.Literal;
-        public ITypeNode? ResultType { get; set; }
+        public Type? ResultType { get; set; }
         public LiteralType LiteralType { get; set; }
-        public string Value { get; set; }
 
-        public LiteralNode(string name, string module, INode? parent, LiteralType literalType, string value)
+        public LiteralNode(string value, LiteralType literalType, INode? parent = null)
         {
-            Name = name;
-            Module = module;
+            Value = value;
             Parent = parent;
             Type = NodeType.Literal;
             LiteralType = literalType;

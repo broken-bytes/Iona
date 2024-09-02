@@ -3,17 +3,18 @@ using AST.Visitors;
 
 namespace AST.Nodes
 {
-    public class IdentifierNode
+    public class IdentifierNode : IExpressionNode
     {
         public string Name { get; set; }
-        public string Module { get; set; }
-         public INode? Parent { get; set; }
+        public INode? Parent { get; set; }
         public NodeType Type { get; set; }
+        public ExpressionType ExpressionType => ExpressionType.Identifier;
+        public Type? ResultType { get; set; }
+        public INode Root { get => Utils.GetRoot(this); }
 
-        public IdentifierNode(string name, string module, INode? parent)
+        public IdentifierNode(string name, INode? parent = null)
         {
             Name = name;
-            Module = module;
             Parent = parent;
             Type = NodeType.Identifier;
         }

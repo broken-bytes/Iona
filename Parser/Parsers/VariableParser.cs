@@ -5,8 +5,11 @@ namespace Parser.Parsers
 {
     public class VariableParser
     {
-        internal VariableParser()
+        private ExpressionParser expressionParser;
+
+        internal VariableParser(ExpressionParser expressionParser)
         {
+            this.expressionParser = expressionParser;
         }
 
         public INode Parse(TokenStream stream)
@@ -21,24 +24,42 @@ namespace Parser.Parsers
                 stream.Consume(TokenType.Let, TokenFamily.Keyword);
             }
 
-            var identifier = stream.Consume(TokenType.Identifier, TokenFamily.Identifier);
-            var varNode = new VariableNode(identifier.Value, null);
-
-            // Check if the variable has a type (next token is a colon)
-            token = stream.Peek();
-            if (token.Type == TokenType.Colon)
+            try
             {
-                stream.Consume(TokenType.Colon, TokenFamily.Keyword);
-                var type = stream.Consume(TokenType.Identifier, TokenFamily.Identifier);
-                varNode.VariableType = new AST.Nodes.Type(type.Value);
+
+                var identifier = stream.Consume(TokenType.Identifier, TokenFamily.Identifier);
+
+                var varNode = new VariableNode(identifier.Value, null);
+
+                // Check if the variable has a type (next token is a colon)
+                token = stream.Peek();
+                if (token.Type == TokenType.Colon)
+                {
+                    stream.Consume(TokenType.Colon, TokenFamily.Keyword);
+                    var type = stream.Consume(TokenType.Identifier, TokenFamily.Identifier);
+                    varNode.VariableType = new AST.Nodes.Type(type.Value);
+                }
+
+                // Check if the variable has a value (next token is an equals sign)
+                token = stream.Peek();
+                if (token.Type == TokenType.Equal)
+                {
+                    stream.Consume(TokenType.Equal, TokenFamily.Keyword);
+                    var node = expressionParser.Parse(stream);
+                    varNode.Value = node;
+                }
+
+                return varNode;
             }
-
-            // Check if the variable has a value (next token is an equals sign)
-            token = stream.Peek();
-            if (token.Type == TokenType.Equal)
+            catch (ParserException exception)
             {
-                stream.Consume(TokenType.Equal, TokenFamily.Keyword);
-
+                return new ErrorNode(
+                    exception.Line,
+                    exception.StartColumn,
+                    exception.EndColumn,
+                    exception.File,
+                    exception.Message
+                );
             }
         }
     }
