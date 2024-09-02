@@ -7,22 +7,22 @@ namespace AST.Nodes
     {
         public string Name { get; set; }
         public string Module { get; set; }
-         public INode? Parent { get; set; }
+        public INode? Parent { get; set; }
         public NodeType Type { get; set; }
         public INode Root => Utils.GetRoot(this);
         public AccessLevel AccessLevel { get; set; }
         public StatementType StatementType { get; set; }
-        public ITypeNode TypeNode { get; set; }
-        public IExpressionNode Value { get; set; }
+        public Type? VariableType { get; set; }
+        public IExpressionNode? Value { get; set; }
 
-        public VariableNode(string name, ITypeNode type, IExpressionNode value, INode? parent)
+        public VariableNode(string name, INode? parent)
         {
             Name = name;
             Module = "";
-            Value = value;
+            Value = null;
             Parent = parent;
             Type = NodeType.Declaration;
-            TypeNode = type;
+            VariableType = null;
             StatementType = StatementType.VariableDeclaration;
         }
 
