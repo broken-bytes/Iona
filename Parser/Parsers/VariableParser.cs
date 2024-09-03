@@ -5,7 +5,7 @@ namespace Parser.Parsers
 {
     public class VariableParser
     {
-        private ExpressionParser expressionParser;
+        private readonly ExpressionParser expressionParser;
 
         internal VariableParser(ExpressionParser expressionParser)
         {
@@ -26,7 +26,6 @@ namespace Parser.Parsers
 
             try
             {
-
                 var identifier = stream.Consume(TokenType.Identifier, TokenFamily.Identifier);
 
                 var varNode = new VariableNode(identifier.Value, null);

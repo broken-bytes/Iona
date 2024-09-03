@@ -15,5 +15,6 @@ namespace AST.Types
         BitwiseAnd,
         BitwiseNot,
         BitwiseOr,
+        Noop,
     }
 }

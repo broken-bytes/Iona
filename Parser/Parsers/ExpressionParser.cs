@@ -64,7 +64,26 @@ namespace Parser.Parsers
 
         private INode ParseUnaryExpression(TokenStream stream)
         {
-            throw new System.NotImplementedException();
+            try
+            {
+                var op = stream.Consume(TokenFamily.Operator, TokenFamily.Keyword);
+                var right = ParsePrimaryExpression(stream);
+
+                // Get the operation for the token
+                UnaryOperation? operation = (this as IParser).GetUnaryOperation(op);
+
+                return new UnaryExpressionNode(right, operation ?? UnaryOperation.Noop, null, null);
+            }
+            catch (ParserException exception)
+            {
+                return new ErrorNode(
+                    exception.Line,
+                    exception.StartColumn,
+                    exception.EndColumn,
+                    exception.File,
+                    exception.Message
+                );
+            }
         }
 
         private IExpressionNode ParsePrimaryExpression(TokenStream stream)
