@@ -12,6 +12,7 @@ namespace AST.Types
         Identifier,
         FunctionCall,
         BinaryOperation,
+        ComparisonOperation,
         UnaryOperation,
         TypeCast,
         TypeOf,

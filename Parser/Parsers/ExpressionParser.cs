@@ -62,6 +62,31 @@ namespace Parser.Parsers
             }
         }
 
+        private INode ParseComparisonExpression(TokenStream stream)
+        {
+            try
+            {
+                var left = ParsePrimaryExpression(stream);
+                var op = stream.Consume(TokenFamily.Operator, TokenFamily.Keyword);
+                var right = ParsePrimaryExpression(stream);
+
+                // Get the operation for the token
+                ComparisonOperation? operation = (this as IParser).GetComparisonOperation(op);
+
+                return new ComparisonExpressionNode(left, right, operation ?? ComparisonOperation.Noop);
+            }
+            catch (ParserException exception)
+            {
+                return new ErrorNode(
+                    exception.Line,
+                    exception.StartColumn,
+                    exception.EndColumn,
+                    exception.File,
+                    exception.Message
+                );
+            }
+        }
+
         private INode ParseUnaryExpression(TokenStream stream)
         {
             try

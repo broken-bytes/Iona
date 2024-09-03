@@ -27,6 +27,27 @@ namespace Parser
             return null;
         }
 
+        public ComparisonOperation? GetComparisonOperation(Token token)
+        {
+            switch (token.Type)
+            {
+                case TokenType.Equal:
+                    return ComparisonOperation.Equal;
+                case TokenType.NotEqual:
+                    return ComparisonOperation.NotEqual;
+                case TokenType.Greater:
+                    return ComparisonOperation.GreaterThan;
+                case TokenType.Less:
+                    return ComparisonOperation.LessThan;
+                case TokenType.GreaterEqual:
+                    return ComparisonOperation.GreaterThanOrEqual;
+                case TokenType.LessEqual:
+                    return ComparisonOperation.LessThanOrEqual;
+            }
+
+            return null;
+        }
+
         public UnaryOperation? GetUnaryOperation(Token token)
         {
             switch (token.Type)
@@ -81,6 +102,44 @@ namespace Parser
                 case "<=":
                 case "&&":
                 case "||":
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
+        public bool IsComparisonExpression(TokenStream stream)
+        {
+            var tokens = stream.Peek(2);
+
+            if (
+                (tokens[0].Family == TokenFamily.Identifier || tokens[0].Family == TokenFamily.Literal) &&
+                IsComparisonOperator(tokens[1])
+            )
+            {
+                return true;
+            }
+
+            return false;
+        }
+
+        public bool IsComparisonOperator(Token token)
+        {
+            // If the token is not an operator, it cannot be a comparison operator
+            if (token.Family != TokenFamily.Operator)
+            {
+                return false;
+            }
+
+            // Check what token it is
+            switch (token.Value)
+            {
+                case "==":
+                case "!=":
+                case ">":
+                case "<":
+                case ">=":
+                case "<=":
                     return true;
                 default:
                     return false;
