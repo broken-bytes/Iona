@@ -269,6 +269,8 @@ namespace Parser
                 return args;
             }
 
+            stream.Consume(TokenType.Less, TokenFamily.Operator);
+
             while(stream.Peek().Type != TokenType.Greater)
             {
                 var token = stream.Consume(TokenType.Identifier, TokenFamily.Keyword);
@@ -284,6 +286,8 @@ namespace Parser
                     stream.Consume(TokenType.Comma, TokenFamily.Operator);
                 }
             }
+
+            stream.Consume(TokenType.Greater, TokenFamily.Operator);
 
             return args;
         }

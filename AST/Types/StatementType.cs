@@ -13,6 +13,7 @@ namespace AST.Types
         ContractDeclaration,
         EnumDeclaration,
         FunctionDeclaration,
+        InitDeclaration,
         ModuleDeclaration,
         PropertyDeclaration,
         ReturnStatement,

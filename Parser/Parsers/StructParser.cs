@@ -8,12 +8,19 @@ namespace Parser.Parsers
     public class StructParser : IParser
     {
         private readonly FuncParser funcParser;
+        private readonly InitParser initParser;
         private readonly PropertyParser propertyParser;
         private readonly TypeParser typeParser;
 
-        internal StructParser(FuncParser funcParser, PropertyParser propertyParser, TypeParser typeParser)
+        internal StructParser(
+            FuncParser funcParser, 
+            InitParser initParser,
+            PropertyParser propertyParser, 
+            TypeParser typeParser
+        )
         {
             this.funcParser = funcParser;
+            this.initParser = initParser;
             this.propertyParser = propertyParser;
             this.typeParser = typeParser;
         }
@@ -34,7 +41,6 @@ namespace Parser.Parsers
 
                 structNode = new StructNode(name.Value, accessLevel);
                 structNode.GenericArguments = (this as IParser).ParseGenericArgs(stream);
-                structNode.Body = new BlockNode(structNode);
 
                 // Check if the struct fulfills a contract
                 if (stream.Peek().Type == TokenType.Colon)
@@ -55,6 +61,7 @@ namespace Parser.Parsers
 
                 // Consume the opening brace
                 stream.Consume(TokenType.CurlyLeft, TokenFamily.Keyword);
+                structNode.Body = new BlockNode(structNode);
 
                 var token = stream.Peek();
 
@@ -75,6 +82,9 @@ namespace Parser.Parsers
                             break;
                         case TokenType.Var or TokenType.Let:
                             structNode.Body.AddChild(propertyParser.Parse(stream));
+                            break;
+                        case TokenType.Init:
+                            structNode.Body.AddChild(initParser.Parse(stream));
                             break;
                         default:
                             structNode.Body.AddChild(
@@ -103,7 +113,7 @@ namespace Parser.Parsers
                 // Consume the closing brace
                 stream.Consume(TokenType.CurlyRight, TokenFamily.Keyword);
             }
-            catch (ParserException exception)
+            catch (TokenStreamWrongTypeException exception)
             {
                 if (structNode == null)
                 {
@@ -116,11 +126,11 @@ namespace Parser.Parsers
                 }
 
                 structNode.Body.AddChild(new ErrorNode(
-                    exception.Line,
-                    exception.StartColumn,
-                    exception.EndColumn,
-                    exception.File,
-                    exception.Message
+                    exception.ErrorToken.Line,
+                    exception.ErrorToken.ColumnStart,
+                    exception.ErrorToken.ColumnEnd,
+                    exception.ErrorToken.File,
+                    exception.ErrorToken.Value
                 ));
             }
 

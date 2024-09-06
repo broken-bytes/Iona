@@ -1,18 +1,26 @@
 ﻿using AST.Nodes;
 using AST.Types;
 using Lexer.Tokens;
+using System.Diagnostics.Contracts;
 
 namespace Parser.Parsers
 {
     public class ClassParser : IParser
     {
         private readonly FuncParser funcParser;
+        private readonly InitParser initParser;
         private readonly PropertyParser propertyParser;
         private readonly TypeParser typeParser;
 
-        internal ClassParser(FuncParser funcParser, PropertyParser propertyParser, TypeParser typeParser)
+        internal ClassParser(
+            FuncParser funcParser,
+            InitParser initParser,
+            PropertyParser propertyParser,
+            TypeParser typeParser
+        )
         {
             this.funcParser = funcParser;
+            this.initParser = initParser;
             this.propertyParser = propertyParser;
             this.typeParser = typeParser;
         }
@@ -33,9 +41,8 @@ namespace Parser.Parsers
 
                 classNode = new ClassNode(name.Value, accessLevel);
                 classNode.GenericArguments = (this as IParser).ParseGenericArgs(stream);
-                classNode.Body = new BlockNode(classNode);
 
-                // Check if the struct fulfills a contract
+                // Check if the class fulfills a contract
                 if (stream.Peek().Type == TokenType.Colon)
                 {
                     stream.Consume(TokenType.Colon, TokenFamily.Operator);
@@ -54,6 +61,7 @@ namespace Parser.Parsers
 
                 // Consume the opening brace
                 stream.Consume(TokenType.CurlyLeft, TokenFamily.Keyword);
+                classNode.Body = new BlockNode(classNode);
 
                 var token = stream.Peek();
 
@@ -74,6 +82,9 @@ namespace Parser.Parsers
                             break;
                         case TokenType.Var or TokenType.Let:
                             classNode.Body.AddChild(propertyParser.Parse(stream));
+                            break;
+                        case TokenType.Init:
+                            classNode.Body.AddChild(initParser.Parse(stream));
                             break;
                         default:
                             classNode.Body.AddChild(
@@ -102,7 +113,7 @@ namespace Parser.Parsers
                 // Consume the closing brace
                 stream.Consume(TokenType.CurlyRight, TokenFamily.Keyword);
             }
-            catch (ParserException exception)
+            catch (TokenStreamWrongTypeException exception)
             {
                 if (classNode == null)
                 {
@@ -115,11 +126,11 @@ namespace Parser.Parsers
                 }
 
                 classNode.Body.AddChild(new ErrorNode(
-                    exception.Line,
-                    exception.StartColumn,
-                    exception.EndColumn,
-                    exception.File,
-                    exception.Message
+                    exception.ErrorToken.Line,
+                    exception.ErrorToken.ColumnStart,
+                    exception.ErrorToken.ColumnEnd,
+                    exception.ErrorToken.File,
+                    exception.ErrorToken.Value
                 ));
             }
 

@@ -15,6 +15,8 @@ namespace Parser.Parsers
 
         public INode Parse(TokenStream stream)
         {
+            PropertyNode? property = null;
+
             try
             {
                 AccessLevel accessLevel = (this as IParser).ParseAccessLevel(stream);
@@ -26,29 +28,19 @@ namespace Parser.Parsers
                     stream.Consume(TokenType.Var, TokenFamily.Keyword);
                     isMutable = true;
                 }
-                else if (stream.Peek().Type == TokenType.Let)
-                {
-                    stream.Consume(TokenType.Let, TokenFamily.Keyword);
-                }
                 else
                 {
-                    throw new ParserException(
-                        ParserExceptionCode.UnexpectedToken,
-                        stream.Peek().Line,
-                        stream.Peek().ColumnStart,
-                        stream.Peek().ColumnEnd,
-                        stream.Peek().File
-                    );
+                    stream.Consume(TokenType.Let, TokenFamily.Keyword);
                 }
 
                 var name = stream.Consume(TokenType.Identifier, TokenFamily.Keyword);
 
-                var property = new PropertyNode(name.Value, accessLevel, isMutable);
+                property = new PropertyNode(name.Value, accessLevel, isMutable);
 
                 // Check if the property has a type
                 if (stream.Peek().Type == TokenType.Colon)
                 {
-                    stream.Consume(TokenType.Colon, TokenFamily.Operator);
+                    stream.Consume(TokenType.Colon, TokenFamily.Keyword);
                     // Consume the type identifier
                     var typeToken = stream.Consume(TokenType.Identifier, TokenFamily.Keyword);
                     AST.Types.Type type = new(typeToken.Value);
@@ -60,14 +52,14 @@ namespace Parser.Parsers
 
                 return property;
             }
-            catch (ParserException exception)
+            catch (TokenStreamWrongTypeException exception)
             {
                 return new ErrorNode(
-                    exception.Line,
-                    exception.StartColumn,
-                    exception.EndColumn,
-                    exception.File,
-                    exception.Message
+                    exception.ErrorToken.Line,
+                    exception.ErrorToken.ColumnStart,
+                    exception.ErrorToken.ColumnEnd,
+                    exception.ErrorToken.File,
+                    exception.ErrorToken.Value
                 );
             }
         }

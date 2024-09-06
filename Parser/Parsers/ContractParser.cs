@@ -103,24 +103,24 @@ namespace Parser.Parsers
                 // Consume the closing brace
                 stream.Consume(TokenType.CurlyRight, TokenFamily.Keyword);
             }
-            catch (ParserException exception)
+            catch (TokenStreamWrongTypeException exception)
             {
                 if (contract == null)
                 {
                     contract = new ContractNode("Error", AccessLevel.Internal);
                 }
 
-                if(contract.Body == null)
+                if (contract.Body == null)
                 {
                     contract.Body = new BlockNode(contract);
                 }
 
                 contract.Body.AddChild(new ErrorNode(
-                    exception.Line,
-                    exception.StartColumn,
-                    exception.EndColumn,
-                    exception.File,
-                    exception.Message
+                    exception.ErrorToken.Line,
+                    exception.ErrorToken.ColumnStart,
+                    exception.ErrorToken.ColumnEnd,
+                    exception.ErrorToken.File,
+                    exception.ErrorToken.Value
                 ));
             }
 
