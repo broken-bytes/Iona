@@ -77,8 +77,9 @@ namespace Parser.Parsers
                             var structure = structParser.Parse(stream);
                             module.AddChild(structure);
                             break;
-                        case TokenType.Fn:
-                            // TODO: Implement function parser
+                        case TokenType.Fn or TokenType.Mutating:
+                            var func = funcParser.Parse(stream);
+                            module.AddChild(func);
                             break;
                         case TokenType.Var or TokenType.Let:
                             var variable = variableParser.Parse(stream);

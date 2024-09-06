@@ -191,6 +191,21 @@ namespace Parser
             return IsBinaryExpression(stream) || IsUnaryExpression(stream) || IsComparisonExpression(stream);
         }
 
+        public bool IsFunctionCall(TokenStream stream)
+        {
+            var tokens = stream.Peek(3);
+
+            if (
+                tokens[0].Family == TokenFamily.Identifier &&
+                tokens[1].Type == TokenType.ParenLeft
+            )
+            {
+                return true;
+            }
+
+            return false;
+        }
+
         public bool IsUnaryExpression(TokenStream stream)
         {
             var tokens = stream.Peek(2);
@@ -232,7 +247,7 @@ namespace Parser
             AccessLevel accessLevel = AccessLevel.Internal;
             var token = stream.Peek();
 
-            while(token.Type == TokenType.Linebreak)
+            while (token.Type == TokenType.Linebreak)
             {
                 stream.Consume(TokenType.Linebreak, TokenFamily.Keyword);
                 token = stream.Peek();
@@ -264,14 +279,14 @@ namespace Parser
         {
             var args = new List<GenericArgument>();
 
-            if(stream.Peek().Type != TokenType.Less)
+            if (stream.Peek().Type != TokenType.Less)
             {
                 return args;
             }
 
             stream.Consume(TokenType.Less, TokenFamily.Operator);
 
-            while(stream.Peek().Type != TokenType.Greater)
+            while (stream.Peek().Type != TokenType.Greater)
             {
                 var token = stream.Consume(TokenType.Identifier, TokenFamily.Keyword);
                 var arg = new GenericArgument { Name = token.Value };

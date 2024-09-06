@@ -9,6 +9,7 @@ namespace AST.Types
     public enum NodeType
     {
         Allocation,
+        ArrayLiteral,
         Assignment,
         Contract,
         Deallocation,

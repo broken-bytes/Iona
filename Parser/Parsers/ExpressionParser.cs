@@ -25,19 +25,13 @@ namespace Parser.Parsers
             {
                 return ParseComparisonExpression(stream);
             }
+            else if((this as IParser).IsFunctionCall(stream))
+            {
+                return ParseFuncCall(stream);
+            }
             else
             {
-                // Get the last token
-                var token = stream.Peek();
-
-                // Throw an exception that the token was not expected
-                throw new ParserException(
-                    ParserExceptionCode.UnexpectedToken,
-                    token.Line,
-                    token.ColumnStart,
-                    token.ColumnEnd,
-                    token.File
-                );
+                return ParsePrimaryExpression(stream);
             }
         }
 
@@ -146,6 +140,27 @@ namespace Parser.Parsers
                 var identifier = stream.Consume(TokenType.Identifier, TokenFamily.Identifier);
                 return new IdentifierNode(identifier.Value);
             }
+            else if(token.Type == TokenType.BracketLeft)
+            {
+                // Could be an array literal
+                var array = new ArrayLiteralNode();
+                stream.Consume(TokenType.BracketLeft, TokenFamily.Operator);
+
+                while(stream.Peek().Type != TokenType.BracketRight)
+                {
+                    var expression = Parse(stream);
+                    array.Values.Add((IExpressionNode)expression);
+
+                    if(stream.Peek().Type == TokenType.Comma)
+                    {
+                        stream.Consume(TokenType.Comma, TokenFamily.Operator);
+                    }
+                }
+
+                stream.Consume(TokenType.BracketRight, TokenFamily.Keyword);
+
+                return array;
+            }
             else
             {
                 throw new ParserException(
@@ -156,6 +171,33 @@ namespace Parser.Parsers
                     token.File
                 );
             }
+        }
+
+        private INode ParseFuncCall(TokenStream stream)
+        {
+            var identifier = stream.Consume(TokenType.Identifier, TokenFamily.Keyword);
+            var identifierNode = new IdentifierNode(identifier.Value);
+            var funcCall = new FuncCallNode(identifierNode);
+
+            stream.Consume(TokenType.ParenLeft, TokenFamily.Operator);
+
+            while(stream.Peek().Type != TokenType.ParenRight)
+            {
+                // Parse the name of the argument([name]: value)
+                var argName = stream.Consume(TokenType.Identifier, TokenFamily.Keyword).Value;
+                stream.Consume(TokenType.Colon, TokenFamily.Operator);
+                var expression = Parse(stream);
+                funcCall.Args.Add(new FuncCallArg { Name = argName, Value = (IExpressionNode)expression });
+
+                if(stream.Peek().Type == TokenType.Comma)
+                {
+                    stream.Consume(TokenType.Comma, TokenFamily.Operator);
+                }
+            }
+
+            stream.Consume(TokenType.ParenRight, TokenFamily.Keyword);
+
+            return funcCall;
         }
     }
 }

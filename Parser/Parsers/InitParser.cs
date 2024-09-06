@@ -26,37 +26,37 @@ namespace Parser.Parsers
             // Consume the init keyword
             stream.Consume(TokenType.Init, TokenFamily.Keyword);
 
-            // Consume the function name
-            var name = stream.Consume(TokenType.Identifier, TokenFamily.Keyword);
+            var init = new InitNode(accessLevel);
 
-            var init = new InitNode(name.Value, accessLevel);
-
-            // Parse the init parameters
-            stream.Consume(TokenType.ParenLeft, TokenFamily.Operator);
-
-            while (stream.Peek().Type != TokenType.ParenRight)
+            // Inits may omit the parentheses if they have no parameters
+            if (stream.Peek().Type == TokenType.ParenLeft)
             {
-                // Name of the parameter
-                var paramName = stream.Consume(TokenType.Identifier, TokenType.ParenRight).Value;
+                // Parse the init parameters
+                stream.Consume(TokenType.ParenLeft, TokenFamily.Operator);
 
-                // Consume the colon
-                stream.Consume(TokenType.Colon, TokenType.ParenRight);
-
-                // Parse the type of the parameter
-                var paramType = typeParser.Parse(stream);
-
-                // Add the parameter to the function
-                init.Parameters.Add(new Parameter { Name = paramName, Type = paramType });
-
-                // If the next token is a comma, consume it
-                if (stream.Peek().Type == TokenType.Comma)
+                while (stream.Peek().Type != TokenType.ParenRight)
                 {
-                    stream.Consume(TokenType.Comma, TokenType.ParenRight);
+                    // Name of the parameter
+                    var paramName = stream.Consume(TokenType.Identifier, TokenType.ParenRight).Value;
+
+                    // Consume the colon
+                    stream.Consume(TokenType.Colon, TokenType.ParenRight);
+
+                    // Parse the type of the parameter
+                    var paramType = typeParser.Parse(stream);
+
+                    // Add the parameter to the function
+                    init.Parameters.Add(new Parameter { Name = paramName, Type = paramType });
+
+                    // If the next token is a comma, consume it
+                    if (stream.Peek().Type == TokenType.Comma)
+                    {
+                        stream.Consume(TokenType.Comma, TokenType.ParenRight);
+                    }
                 }
+
+                stream.Consume(TokenType.ParenRight, TokenFamily.Operator);
             }
-
-            stream.Consume(TokenType.ParenRight, TokenFamily.Operator);
-
 
             if (stream.Peek().Type != TokenType.CurlyLeft)
             {

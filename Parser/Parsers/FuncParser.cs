@@ -6,11 +6,17 @@ namespace Parser.Parsers
 {
     public class FuncParser : IParser
     {
+        ExpressionParser expressionParser;
         VariableParser variableParser;
         TypeParser typeParser;
 
-        internal FuncParser(VariableParser variableParser, TypeParser typeParser)
+        internal FuncParser(
+            ExpressionParser expressionParser,
+            VariableParser variableParser, 
+            TypeParser typeParser
+        )
         {
+            this.expressionParser = expressionParser;
             this.variableParser = variableParser;
             this.typeParser = typeParser;
         }
@@ -106,6 +112,15 @@ namespace Parser.Parsers
                 {
                     func.Body.AddChild(variableParser.Parse(stream));
                 } 
+                else if(token.Type is TokenType.Return)
+                {
+                    stream.Consume(TokenType.Return, TokenFamily.Keyword);
+                    // Parse the return value
+                    var expression = (IExpressionNode)expressionParser.Parse(stream);
+                    var returnNode = new ReturnNode(expression, func);
+
+                    func.Body.AddChild(returnNode);
+                }
                 else
                 {
                     stream.Consume();

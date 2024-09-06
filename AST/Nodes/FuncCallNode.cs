@@ -8,15 +8,14 @@ namespace AST.Nodes
         public INode? Parent { get; set; }
         public NodeType Type { get; set; }
         public INode Root => Utils.GetRoot(this);
-        public INode Target { get; set; }
-        public List<FuncCallArg> Args { get; set; }
+        public IExpressionNode Target { get; set; }
+        public List<FuncCallArg> Args { get; set; } = new List<FuncCallArg>();
 
-        public FuncCallNode(INode target, List<FuncCallArg> args, INode? parent)
+        public FuncCallNode(IExpressionNode target, INode? parent = null)
         {
             Parent = parent;
             Type = NodeType.FuncCall;
             Target = target;
-            Args = args;
         }
 
         public void Accept(IFuncCallVisitor visitor)

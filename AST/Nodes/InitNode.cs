@@ -15,12 +15,11 @@ namespace AST.Nodes
         public BlockNode? Body { get; set; }
 
         public InitNode(
-            string name,
             AccessLevel access,
             INode? parent = null
         )
         {
-            Name = name;
+            Name = "init";
             Parent = parent;
             Type = NodeType.Declaration;
             StatementType = StatementType.InitDeclaration;

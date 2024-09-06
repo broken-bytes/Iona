@@ -7,10 +7,15 @@ namespace Parser.Parsers
     internal class PropertyParser : IParser
     {
         ExpressionParser expressionParser;
+        TypeParser typeParser;
 
-        internal PropertyParser(ExpressionParser expressionParser)
+        internal PropertyParser(
+            ExpressionParser expressionParser,
+            TypeParser typeParser
+        )
         {
             this.expressionParser = expressionParser;
+            this.typeParser = typeParser;
         }
 
         public INode Parse(TokenStream stream)
@@ -42,13 +47,16 @@ namespace Parser.Parsers
                 {
                     stream.Consume(TokenType.Colon, TokenFamily.Keyword);
                     // Consume the type identifier
-                    var typeToken = stream.Consume(TokenType.Identifier, TokenFamily.Keyword);
-                    AST.Types.Type type = new(typeToken.Value);
-
+                    var type = typeParser.Parse(stream);
                     property.TypeNode = type;
                 }
 
-                // TODO: Parse the property body
+                // Parse the property value(if any)
+                if (stream.Peek().Type == TokenType.Assign)
+                {
+                    stream.Consume(TokenType.Assign, TokenFamily.Operator);
+                    property.Value = (IExpressionNode?)expressionParser.Parse(stream);
+                }
 
                 return property;
             }

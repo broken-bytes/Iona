@@ -87,6 +87,7 @@ namespace Lexer
                 case TokenType.Init:
                 case TokenType.Let:
                 case TokenType.Module:
+                case TokenType.Mutating:
                 case TokenType.Of:
                 case TokenType.Open:
                 case TokenType.Private:

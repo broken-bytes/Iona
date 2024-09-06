@@ -15,5 +15,4 @@ namespace AST.Types
         Struct,
         Unknown
     }
-
 }

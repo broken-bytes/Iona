@@ -1,6 +1,7 @@
 ﻿using AST.Nodes;
 using AST.Types;
 using Lexer.Tokens;
+using System.Reflection.Metadata;
 
 namespace Parser.Parsers
 {
@@ -12,8 +13,23 @@ namespace Parser.Parsers
 
         public IType Parse(TokenStream stream)
         {
+            // The type may be an array type([T])
+            var token = stream.Peek();
+
+            if (token.Type == TokenType.BracketLeft)
+            {
+                stream.Consume(TokenType.BracketLeft, TokenFamily.Keyword);
+
+                // Parse the type of the array
+                IType arrayType = Parse(stream);
+
+                stream.Consume(TokenType.BracketRight, TokenFamily.Keyword);
+
+                return new ArrayType(arrayType);
+            }
+
             // We need to be able to parse types and generics
-            var token = stream.Consume(TokenType.Identifier, TokenFamily.Keyword);
+            token = stream.Consume(TokenType.Identifier, TokenFamily.Keyword);
 
             // Check if the type is a generic
             if (stream.Peek().Type == TokenType.Less)
@@ -23,7 +39,7 @@ namespace Parser.Parsers
 
                 var genericType = new GenericType(token.Value);
 
-                while(stream.Peek().Type != TokenType.Greater)
+                while (stream.Peek().Type != TokenType.Greater)
                 {
                     // Parse the generic argument
                     IType genericArg = Parse(stream);

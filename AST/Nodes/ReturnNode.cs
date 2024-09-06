@@ -3,7 +3,7 @@ using AST.Visitors;
 
 namespace AST.Nodes
 {
-    public class ReturnNode : INode, IStatementNode
+    public class ReturnNode : IStatementNode
     {
         public INode? Parent { get; set; }
         public NodeType Type { get; set; }
@@ -11,7 +11,7 @@ namespace AST.Nodes
         public StatementType StatementType { get; set; }
         public IExpressionNode Value { get; set; }
 
-        public ReturnNode(IExpressionNode value, INode? parent)
+        public ReturnNode(IExpressionNode value, INode? parent = null)
         {
             Value = value;
             Parent = parent;

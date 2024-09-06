@@ -8,12 +8,13 @@ namespace AST.Types
 {
     public enum LiteralType
     {
-        Integer,
-        Float,
-        Double,
-        String,
+        Array,
         Boolean,
+        Double,
+        Float,
+        Integer,
         Null,
+        String,
         Unknown
     }
 }

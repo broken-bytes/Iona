@@ -8,9 +8,9 @@ namespace Parser
         {
             var typeParser = new TypeParser();
             var expressionParser = new ExpressionParser();
-            var propertyParser = new PropertyParser(expressionParser);
+            var propertyParser = new PropertyParser(expressionParser, typeParser);
             var variableParser = new VariableParser(expressionParser);
-            var funcParser = new FuncParser(variableParser, typeParser);
+            var funcParser = new FuncParser(expressionParser, variableParser, typeParser);
             var initParser = new InitParser(variableParser, typeParser);
             var classParser = new ClassParser(funcParser, initParser, propertyParser, typeParser);
             var contractParser = new ContractParser(funcParser, propertyParser, typeParser);
