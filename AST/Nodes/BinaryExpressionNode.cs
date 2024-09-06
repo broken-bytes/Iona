@@ -11,14 +11,14 @@ namespace AST.Nodes
         public IExpressionNode Right { get; set; }
         public BinaryOperation Operation { get; set; }
         public ExpressionType ExpressionType { get; set; }
-        public Type? ResultType { get; set; }
+        public Types.Type? ResultType { get; set; }
         public INode Root { get => Utils.GetRoot(this); }
 
         public BinaryExpressionNode(
             IExpressionNode left,
             IExpressionNode right,
             BinaryOperation operation,
-            Type? resultType = null,
+            Types.Type? resultType = null,
             INode? parent = null
         )
         {

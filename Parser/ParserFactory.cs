@@ -7,10 +7,13 @@ namespace Parser
         public static IParser Create()
         {
             var expressionParser = new ExpressionParser();
-            var moduleParser = new ModuleParser();
+            var propertyParser = new PropertyParser(expressionParser);
             var variableParser = new VariableParser(expressionParser);
+            var funcParser = new FuncParser(variableParser);
+            var contractParser = new ContractParser(funcParser, propertyParser);
+            var moduleParser = new ModuleParser(contractParser, funcParser, variableParser);
 
-            return new Parser(expressionParser, moduleParser, variableParser);
+            return new Parser(moduleParser);
         }
     }
 }

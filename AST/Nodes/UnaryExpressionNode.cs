@@ -12,12 +12,12 @@ namespace AST.Nodes
         public IExpressionNode Operand { get; set; }
         public UnaryOperation Operation { get; set; }
         public ExpressionType ExpressionType { get; set; }
-        public Type? ResultType { get; set; }
+        public Types.Type? ResultType { get; set; }
 
         public UnaryExpressionNode(
             IExpressionNode operand,
             UnaryOperation operation,
-            Type? resultType,
+            Types.Type? resultType,
             INode? parent
         )
         {

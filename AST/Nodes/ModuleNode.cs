@@ -10,7 +10,7 @@ namespace AST.Nodes
         public NodeType Type { get; set; }
         public INode Root => Utils.GetRoot(this);
         public StatementType StatementType { get; set; }
-        public List<INode> Children { get; set; } = new List<INode>();
+        public List<INode> Children { get; private set; } = new List<INode>();
 
         public ModuleNode(string name, INode? parent)
         {
@@ -18,6 +18,12 @@ namespace AST.Nodes
             Parent = parent;
             Type = NodeType.Declaration;
             StatementType = StatementType.ModuleDeclaration;
+        }
+
+        public void AddChild(INode child)
+        {
+            Children.Add(child);
+            child.Parent = this;
         }
 
         public void Accept(IModuleVisitor visitor)

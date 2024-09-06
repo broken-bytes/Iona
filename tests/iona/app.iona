@@ -9,6 +9,10 @@ struct Entity: Spawnable {
     }
 }
 
+class Generic<T> {
+    var value: T
+}
+
 class World {
     var name: String
     var lifetime: Float = 0

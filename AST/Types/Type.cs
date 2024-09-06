@@ -1,24 +1,13 @@
-﻿using AST.Types;
-using AST.Visitors;
+﻿using AST.Visitors;
 
-namespace AST.Nodes
+namespace AST.Types
 {
-    public class Type
+    public class Type : IType
     {
-        public enum Kind
-        {
-            Class,
-            Contract,
-            Enum,
-            Function,
-            Struct,
-            Unknown
-        }
-
         public string Name { get; set; }
         public string Module { get; set; }
         public Kind TypeKind { get; set; }
-     
+
         public Type(string name)
         {
             Name = name;

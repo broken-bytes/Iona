@@ -1,4 +1,5 @@
-﻿using System.Reflection.Metadata;
+﻿using System.Diagnostics;
+using System.Reflection.Metadata;
 using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace Lexer.Tokens
@@ -29,12 +30,10 @@ namespace Lexer.Tokens
     public class TokenStream : IEnumerable<Token>
     {
         private readonly Queue<Token> tokens;
-        private int currentPosition;
 
         public TokenStream(List<Token> tokens)
         {
             this.tokens = new Queue<Token>(tokens);
-            this.currentPosition = 0;
         }
 
         public void PushBack(Token token)
@@ -63,7 +62,6 @@ namespace Lexer.Tokens
             }
 
             Token token = tokens.Dequeue();
-            currentPosition++;
             return token;
         }
 
@@ -204,8 +202,8 @@ namespace Lexer.Tokens
             if (IsEmpty())
             {
                 throw new TokenStreamEmptyException(
-                                       new Token
-                                       {
+                    new Token
+                    {
                         Family = TokenFamily.Error,
                         Type = TokenType.Error,
                         Value = "",
@@ -250,7 +248,7 @@ namespace Lexer.Tokens
 
         public List<Token> Peek(int count)
         {
-            if (currentPosition + count >= tokens.Count)
+            if (count >= tokens.Count)
             {
                 var errorToken = new Token
                 {
@@ -267,38 +265,12 @@ namespace Lexer.Tokens
                 throw new TokenStreamEmptyException(errorToken, $"Expected {count} tokens, got EOF");
             }
 
-            return tokens.Skip(currentPosition).Take(count).ToList();
-        }
-
-        public Token PeekUntilNonLinebreak()
-        {
-            for (int i = currentPosition; i < tokens.Count; i++)
-            {
-                if (tokens.ElementAt(i).Type != TokenType.Linebreak)
-                {
-                    currentPosition = i;
-                    return tokens.ElementAt(i);
-                }
-            }
-
-            var errorToken = new Token
-            {
-                Family = TokenFamily.Error,
-                Type = TokenType.Error,
-                Value = "",
-                File = this.First().File,
-                Line = 0,
-                ColumnStart = 0,
-                ColumnEnd = 0,
-                Error = $"Got EOF"
-            };
-
-            throw new TokenStreamEmptyException(errorToken, $"Expected token, got EOF");
+            return tokens.Skip(0).Take(count).ToList();
         }
 
         public bool IsEmpty()
         {
-            return currentPosition >= tokens.Count;
+            return tokens.Count <= 0;
         }
 
         // Iterator interface implementation

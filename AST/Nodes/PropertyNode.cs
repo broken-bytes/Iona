@@ -6,20 +6,28 @@ namespace AST.Nodes
     public class PropertyNode : IAccessLevelNode, IStatementNode
     {
         public string Name { get; set; }
-        public string Module { get; set; }
         public INode? Parent { get; set; }
         public NodeType Type { get; set; }
         public INode Root => Utils.GetRoot(this);
         public AccessLevel AccessLevel { get; set; }
+        bool IsMutable { get; set; }
         public StatementType StatementType { get; set; }
-        public Type? TypeNode { get; set; }
+        public Types.Type? TypeNode { get; set; }
         public IExpressionNode? Value { get; set; }
 
-        public PropertyNode(string name, Type? type, IExpressionNode? value, INode? parent)
+        public PropertyNode(
+            string name, 
+            AccessLevel accessLevel, 
+            bool isMutable,
+            Types.Type? type = null, 
+            IExpressionNode? value = null, 
+            INode? parent = null
+        )
         {
             Name = name;
-            Module = "";
+            AccessLevel = accessLevel;
             Value = value;
+            IsMutable = isMutable;
             Parent = parent;
             Type = NodeType.Declaration;
             TypeNode = type;

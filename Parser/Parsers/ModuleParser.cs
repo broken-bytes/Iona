@@ -7,8 +7,15 @@ namespace Parser.Parsers
 {
     public class ModuleParser : IParser
     {
-        internal ModuleParser()
+        ContractParser contractParser;
+        FuncParser funcParser;
+        VariableParser variableParser;
+
+        internal ModuleParser(ContractParser contractParser, FuncParser funcParser, VariableParser variableParser)
         {
+            this.contractParser = contractParser;
+            this.funcParser = funcParser;
+            this.variableParser = variableParser;
         }
 
         public INode Parse(TokenStream stream)
@@ -34,14 +41,67 @@ namespace Parser.Parsers
                     module.Name += token.Value;
                     token = stream.Peek();
                 }
+
+                token = stream.Peek();
+
+                while(token.Type == TokenType.Linebreak)
+                {
+                    stream.Consume(TokenType.Linebreak, TokenFamily.Keyword);
+                    token = stream.Peek();
+                }
+
+                // Parse classes, contracts, structs, etc.
+                while (token.Type != TokenType.EndOfFile)
+                {
+                    switch (token.Type)
+                    {
+                        case TokenType.Class:
+                            // TODO: Implement class parser
+                            break;
+                        case TokenType.Contract:
+                            var contract = contractParser.Parse(stream);
+                            module.AddChild(contract);
+                            contract.Parent = module;
+                            break;
+                        case TokenType.Struct:
+                            // TODO: Implement struct parser
+                            break;
+                        case TokenType.Fn:
+                            // TODO: Implement function parser
+                            break;
+                        case TokenType.Var or TokenType.Let:
+                            var variable = variableParser.Parse(stream);
+                            module.AddChild(variable);
+                            break;
+                        default:
+                            module.AddChild(
+                                new ErrorNode(
+                                    token.Line,
+                                    token.ColumnStart,
+                                    token.ColumnEnd,
+                                    token.File,
+                                    $"Unexpected token {token.Value}"
+                                )
+                            );
+                            break;
+                    }
+
+                    token = stream.Peek();
+
+                    while (token.Type == TokenType.Linebreak)
+                    {
+                        stream.Consume(TokenType.Linebreak, TokenFamily.Keyword);
+                        token = stream.Peek();
+                    }
+                }
             }
-            catch(TokenStreamException exception)
+            catch (TokenStreamException exception)
             {
                 var error = new ErrorNode(
-                    exception.ErrorToken.Line, 
-                    exception.ErrorToken.ColumnStart, 
-                    exception.ErrorToken.ColumnEnd, 
-                    exception.ErrorToken.File, 
+                    exception.ErrorToken.Line,
+                    exception.ErrorToken.ColumnStart,
+                    exception.ErrorToken.ColumnEnd,
+                    exception.ErrorToken.File,
                     exception.Message
                 );
 
@@ -53,7 +113,7 @@ namespace Parser.Parsers
                 }
 
                 return error;
-            } 
+            }
 
             return module;
         }

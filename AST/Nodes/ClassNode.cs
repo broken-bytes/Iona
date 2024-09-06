@@ -3,7 +3,7 @@ using AST.Visitors;
 
 namespace AST.Nodes
 {
-    public class ClassNode : IAccessLevelNode, IStatementNode
+    public class ClassNode : IAccessLevelNode, IStatementNode, ITypeNode
     {
         public string Name { get; set; }
         public INode? Parent { get; set; }
@@ -12,6 +12,7 @@ namespace AST.Nodes
         public AccessLevel AccessLevel { get; set; }
         public StatementType StatementType { get; set; }
         public List<IdentifierNode> Contracts { get; set; }
+        public List<GenericArgument> GenericArguments { get; set; } = new List<GenericArgument>();
         public BlockNode? Body { get; set; }
 
         public ClassNode(string name, AccessLevel accessLevel, List<IdentifierNode> contracts, INode? parent)

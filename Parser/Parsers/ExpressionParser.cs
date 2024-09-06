@@ -21,6 +21,10 @@ namespace Parser.Parsers
             {
                 return ParseUnaryExpression(stream);
             }
+            else if((this as IParser).IsComparisonExpression(stream))
+            {
+                return ParseComparisonExpression(stream);
+            }
             else
             {
                 // Get the last token

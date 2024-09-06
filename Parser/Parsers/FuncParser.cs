@@ -4,8 +4,11 @@ namespace Parser.Parsers
 {
     public  class FuncParser : IParser
     {
-        internal FuncParser()
+        VariableParser variableParser;
+
+        internal FuncParser(VariableParser variableParser)
         {
+            this.variableParser = variableParser;
         }
 
         public INode Parse(Lexer.Tokens.TokenStream tokens)

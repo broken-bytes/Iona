@@ -6,20 +6,17 @@ namespace Parser
 {
     public class Parser : IParser
     {
-        private ExpressionParser expressionParser;
         private ModuleParser moduleParser;
-        private VariableParser variableParser;
 
-        internal Parser(ExpressionParser expressionParser, ModuleParser moduleParser, VariableParser variableParser)
+        internal Parser(ModuleParser moduleParser)
         {
-            this.expressionParser = expressionParser;
             this.moduleParser = moduleParser;
-            this.variableParser = variableParser;
         }
 
         public INode Parse(TokenStream tokens)
         {
-            throw new System.NotImplementedException();
+            // Every file should start with a module declaration, thus we can directly use the module parser
+            return moduleParser.Parse(tokens);
         }
     }
 }

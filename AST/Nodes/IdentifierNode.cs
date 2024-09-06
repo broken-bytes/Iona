@@ -9,7 +9,7 @@ namespace AST.Nodes
         public INode? Parent { get; set; }
         public NodeType Type { get; set; }
         public ExpressionType ExpressionType => ExpressionType.Identifier;
-        public Type? ResultType { get; set; }
+        public Types.Type? ResultType { get; set; }
         public INode Root { get => Utils.GetRoot(this); }
 
         public IdentifierNode(string name, INode? parent = null)

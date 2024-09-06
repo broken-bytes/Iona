@@ -12,7 +12,7 @@ namespace AST.Nodes
         public AccessLevel AccessLevel { get; set; }
         public StatementType StatementType { get; set; }
         public List<Parameter> Parameters { get; set; } = new List<Parameter>();
-        public Type? ReturnType { get; set; }
+        public Types.Type? ReturnType { get; set; }
         bool IsMutable { get; set; }
         public bool IsStatic { get; set; }
         public BlockNode? Body { get; set; }
