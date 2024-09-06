@@ -11,18 +11,17 @@ namespace AST.Nodes
         public INode Root => Utils.GetRoot(this);
         public AccessLevel AccessLevel { get; set; }
         public StatementType StatementType { get; set; }
-        public List<IdentifierNode> Contracts { get; set; }
+        public List<IType> Contracts { get; set; } = new List<IType>();
         public List<GenericArgument> GenericArguments { get; set; } = new List<GenericArgument>();
         public BlockNode? Body { get; set; }
 
-        public StructNode(string name, AccessLevel accessLevel, List<IdentifierNode> contracts, INode? parent)
+        public StructNode(string name, AccessLevel accessLevel, INode? parent = null)
         {
             Name = name;
             Parent = parent;
             Type = NodeType.Declaration;
             AccessLevel = accessLevel;
-            Contracts = contracts;
-            StatementType = StatementType.ClassDeclaration;
+            StatementType = StatementType.StructDeclaration;
         }
 
         public void Accept(IStructVisitor visitor)

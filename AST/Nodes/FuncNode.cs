@@ -12,7 +12,7 @@ namespace AST.Nodes
         public AccessLevel AccessLevel { get; set; }
         public StatementType StatementType { get; set; }
         public List<Parameter> Parameters { get; set; } = new List<Parameter>();
-        public Types.Type? ReturnType { get; set; }
+        public IType? ReturnType { get; set; }
         bool IsMutable { get; set; }
         public bool IsStatic { get; set; }
         public BlockNode? Body { get; set; }
@@ -22,7 +22,7 @@ namespace AST.Nodes
             AccessLevel access, 
             bool isMutable,
             bool isStatic, 
-            INode? parent
+            INode? parent = null
         )
         {
             Name = name;

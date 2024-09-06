@@ -5,13 +5,13 @@ using System.Net.Security;
 
 namespace Parser.Parsers
 {
-    public class ContractParser : IParser
+    public class StructParser : IParser
     {
         private readonly FuncParser funcParser;
         private readonly PropertyParser propertyParser;
         private readonly TypeParser typeParser;
 
-        internal ContractParser(FuncParser funcParser, PropertyParser propertyParser, TypeParser typeParser)
+        internal StructParser(FuncParser funcParser, PropertyParser propertyParser, TypeParser typeParser)
         {
             this.funcParser = funcParser;
             this.propertyParser = propertyParser;
@@ -20,36 +20,36 @@ namespace Parser.Parsers
 
         public INode Parse(TokenStream stream)
         {
-            ContractNode? contract = null;
+            StructNode? structNode = null;
 
             try
             {
-                AccessLevel accessLevel = (this as IParser).ParseAccessLevel(stream); 
+                AccessLevel accessLevel = (this as IParser).ParseAccessLevel(stream);
 
                 // Consume the contract keyword
-                stream.Consume(TokenType.Contract, TokenFamily.Keyword);
+                stream.Consume(TokenType.Struct, TokenFamily.Keyword);
 
                 // Consume the contract name
                 var name = stream.Consume(TokenType.Identifier, TokenFamily.Keyword);
 
-                contract = new ContractNode(name.Value, accessLevel);
-                contract.GenericArguments = (this as IParser).ParseGenericArgs(stream);
-                contract.Body = new BlockNode(contract);
+                structNode = new StructNode(name.Value, accessLevel);
+                structNode.GenericArguments = (this as IParser).ParseGenericArgs(stream);
+                structNode.Body = new BlockNode(structNode);
 
                 // Check if the struct fulfills a contract
                 if (stream.Peek().Type == TokenType.Colon)
                 {
                     stream.Consume(TokenType.Colon, TokenFamily.Operator);
 
-                    var refinement = typeParser.Parse(stream);
-                    contract.Refinements.Add(refinement);
+                    var contract = typeParser.Parse(stream);
+                    structNode.Contracts.Add(contract);
 
                     while (stream.Peek().Type != TokenType.CurlyLeft)
                     {
                         stream.Consume(TokenType.Comma, TokenFamily.Operator);
 
-                        refinement = typeParser.Parse(stream);
-                        contract.Refinements.Add(refinement);
+                        contract = typeParser.Parse(stream);
+                        structNode.Contracts.Add(contract);
                     }
                 }
 
@@ -71,20 +71,20 @@ namespace Parser.Parsers
                     switch (token.Type)
                     {
                         case TokenType.Fn or TokenType.Mutating:
-                            contract.Body.AddChild(funcParser.Parse(stream));
+                            structNode.Body.AddChild(funcParser.Parse(stream));
                             break;
                         case TokenType.Var or TokenType.Let:
-                            contract.Body.AddChild(propertyParser.Parse(stream));
+                            structNode.Body.AddChild(propertyParser.Parse(stream));
                             break;
                         default:
-                            contract.Body.AddChild(
+                            structNode.Body.AddChild(
                                 new ErrorNode(
                                     token.Line,
                                     token.ColumnStart,
                                     token.ColumnEnd,
                                     token.File,
                                     $"Unexpected token {token.Value}",
-                                    contract.Body
+                                    structNode.Body
                                 )
                             );
                             stream.Consume();
@@ -105,17 +105,17 @@ namespace Parser.Parsers
             }
             catch (ParserException exception)
             {
-                if (contract == null)
+                if (structNode == null)
                 {
-                    contract = new ContractNode("Error", AccessLevel.Internal);
+                    structNode = new StructNode("Error", AccessLevel.Internal);
                 }
 
-                if(contract.Body == null)
+                if (structNode.Body == null)
                 {
-                    contract.Body = new BlockNode(contract);
+                    structNode.Body = new BlockNode(structNode);
                 }
 
-                contract.Body.AddChild(new ErrorNode(
+                structNode.Body.AddChild(new ErrorNode(
                     exception.Line,
                     exception.StartColumn,
                     exception.EndColumn,
@@ -124,7 +124,7 @@ namespace Parser.Parsers
                 ));
             }
 
-            return contract;
+            return structNode;
         }
     }
 }

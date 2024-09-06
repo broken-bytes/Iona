@@ -16,6 +16,7 @@ namespace AST.Types
         ModuleDeclaration,
         PropertyDeclaration,
         ReturnStatement,
+        StructDeclaration,
         VariableDeclaration,
         VariableAssignment,
         Return,

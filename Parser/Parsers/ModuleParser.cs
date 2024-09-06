@@ -7,15 +7,25 @@ namespace Parser.Parsers
 {
     public class ModuleParser : IParser
     {
+        ClassParser classParser;
         ContractParser contractParser;
         FuncParser funcParser;
+        StructParser structParser;
         VariableParser variableParser;
 
-        internal ModuleParser(ContractParser contractParser, FuncParser funcParser, VariableParser variableParser)
+        internal ModuleParser(
+            ClassParser classParser,
+            ContractParser contractParser, 
+            FuncParser funcParser, 
+            VariableParser variableParser,
+            StructParser structParser
+        )
         {
+            this.classParser = classParser;
             this.contractParser = contractParser;
             this.funcParser = funcParser;
             this.variableParser = variableParser;
+            this.structParser = structParser;
         }
 
         public INode Parse(TokenStream stream)
@@ -56,15 +66,16 @@ namespace Parser.Parsers
                     switch (token.Type)
                     {
                         case TokenType.Class:
-                            // TODO: Implement class parser
+                            var clazz = classParser.Parse(stream);
+                            module.AddChild(clazz);
                             break;
                         case TokenType.Contract:
                             var contract = contractParser.Parse(stream);
                             module.AddChild(contract);
-                            contract.Parent = module;
                             break;
                         case TokenType.Struct:
-                            // TODO: Implement struct parser
+                            var structure = structParser.Parse(stream);
+                            module.AddChild(structure);
                             break;
                         case TokenType.Fn:
                             // TODO: Implement function parser

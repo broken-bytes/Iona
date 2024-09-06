@@ -1,17 +1,16 @@
 ﻿using AST.Nodes;
 using AST.Types;
 using Lexer.Tokens;
-using System.Net.Security;
 
 namespace Parser.Parsers
 {
-    public class ContractParser : IParser
+    public class ClassParser : IParser
     {
         private readonly FuncParser funcParser;
         private readonly PropertyParser propertyParser;
         private readonly TypeParser typeParser;
 
-        internal ContractParser(FuncParser funcParser, PropertyParser propertyParser, TypeParser typeParser)
+        internal ClassParser(FuncParser funcParser, PropertyParser propertyParser, TypeParser typeParser)
         {
             this.funcParser = funcParser;
             this.propertyParser = propertyParser;
@@ -20,36 +19,36 @@ namespace Parser.Parsers
 
         public INode Parse(TokenStream stream)
         {
-            ContractNode? contract = null;
+            ClassNode? classNode = null;
 
             try
             {
-                AccessLevel accessLevel = (this as IParser).ParseAccessLevel(stream); 
+                AccessLevel accessLevel = (this as IParser).ParseAccessLevel(stream);
 
                 // Consume the contract keyword
-                stream.Consume(TokenType.Contract, TokenFamily.Keyword);
+                stream.Consume(TokenType.Class, TokenFamily.Keyword);
 
                 // Consume the contract name
                 var name = stream.Consume(TokenType.Identifier, TokenFamily.Keyword);
 
-                contract = new ContractNode(name.Value, accessLevel);
-                contract.GenericArguments = (this as IParser).ParseGenericArgs(stream);
-                contract.Body = new BlockNode(contract);
+                classNode = new ClassNode(name.Value, accessLevel);
+                classNode.GenericArguments = (this as IParser).ParseGenericArgs(stream);
+                classNode.Body = new BlockNode(classNode);
 
                 // Check if the struct fulfills a contract
                 if (stream.Peek().Type == TokenType.Colon)
                 {
                     stream.Consume(TokenType.Colon, TokenFamily.Operator);
 
-                    var refinement = typeParser.Parse(stream);
-                    contract.Refinements.Add(refinement);
+                    var contract = typeParser.Parse(stream);
+                    classNode.Contracts.Add(contract);
 
                     while (stream.Peek().Type != TokenType.CurlyLeft)
                     {
                         stream.Consume(TokenType.Comma, TokenFamily.Operator);
 
-                        refinement = typeParser.Parse(stream);
-                        contract.Refinements.Add(refinement);
+                        contract = typeParser.Parse(stream);
+                        classNode.Contracts.Add(contract);
                     }
                 }
 
@@ -71,20 +70,20 @@ namespace Parser.Parsers
                     switch (token.Type)
                     {
                         case TokenType.Fn or TokenType.Mutating:
-                            contract.Body.AddChild(funcParser.Parse(stream));
+                            classNode.Body.AddChild(funcParser.Parse(stream));
                             break;
                         case TokenType.Var or TokenType.Let:
-                            contract.Body.AddChild(propertyParser.Parse(stream));
+                            classNode.Body.AddChild(propertyParser.Parse(stream));
                             break;
                         default:
-                            contract.Body.AddChild(
+                            classNode.Body.AddChild(
                                 new ErrorNode(
                                     token.Line,
                                     token.ColumnStart,
                                     token.ColumnEnd,
                                     token.File,
                                     $"Unexpected token {token.Value}",
-                                    contract.Body
+                                    classNode.Body
                                 )
                             );
                             stream.Consume();
@@ -105,17 +104,17 @@ namespace Parser.Parsers
             }
             catch (ParserException exception)
             {
-                if (contract == null)
+                if (classNode == null)
                 {
-                    contract = new ContractNode("Error", AccessLevel.Internal);
+                    classNode = new ClassNode("Error", AccessLevel.Internal);
                 }
 
-                if(contract.Body == null)
+                if (classNode.Body == null)
                 {
-                    contract.Body = new BlockNode(contract);
+                    classNode.Body = new BlockNode(classNode);
                 }
 
-                contract.Body.AddChild(new ErrorNode(
+                classNode.Body.AddChild(new ErrorNode(
                     exception.Line,
                     exception.StartColumn,
                     exception.EndColumn,
@@ -124,7 +123,7 @@ namespace Parser.Parsers
                 ));
             }
 
-            return contract;
+            return classNode;
         }
     }
 }

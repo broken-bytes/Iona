@@ -10,7 +10,7 @@ namespace AST.Nodes
         public NodeType Type { get; set; }
         public AccessLevel AccessLevel { get; set; }
         public StatementType StatementType { get; set; }
-        public List<IdentifierNode> Refinements { get; set; } = new List<IdentifierNode>();
+        public List<IType> Refinements { get; set; } = new List<IType>();
         public INode Root => Utils.GetRoot(this);
         public List<GenericArgument> GenericArguments { get; set; } = new List<GenericArgument>();
         public BlockNode? Body { get; set; }

@@ -3,6 +3,6 @@
     public struct Parameter
     {
         public string Name;
-        public Type Type;
+        public IType Type;
     }
 }

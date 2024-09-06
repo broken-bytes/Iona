@@ -16,6 +16,12 @@ namespace AST.Nodes
             Type = NodeType.CodeBlock;
         }
 
+        public void AddChild(INode child)
+        {
+            Children.Add(child);
+            child.Parent = this;
+        }
+
         public void Accept(IBlockVisitor visitor)
         {
             visitor.Visit(this);
