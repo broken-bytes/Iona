@@ -15,15 +15,13 @@ namespace AST.Nodes
         public Types.Type? VariableType { get; set; }
         public INode? Value { get; set; }
 
-        public VariableNode(string name, Types.Type? type = null, IExpressionNode? value = null, INode? parent = null)
+        public VariableNode(string name, INode? parent = null)
         {
             Name = name;
             Module = "";
             Value = null;
             Parent = parent;
             Type = NodeType.Declaration;
-            VariableType = type;
-            Value = value;
             StatementType = StatementType.VariableDeclaration;
         }
 

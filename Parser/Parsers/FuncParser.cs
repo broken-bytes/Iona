@@ -7,21 +7,24 @@ namespace Parser.Parsers
     public class FuncParser : IParser
     {
         ExpressionParser expressionParser;
-        VariableParser variableParser;
+        StatementParser statementParser;
         TypeParser typeParser;
+        VariableParser variableParser;
 
         internal FuncParser(
             ExpressionParser expressionParser,
-            VariableParser variableParser, 
-            TypeParser typeParser
+            StatementParser statementParser,
+            TypeParser typeParser,
+            VariableParser variableParser 
         )
         {
             this.expressionParser = expressionParser;
-            this.variableParser = variableParser;
+            this.statementParser = statementParser;
             this.typeParser = typeParser;
+            this.variableParser = variableParser;
         }
 
-        public INode Parse(Lexer.Tokens.TokenStream stream)
+        public INode Parse(Lexer.Tokens.TokenStream stream, INode? parent)
         {
             bool isMutating = false;
 
@@ -52,7 +55,7 @@ namespace Parser.Parsers
             // Consume the function name
             var name = stream.Consume(TokenType.Identifier, TokenFamily.Keyword);
 
-            var func = new FuncNode(name.Value, accessLevel, isMutating, isStatic);
+            var func = new FuncNode(name.Value, accessLevel, isMutating, isStatic, parent);
 
             // Parse the function parameters
             stream.Consume(TokenType.ParenLeft, TokenFamily.Operator);
@@ -110,14 +113,15 @@ namespace Parser.Parsers
                 // Funcs may have variables
                 if (token.Type is TokenType.Var or TokenType.Let)
                 {
-                    func.Body.AddChild(variableParser.Parse(stream));
+                    func.Body.AddChild(variableParser.Parse(stream, func.Body));
                 } 
                 else if(token.Type is TokenType.Return)
                 {
                     stream.Consume(TokenType.Return, TokenFamily.Keyword);
                     // Parse the return value
-                    var expression = (IExpressionNode)expressionParser.Parse(stream);
-                    var returnNode = new ReturnNode(expression, func);
+                    var expression = (IExpressionNode)expressionParser.Parse(stream, null);
+                    var returnNode = new ReturnNode(expression, func.Body);
+                    expression.Parent = returnNode;
 
                     func.Body.AddChild(returnNode);
                 }

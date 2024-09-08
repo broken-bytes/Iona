@@ -25,7 +25,7 @@ namespace Parser.Parsers
             this.typeParser = typeParser;
         }
 
-        public INode Parse(TokenStream stream)
+        public INode Parse(TokenStream stream, INode? parent)
         {
             StructNode? structNode = null;
 
@@ -39,7 +39,7 @@ namespace Parser.Parsers
                 // Consume the contract name
                 var name = stream.Consume(TokenType.Identifier, TokenFamily.Keyword);
 
-                structNode = new StructNode(name.Value, accessLevel);
+                structNode = new StructNode(name.Value, accessLevel, parent);
                 structNode.GenericArguments = (this as IParser).ParseGenericArgs(stream);
 
                 // Check if the struct fulfills a contract
@@ -78,13 +78,13 @@ namespace Parser.Parsers
                     switch (token.Type)
                     {
                         case TokenType.Fn or TokenType.Mutating:
-                            structNode.Body.AddChild(funcParser.Parse(stream));
+                            structNode.Body.AddChild(funcParser.Parse(stream, structNode.Body));
                             break;
                         case TokenType.Var or TokenType.Let:
-                            structNode.Body.AddChild(propertyParser.Parse(stream));
+                            structNode.Body.AddChild(propertyParser.Parse(stream, structNode.Body));
                             break;
                         case TokenType.Init:
-                            structNode.Body.AddChild(initParser.Parse(stream));
+                            structNode.Body.AddChild(initParser.Parse(stream, structNode.Body));
                             break;
                         default:
                             structNode.Body.AddChild(

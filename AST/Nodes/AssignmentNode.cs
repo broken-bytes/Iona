@@ -17,7 +17,7 @@ namespace AST.Nodes
             AssignmentType assignmentType,
             INode target,
             IExpressionNode value,
-            INode? parent
+            INode? parent = null
         )
         {
             Parent = parent;

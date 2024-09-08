@@ -28,7 +28,7 @@ namespace Parser.Parsers
             this.structParser = structParser;
         }
 
-        public INode Parse(TokenStream stream)
+        public INode Parse(TokenStream stream, INode? parent)
         {
             // Peek so we have a valid token to begin with
             ModuleNode? module = null;

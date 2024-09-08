@@ -12,7 +12,7 @@ namespace Parser.Parsers
             this.expressionParser = expressionParser;
         }
 
-        public INode Parse(TokenStream stream)
+        public INode Parse(TokenStream stream, INode? parent)
         {
             var token = stream.Peek();
             if (token.Type == TokenType.Var)
@@ -28,7 +28,7 @@ namespace Parser.Parsers
             {
                 var identifier = stream.Consume(TokenType.Identifier, TokenFamily.Identifier);
 
-                var varNode = new VariableNode(identifier.Value, null);
+                var varNode = new VariableNode(identifier.Value, parent);
 
                 // Check if the variable has a type (next token is a colon)
                 token = stream.Peek();
@@ -44,7 +44,7 @@ namespace Parser.Parsers
                 if (token.Type == TokenType.Equal)
                 {
                     stream.Consume(TokenType.Equal, TokenFamily.Keyword);
-                    var node = expressionParser.Parse(stream);
+                    var node = expressionParser.Parse(stream, varNode);
                     varNode.Value = node;
                 }
 
@@ -57,7 +57,8 @@ namespace Parser.Parsers
                     exception.StartColumn,
                     exception.EndColumn,
                     exception.File,
-                    exception.Message
+                    exception.Message,
+                    parent
                 );
             }
         }

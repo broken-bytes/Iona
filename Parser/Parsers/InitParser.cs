@@ -15,7 +15,7 @@ namespace Parser.Parsers
             this.typeParser = typeParser;
         }
 
-        public INode Parse(Lexer.Tokens.TokenStream stream)
+        public INode Parse(Lexer.Tokens.TokenStream stream, INode? parent)
         {
             // Funcs have an access level
             var accessLevel = (this as IParser).ParseAccessLevel(stream);
@@ -26,7 +26,7 @@ namespace Parser.Parsers
             // Consume the init keyword
             stream.Consume(TokenType.Init, TokenFamily.Keyword);
 
-            var init = new InitNode(accessLevel);
+            var init = new InitNode(accessLevel, parent);
 
             // Inits may omit the parentheses if they have no parameters
             if (stream.Peek().Type == TokenType.ParenLeft)
@@ -81,7 +81,7 @@ namespace Parser.Parsers
                 // Funcs may have variables
                 if (token.Type is TokenType.Var or TokenType.Let)
                 {
-                    init.Body.AddChild(variableParser.Parse(stream));
+                    init.Body.AddChild(variableParser.Parse(stream, init.Body));
                 }
                 else
                 {

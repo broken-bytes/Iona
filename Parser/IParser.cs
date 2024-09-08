@@ -8,7 +8,7 @@ namespace Parser
 {
     public interface IParser
     {
-        public INode Parse(TokenStream stream);
+        public INode Parse(TokenStream stream, INode? parent);
 
         public AccessLevel ParseAccessLevel(TokenStream stream)
         {

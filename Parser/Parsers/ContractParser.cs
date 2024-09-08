@@ -18,7 +18,7 @@ namespace Parser.Parsers
             this.typeParser = typeParser;
         }
 
-        public INode Parse(TokenStream stream)
+        public INode Parse(TokenStream stream, INode? parent)
         {
             ContractNode? contract = null;
 

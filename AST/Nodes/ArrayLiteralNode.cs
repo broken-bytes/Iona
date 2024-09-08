@@ -12,9 +12,10 @@ namespace AST.Nodes
         public ExpressionType ExpressionType => ExpressionType.Literal;
         public IType? ResultType { get; set; }
 
-        public ArrayLiteralNode()
+        public ArrayLiteralNode(INode? parent = null)
         {
             Type = NodeType.ArrayLiteral;
+            Parent = parent;
         }
 
         public void Accept(IArrayLiteralVisitor visitor)

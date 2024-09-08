@@ -11,26 +11,26 @@ namespace Parser.Parsers
         {
         }
 
-        public INode Parse(TokenStream stream)
+        public INode Parse(TokenStream stream, INode? parent)
         {
             if (IsBinaryExpression(stream))
             {
-                return ParseBinaryExpression(stream);
+                return ParseBinaryExpression(stream, parent);
             }
             else if (IsUnaryExpression(stream))
             {
-                return ParseUnaryExpression(stream);
+                return ParseUnaryExpression(stream, parent);
             }
             else if(IsComparisonExpression(stream))
             {
-                return ParseComparisonExpression(stream);
+                return ParseComparisonExpression(stream, parent);
             }
             else if(IsFunctionCall(stream))
             {
-                return ParseFuncCall(stream);
+                return ParseFuncCall(stream, parent);
             }
            
-            return ParsePrimaryExpression(stream);
+            return ParsePrimaryExpression(stream, parent);
         }
 
         public bool IsExpression(TokenStream stream)
@@ -49,18 +49,18 @@ namespace Parser.Parsers
         }
 
         // ------------------- Helper methods -------------------
-        private INode ParseBinaryExpression(TokenStream stream)
+        private INode ParseBinaryExpression(TokenStream stream, INode? parent)
         {
             try
             {
-                var left = ParsePrimaryExpression(stream);
+                var left = ParsePrimaryExpression(stream, parent);
                 var op = stream.Consume(TokenFamily.Operator, TokenFamily.Keyword);
-                var right = ParsePrimaryExpression(stream);
+                var right = ParsePrimaryExpression(stream, parent);
 
                 // Get the operation for the token
                 BinaryOperation? operation = GetBinaryOperation(op);
 
-                return new BinaryExpressionNode(left, right, operation ?? BinaryOperation.Noop);
+                return new BinaryExpressionNode(left, right, operation ?? BinaryOperation.Noop, null, parent);
             }
             catch (ParserException exception)
             {
@@ -74,18 +74,18 @@ namespace Parser.Parsers
             }
         }
 
-        private INode ParseComparisonExpression(TokenStream stream)
+        private INode ParseComparisonExpression(TokenStream stream, INode? parent)
         {
             try
             {
-                var left = ParsePrimaryExpression(stream);
+                var left = ParsePrimaryExpression(stream, parent);
                 var op = stream.Consume(TokenFamily.Operator, TokenFamily.Keyword);
-                var right = ParsePrimaryExpression(stream);
+                var right = ParsePrimaryExpression(stream, parent);
 
                 // Get the operation for the token
                 ComparisonOperation? operation = GetComparisonOperation(op);
 
-                return new ComparisonExpressionNode(left, right, operation ?? ComparisonOperation.Noop);
+                return new ComparisonExpressionNode(left, right, operation ?? ComparisonOperation.Noop, parent);
             }
             catch (ParserException exception)
             {
@@ -99,17 +99,17 @@ namespace Parser.Parsers
             }
         }
 
-        private INode ParseUnaryExpression(TokenStream stream)
+        private INode ParseUnaryExpression(TokenStream stream, INode? parent)
         {
             try
             {
                 var op = stream.Consume(TokenFamily.Operator, TokenFamily.Keyword);
-                var right = ParsePrimaryExpression(stream);
+                var right = ParsePrimaryExpression(stream, parent);
 
                 // Get the operation for the token
                 UnaryOperation? operation = GetUnaryOperation(op);
 
-                return new UnaryExpressionNode(right, operation ?? UnaryOperation.Noop, null, null);
+                return new UnaryExpressionNode(right, operation ?? UnaryOperation.Noop, null, parent);
             }
             catch (ParserException exception)
             {
@@ -123,7 +123,7 @@ namespace Parser.Parsers
             }
         }
 
-        private IExpressionNode ParsePrimaryExpression(TokenStream stream)
+        private IExpressionNode ParsePrimaryExpression(TokenStream stream, INode? parent)
         {
             // Check if literal or identifier
             var token = stream.Peek();
@@ -147,7 +147,7 @@ namespace Parser.Parsers
                         break;
                 }
 
-                return new LiteralNode(token.Value, type);
+                return new LiteralNode(token.Value, type, parent);
             }
             else if (token.Family == TokenFamily.Identifier)
             {
@@ -157,12 +157,12 @@ namespace Parser.Parsers
             else if(token.Type == TokenType.BracketLeft)
             {
                 // Could be an array literal
-                var array = new ArrayLiteralNode();
+                var array = new ArrayLiteralNode(parent);
                 stream.Consume(TokenType.BracketLeft, TokenFamily.Operator);
 
                 while(stream.Peek().Type != TokenType.BracketRight)
                 {
-                    var expression = Parse(stream);
+                    var expression = Parse(stream, parent);
                     array.Values.Add((IExpressionNode)expression);
 
                     if(stream.Peek().Type == TokenType.Comma)
@@ -187,11 +187,11 @@ namespace Parser.Parsers
             }
         }
 
-        private INode ParseFuncCall(TokenStream stream)
+        private INode ParseFuncCall(TokenStream stream, INode? parent)
         {
             var identifier = stream.Consume(TokenType.Identifier, TokenFamily.Keyword);
             var identifierNode = new IdentifierNode(identifier.Value);
-            var funcCall = new FuncCallNode(identifierNode);
+            var funcCall = new FuncCallNode(identifierNode, parent);
 
             stream.Consume(TokenType.ParenLeft, TokenFamily.Operator);
 
@@ -200,7 +200,7 @@ namespace Parser.Parsers
                 // Parse the name of the argument([name]: value)
                 var argName = stream.Consume(TokenType.Identifier, TokenFamily.Keyword).Value;
                 stream.Consume(TokenType.Colon, TokenFamily.Operator);
-                var expression = Parse(stream);
+                var expression = Parse(stream, parent);
                 funcCall.Args.Add(new FuncCallArg { Name = argName, Value = (IExpressionNode)expression });
 
                 if(stream.Peek().Type == TokenType.Comma)

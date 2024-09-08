@@ -18,7 +18,7 @@ namespace Parser.Parsers
             this.typeParser = typeParser;
         }
 
-        public INode Parse(TokenStream stream)
+        public INode Parse(TokenStream stream, INode? parent)
         {
             PropertyNode? property = null;
 
@@ -40,7 +40,7 @@ namespace Parser.Parsers
 
                 var name = stream.Consume(TokenType.Identifier, TokenFamily.Keyword);
 
-                property = new PropertyNode(name.Value, accessLevel, isMutable);
+                property = new PropertyNode(name.Value, accessLevel, isMutable, null, null, parent);
 
                 // Check if the property has a type
                 if (stream.Peek().Type == TokenType.Colon)
@@ -55,7 +55,7 @@ namespace Parser.Parsers
                 if (stream.Peek().Type == TokenType.Assign)
                 {
                     stream.Consume(TokenType.Assign, TokenFamily.Operator);
-                    property.Value = (IExpressionNode?)expressionParser.Parse(stream);
+                    property.Value = (IExpressionNode?)expressionParser.Parse(stream, property);
                 }
 
                 return property;
@@ -67,7 +67,8 @@ namespace Parser.Parsers
                     exception.ErrorToken.ColumnStart,
                     exception.ErrorToken.ColumnEnd,
                     exception.ErrorToken.File,
-                    exception.ErrorToken.Value
+                    exception.ErrorToken.Value,
+                    parent
                 );
             }
         }

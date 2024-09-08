@@ -25,7 +25,7 @@ namespace Parser.Parsers
             this.typeParser = typeParser;
         }
 
-        public INode Parse(TokenStream stream)
+        public INode Parse(TokenStream stream, INode? parent)
         {
             ClassNode? classNode = null;
 
@@ -78,13 +78,13 @@ namespace Parser.Parsers
                     switch (token.Type)
                     {
                         case TokenType.Fn or TokenType.Mutating:
-                            classNode.Body.AddChild(funcParser.Parse(stream));
+                            classNode.Body.AddChild(funcParser.Parse(stream, classNode.Body));
                             break;
                         case TokenType.Var or TokenType.Let:
-                            classNode.Body.AddChild(propertyParser.Parse(stream));
+                            classNode.Body.AddChild(propertyParser.Parse(stream, classNode.Body));
                             break;
                         case TokenType.Init:
-                            classNode.Body.AddChild(initParser.Parse(stream));
+                            classNode.Body.AddChild(initParser.Parse(stream, classNode.Body));
                             break;
                         default:
                             classNode.Body.AddChild(

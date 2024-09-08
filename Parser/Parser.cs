@@ -13,10 +13,10 @@ namespace Parser
             this.moduleParser = moduleParser;
         }
 
-        public INode Parse(TokenStream tokens)
+        public INode Parse(TokenStream tokens, INode? parent = null)
         {
             // Every file should start with a module declaration, thus we can directly use the module parser
-            return moduleParser.Parse(tokens);
+            return moduleParser.Parse(tokens, null);
         }
     }
 }

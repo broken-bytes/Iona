@@ -1,44 +1,116 @@
 ﻿using AST.Nodes;
 using Lexer.Tokens;
+using System;
 
 namespace Parser.Parsers
 {
     internal class StatementParser : IParser
     {
+        ClassParser classParser;
+        ContractParser contractParser;
         ExpressionParser expressionParser;
+        FuncParser funcParser;
+        InitParser initParser;
+        ModuleParser moduleParser;
+        PropertyParser propertyParser;
+        StructParser structParser;
+        VariableParser variableParser;
 
-        internal StatementParser(ExpressionParser expressionParser)
+        internal StatementParser(
+            ClassParser classParser,
+            ContractParser contractParser,
+            ExpressionParser expressionParser,
+            FuncParser funcParser,
+            InitParser initParser,
+            ModuleParser moduleParser,
+            PropertyParser propertyParser,
+            StructParser structParser,
+            VariableParser variableParser
+        )
         {
+            this.classParser = classParser;
+            this.contractParser = contractParser;
             this.expressionParser = expressionParser;
+            this.funcParser = funcParser;
+            this.initParser = initParser;
+            this.moduleParser = moduleParser;
+            this.propertyParser = propertyParser;
+            this.structParser = structParser;
+            this.variableParser = variableParser;
         }
 
-        public INode Parse(TokenStream stream)
+        public INode Parse(TokenStream stream, INode? parent)
         {
-            throw new NotImplementedException();
+            if (stream.Peek().Type == TokenType.Class)
+            {
+                classParser.Parse(stream, parent);
+            }
+
+            if (IsCompoundAssignment(stream) || IsBasicAssignment(stream))
+            {
+                return ParseAssignment(stream, parent);
+            }
+
+            return ParseReturn(stream, parent);
         }
 
         public bool IsStatement(TokenStream stream)
         {
-            return isCompoundAssignment(stream);
-        } 
+            return IsCompoundAssignment(stream) || IsBasicAssignment(stream) || IsReturnStatement(stream);
+        }
 
         // ------------------- Helper methods -------------------
-        private INode ParseAssignment(TokenStream stream)
+        private INode ParseAssignment(TokenStream stream, INode? parent)
         {
-            if(isCompoundAssignment(stream))
+            if (IsCompoundAssignment(stream))
             {
-                return ParseCompoundAssignment(stream);
+                return ParseCompoundAssignment(stream, parent);
             }
 
-            throw new NotImplementedException();
+            return ParseBasicAssignment(stream, parent);
         }
 
-        private INode ParseCompoundAssignment(TokenStream stream)
+        private INode ParseBasicAssignment(TokenStream stream, INode? parent)
+        {
+            var target = stream.Consume(TokenFamily.Identifier, TokenType.Equal);
+            var identifierNode = new IdentifierNode(target.Value);
+            var value = (IExpressionNode)expressionParser.Parse(stream, parent);
+
+            return new AssignmentNode(AST.Types.AssignmentType.Assign, identifierNode, value, parent);
+        }
+
+        private INode ParseCompoundAssignment(TokenStream stream, INode? parent)
         {
             throw new NotImplementedException();
         }
 
-        private bool isCompoundAssignment(TokenStream stream)
+        private INode ParseReturn(TokenStream stream, INode? parent)
+        {
+
+            stream.Consume(TokenType.Return, TokenFamily.Keyword);
+            // Parse the return value
+            var expression = (IExpressionNode)expressionParser.Parse(stream, parent);
+            var returnNode = new ReturnNode(expression);
+
+            return returnNode;
+        }
+
+        private bool IsBasicAssignment(TokenStream stream)
+        {
+            var tokens = stream.Peek(2);
+
+            if (
+                (tokens[0].Family == TokenFamily.Identifier) &&
+                tokens[1].Type == TokenType.Assign
+            )
+            {
+                return true;
+            }
+
+            return false;
+        }
+
+        private bool IsCompoundAssignment(TokenStream stream)
         {
             var tokens = stream.Peek(2);
 
@@ -73,6 +145,11 @@ namespace Parser.Parsers
                 default:
                     return false;
             }
+        }
+
+        private bool IsReturnStatement(TokenStream stream)
+        {
+            return stream.Peek().Type == TokenType.Return;
         }
     }
 }
