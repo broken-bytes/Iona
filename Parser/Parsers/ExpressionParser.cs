@@ -13,28 +13,42 @@ namespace Parser.Parsers
 
         public INode Parse(TokenStream stream)
         {
-            if ((this as IParser).IsBinaryExpression(stream))
+            if (IsBinaryExpression(stream))
             {
                 return ParseBinaryExpression(stream);
             }
-            else if ((this as IParser).IsUnaryExpression(stream))
+            else if (IsUnaryExpression(stream))
             {
                 return ParseUnaryExpression(stream);
             }
-            else if((this as IParser).IsComparisonExpression(stream))
+            else if(IsComparisonExpression(stream))
             {
                 return ParseComparisonExpression(stream);
             }
-            else if((this as IParser).IsFunctionCall(stream))
+            else if(IsFunctionCall(stream))
             {
                 return ParseFuncCall(stream);
             }
-            else
-            {
-                return ParsePrimaryExpression(stream);
-            }
+           
+            return ParsePrimaryExpression(stream);
         }
 
+        public bool IsExpression(TokenStream stream)
+        {
+            if (
+                IsBinaryExpression(stream) || 
+                IsUnaryExpression(stream) || 
+                IsComparisonExpression(stream) || 
+                IsFunctionCall(stream)
+            )
+            {
+                return true;
+            }
+
+            return false;
+        }
+
+        // ------------------- Helper methods -------------------
         private INode ParseBinaryExpression(TokenStream stream)
         {
             try
@@ -44,7 +58,7 @@ namespace Parser.Parsers
                 var right = ParsePrimaryExpression(stream);
 
                 // Get the operation for the token
-                BinaryOperation? operation = (this as IParser).GetBinaryOperation(op);
+                BinaryOperation? operation = GetBinaryOperation(op);
 
                 return new BinaryExpressionNode(left, right, operation ?? BinaryOperation.Noop);
             }
@@ -69,7 +83,7 @@ namespace Parser.Parsers
                 var right = ParsePrimaryExpression(stream);
 
                 // Get the operation for the token
-                ComparisonOperation? operation = (this as IParser).GetComparisonOperation(op);
+                ComparisonOperation? operation = GetComparisonOperation(op);
 
                 return new ComparisonExpressionNode(left, right, operation ?? ComparisonOperation.Noop);
             }
@@ -93,7 +107,7 @@ namespace Parser.Parsers
                 var right = ParsePrimaryExpression(stream);
 
                 // Get the operation for the token
-                UnaryOperation? operation = (this as IParser).GetUnaryOperation(op);
+                UnaryOperation? operation = GetUnaryOperation(op);
 
                 return new UnaryExpressionNode(right, operation ?? UnaryOperation.Noop, null, null);
             }
@@ -198,6 +212,194 @@ namespace Parser.Parsers
             stream.Consume(TokenType.ParenRight, TokenFamily.Keyword);
 
             return funcCall;
+        }
+
+        private BinaryOperation? GetBinaryOperation(Token token)
+        {
+            switch (token.Type)
+            {
+                case TokenType.Plus:
+                    return BinaryOperation.Add;
+                case TokenType.Minus:
+                    return BinaryOperation.Subtract;
+                case TokenType.Multiply:
+                    return BinaryOperation.Multiply;
+                case TokenType.Divide:
+                    return BinaryOperation.Divide;
+                case TokenType.Modulo:
+                    return BinaryOperation.Mod;
+            }
+
+            return null;
+        }
+
+        private ComparisonOperation? GetComparisonOperation(Token token)
+        {
+            switch (token.Type)
+            {
+                case TokenType.Equal:
+                    return ComparisonOperation.Equal;
+                case TokenType.NotEqual:
+                    return ComparisonOperation.NotEqual;
+                case TokenType.Greater:
+                    return ComparisonOperation.GreaterThan;
+                case TokenType.Less:
+                    return ComparisonOperation.LessThan;
+                case TokenType.GreaterEqual:
+                    return ComparisonOperation.GreaterThanOrEqual;
+                case TokenType.LessEqual:
+                    return ComparisonOperation.LessThanOrEqual;
+            }
+
+            return null;
+        }
+
+        private UnaryOperation? GetUnaryOperation(Token token)
+        {
+            switch (token.Type)
+            {
+                case TokenType.Increment:
+                    return UnaryOperation.Increment;
+                case TokenType.Decrement:
+                    return UnaryOperation.Decrement;
+                case TokenType.Not:
+                    return UnaryOperation.Not;
+            }
+
+            return null;
+        }
+
+        private bool IsBinaryExpression(TokenStream stream)
+        {
+            var tokens = stream.Peek(2);
+
+            if (
+                (tokens[0].Family == TokenFamily.Identifier || tokens[0].Family == TokenFamily.Literal) &&
+                IsBinaryOperator(tokens[1])
+            )
+            {
+                return true;
+            }
+
+            return false;
+        }
+
+        private bool IsBinaryOperator(Token token)
+        {
+            // If the token is not an operator, it cannot be a binary operator
+            if (token.Family != TokenFamily.Operator)
+            {
+                return false;
+            }
+
+            // Check what token it is
+            switch (token.Value)
+            {
+                case "+":
+                case "-":
+                case "*":
+                case "/":
+                case "%":
+                case "==":
+                case "!=":
+                case ">":
+                case "<":
+                case ">=":
+                case "<=":
+                case "&&":
+                case "||":
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
+        private bool IsComparisonExpression(TokenStream stream)
+        {
+            var tokens = stream.Peek(2);
+
+            if (
+                (tokens[0].Family == TokenFamily.Identifier || tokens[0].Family == TokenFamily.Literal) &&
+                IsComparisonOperator(tokens[1])
+            )
+            {
+                return true;
+            }
+
+            return false;
+        }
+
+        private bool IsComparisonOperator(Token token)
+        {
+            // If the token is not an operator, it cannot be a comparison operator
+            if (token.Family != TokenFamily.Operator)
+            {
+                return false;
+            }
+
+            // Check what token it is
+            switch (token.Value)
+            {
+                case "==":
+                case "!=":
+                case ">":
+                case "<":
+                case ">=":
+                case "<=":
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
+        private bool IsFunctionCall(TokenStream stream)
+        {
+            var tokens = stream.Peek(3);
+
+            if (
+                tokens[0].Family == TokenFamily.Identifier &&
+                tokens[1].Type == TokenType.ParenLeft
+            )
+            {
+                return true;
+            }
+
+            return false;
+        }
+
+        private bool IsUnaryExpression(TokenStream stream)
+        {
+            var tokens = stream.Peek(2);
+
+            if (
+                (tokens[0].Family == TokenFamily.Identifier || tokens[0].Family == TokenFamily.Literal) &&
+                IsUnaryOperator(tokens[1])
+            )
+            {
+                return true;
+            }
+
+            return false;
+        }
+
+        private bool IsUnaryOperator(Token token)
+        {
+            // If the token is not an operator, it cannot be a unary operator
+            if (token.Family != TokenFamily.Operator)
+            {
+                return false;
+            }
+
+            // Check what token it is
+            switch (token.Value)
+            {
+                case "++":
+                case "--":
+                case "!":
+                    return true;
+                default:
+                    return false;
+            }
         }
     }
 }
