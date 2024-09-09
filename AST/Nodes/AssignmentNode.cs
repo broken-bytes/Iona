@@ -11,12 +11,12 @@ namespace AST.Nodes
         public AssignmentType AssignmentType { get; set; }
         public INode Root { get => Utils.GetRoot(this); }
         public INode Target { get; set; }
-        public IExpressionNode Value { get; set; }
+        public INode Value { get; set; }
 
         public AssignmentNode(
             AssignmentType assignmentType,
             INode target,
-            IExpressionNode value,
+            INode value,
             INode? parent = null
         )
         {

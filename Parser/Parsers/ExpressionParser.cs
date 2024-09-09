@@ -6,8 +6,11 @@ namespace Parser.Parsers
 {
     public class ExpressionParser
     {
-        internal ExpressionParser()
+        TypeParser typeParser;
+
+        internal ExpressionParser(TypeParser typeParser)
         {
+            this.typeParser = typeParser;
         }
 
         public INode Parse(TokenStream stream, INode? parent)
@@ -28,6 +31,10 @@ namespace Parser.Parsers
             {
                 return ParseFuncCall(stream, parent);
             }
+            else if (IsObjectLiteral(stream))
+            {
+                return ParseObjectLiteral(stream, parent);
+            }
 
             return ParsePrimaryExpression(stream, parent);
         }
@@ -38,7 +45,8 @@ namespace Parser.Parsers
                 IsBinaryExpression(stream) ||
                 IsUnaryExpression(stream) ||
                 IsComparisonExpression(stream) ||
-                IsFunctionCall(stream)
+                IsFunctionCall(stream) ||
+                IsObjectLiteral(stream)
             )
             {
                 return true;
@@ -98,6 +106,54 @@ namespace Parser.Parsers
             }
         }
 
+        private INode ParseObjectLiteral(TokenStream stream, INode? parent)
+        {
+            if (!IsObjectLiteral(stream))
+            {
+                var errorToken = stream.Peek();
+
+                return new ErrorNode(
+                    errorToken.Line,
+                    errorToken.ColumnStart,
+                    errorToken.ColumnEnd,
+                    errorToken.File,
+                    "Invalid object literal",
+                    parent
+                );
+            }
+
+
+            // Consume the identifier token
+            var typeNode = stream.Consume(TokenType.Identifier, TokenFamily.Identifier).Value;
+
+            // Get the type of the object
+            var objectType = typeParser.Parse(stream);
+
+            // Parse the object literal
+            var token = stream.Consume(TokenType.CurlyLeft, TokenFamily.Keyword);
+
+            var objectLiteral = new ObjectLiteralNode(objectType, parent);
+
+            // Parse the arguments
+            while (token.Type != TokenType.CurlyRight)
+            {
+                var identifier = stream.Consume(TokenType.Identifier, TokenFamily.Identifier).Value;
+                stream.Consume(TokenType.Colon, TokenFamily.Operator);
+                var expression = Parse(stream, objectLiteral);
+
+                // Add the argument to the object literal
+                var arg = new ObjectLiteralNode.Argument { Name = identifier, Value = (IExpressionNode)expression };
+                objectLiteral.Arguments.Add(arg);
+
+                if (stream.Peek().Type == TokenType.Comma)
+                {
+                    stream.Consume(TokenType.Comma, TokenFamily.Operator);
+                }
+            }
+
+            return objectLiteral;
+        }
+
         private INode ParseUnaryExpression(TokenStream stream, INode? parent)
         {
             try
@@ -122,7 +178,7 @@ namespace Parser.Parsers
             }
         }
 
-        private IExpressionNode ParsePrimaryExpression(TokenStream stream, INode? parent)
+        private INode ParsePrimaryExpression(TokenStream stream, INode? parent)
         {
             // Check if literal or identifier
             var token = stream.Peek();
@@ -176,12 +232,13 @@ namespace Parser.Parsers
             }
             else
             {
-                throw new ParserException(
-                    ParserExceptionCode.UnexpectedToken,
+                return new ErrorNode(
                     token.Line,
                     token.ColumnStart,
                     token.ColumnEnd,
-                    token.File
+                    token.File,
+                    "Unexpected token in expression",
+                    parent
                 );
             }
         }
@@ -358,6 +415,21 @@ namespace Parser.Parsers
             if (
                 tokens[0].Family == TokenFamily.Identifier &&
                 tokens[1].Type == TokenType.ParenLeft
+            )
+            {
+                return true;
+            }
+
+            return false;
+        }
+
+        private bool IsObjectLiteral(TokenStream stream)
+        {
+            var tokens = stream.Peek(2);
+
+            if (
+                tokens[0].Type == TokenType.Identifier &&
+                tokens[1].Type == TokenType.CurlyLeft
             )
             {
                 return true;

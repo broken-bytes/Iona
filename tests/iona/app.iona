@@ -5,6 +5,8 @@ contract Spawnable {
 }
 
 struct Entity: Spawnable {
+    var name: String = ""
+
     mut fn onSpawn() {
     }
 }
@@ -43,6 +45,6 @@ fn main() -> Int {
     val world2 = world
     let world3 = world
 
-    world.spawn(entity: Entity {})
+    world.spawn(entity: Entity { name: "Entity"})
     return world.start()
 }

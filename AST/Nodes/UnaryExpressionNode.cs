@@ -9,13 +9,13 @@ namespace AST.Nodes
         public NodeType Type { get; set; }
         public INode Root => Utils.GetRoot(this);
         public NodeKind Kind { get; set; }
-        public IExpressionNode Operand { get; set; }
+        public INode Operand { get; set; }
         public UnaryOperation Operation { get; set; }
         public ExpressionType ExpressionType { get; set; }
         public IType? ResultType { get; set; }
 
         public UnaryExpressionNode(
-            IExpressionNode operand,
+            INode operand,
             UnaryOperation operation,
             IType? resultType,
             INode? parent

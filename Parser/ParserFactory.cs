@@ -9,7 +9,7 @@ namespace Parser
             var accessLevelParser = new AccessLevelParser();
             var genericArgsParser = new GenericArgsParser();
             var typeParser = new TypeParser();
-            var expressionParser = new ExpressionParser();
+            var expressionParser = new ExpressionParser(typeParser);
             var propertyParser = new PropertyParser(accessLevelParser, expressionParser, typeParser);
             var variableParser = new VariableParser(expressionParser);
             var funcParser = new FuncParser(accessLevelParser, typeParser);

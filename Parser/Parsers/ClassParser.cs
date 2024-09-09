@@ -113,7 +113,7 @@ namespace Parser.Parsers
                 // Consume the closing brace
                 stream.Consume(TokenType.CurlyRight, TokenFamily.Keyword);
             }
-            catch (TokenStreamWrongTypeException exception)
+            catch (TokenStreamException exception)
             {
                 if (classNode == null)
                 {

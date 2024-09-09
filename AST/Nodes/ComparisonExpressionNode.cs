@@ -7,15 +7,15 @@ namespace AST.Nodes
     {
         public INode? Parent { get; set; }
         public NodeType Type { get; set; }
-        public IExpressionNode Left { get; set; }
-        public IExpressionNode Right { get; set; }
+        public INode Left { get; set; }
+        public INode Right { get; set; }
         public ComparisonOperation Operation { get; set; }
         public ExpressionType ExpressionType { get; set; }
         public INode Root { get => Utils.GetRoot(this); }
 
         public ComparisonExpressionNode(
-            IExpressionNode left,
-            IExpressionNode right,
+            INode left,
+            INode right,
             ComparisonOperation operation,
             INode? parent = null
         )

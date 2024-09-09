@@ -14,15 +14,14 @@ namespace AST.Nodes
         public INode? Parent { get; set; }
         public NodeType Type { get; set; }
         public INode Root => Utils.GetRoot(this);
-        public IdentifierNode Target { get; set; }
-        public List<Argument> Arguments { get; set; }
+        public IType ObjectType { get; set; }
+        public List<Argument> Arguments { get; set; } = new List<Argument>();
 
-        public ObjectLiteralNode(IdentifierNode target, List<Argument> arguments, INode? parent)
+        public ObjectLiteralNode(IType objectType, INode? parent)
         {
             Parent = parent;
             Type = NodeType.ObjectLiteral;
-            Target = target;
-            Arguments = arguments;
+            ObjectType = objectType;
         }
 
         public void Accept(IObjectLiteralVisitor visitor)

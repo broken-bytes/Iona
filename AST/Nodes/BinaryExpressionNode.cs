@@ -7,16 +7,16 @@ namespace AST.Nodes
     {
         public INode? Parent { get; set; }
         public NodeType Type { get; set; }
-        public IExpressionNode Left { get; set; }
-        public IExpressionNode Right { get; set; }
+        public INode Left { get; set; }
+        public INode Right { get; set; }
         public BinaryOperation Operation { get; set; }
         public ExpressionType ExpressionType { get; set; }
         public IType? ResultType { get; set; }
         public INode Root { get => Utils.GetRoot(this); }
 
         public BinaryExpressionNode(
-            IExpressionNode left,
-            IExpressionNode right,
+            INode left,
+            INode right,
             BinaryOperation operation,
             IType? resultType = null,
             INode? parent = null

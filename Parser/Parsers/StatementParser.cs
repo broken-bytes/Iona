@@ -1,4 +1,5 @@
 ﻿using AST.Nodes;
+using AST.Types;
 using Lexer.Tokens;
 
 namespace Parser.Parsers
@@ -40,6 +41,14 @@ namespace Parser.Parsers
 
         public INode Parse(TokenStream stream, INode? parent)
         {
+            var token = stream.Peek();
+
+            while (token.Type == TokenType.Linebreak)
+            {
+                stream.Consume(TokenType.Linebreak, TokenFamily.Keyword);
+                token = stream.Peek();
+            }
+
             if (IsCompoundAssignment(stream) || IsBasicAssignment(stream))
             {
                 return ParseAssignment(stream, parent);
@@ -47,7 +56,7 @@ namespace Parser.Parsers
 
             if (classParser.IsClass(stream))
             {
-                classParser.Parse(stream, parent);
+                return classParser.Parse(stream, parent);
             }
 
             if (contractParser.IsContract(stream))
@@ -106,16 +115,32 @@ namespace Parser.Parsers
 
         private INode ParseBasicAssignment(TokenStream stream, INode? parent)
         {
-            var target = stream.Consume(TokenFamily.Identifier, TokenType.Equal);
+            var target = stream.Consume(TokenFamily.Identifier, TokenFamily.Keyword);
             var identifierNode = new IdentifierNode(target.Value);
-            var value = (IExpressionNode)expressionParser.Parse(stream, parent);
+            var value = expressionParser.Parse(stream, parent);
 
             return new AssignmentNode(AST.Types.AssignmentType.Assign, identifierNode, value, parent);
         }
 
         private INode ParseCompoundAssignment(TokenStream stream, INode? parent)
         {
-            throw new NotImplementedException();
+            var target = stream.Consume(TokenFamily.Identifier, TokenFamily.Keyword);
+            var identifierNode = new IdentifierNode(target.Value);
+
+            // Consume the compound operator
+            var token = stream.Consume(TokenFamily.Operator, TokenFamily.Keyword);
+
+            // Get the compound operation
+            var compoundOperation = GetAssignmentType(token);
+
+            if(compoundOperation == null)
+            {
+                return new ErrorNode(token.Line, token.ColumnStart, token.ColumnEnd, token.File, "Invalid operator after identifier");
+            }
+
+            var value = expressionParser.Parse(stream, parent);
+
+            return new AssignmentNode(compoundOperation.Value, identifierNode, value, parent);
         }
 
         private INode ParseReturn(TokenStream stream, INode? parent)
@@ -184,6 +209,25 @@ namespace Parser.Parsers
         private bool IsReturnStatement(TokenStream stream)
         {
             return stream.Peek().Type == TokenType.Return;
+        }
+
+        private AssignmentType? GetAssignmentType(Token token)
+        {
+            switch (token.Type)
+            {
+                case TokenType.PlusAssign:
+                    return AssignmentType.AddAssign;
+                case TokenType.MinusAssign:
+                    return AssignmentType.SubAssign;
+                case TokenType.MultiplyAssign:
+                    return AssignmentType.MulAssign;
+                case TokenType.DivideAssign:
+                    return AssignmentType.DivAssign;
+                case TokenType.ModAssign:
+                    return AssignmentType.ModAssign;
+            }
+
+            return null;
         }
     }
 }
