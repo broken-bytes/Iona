@@ -8,13 +8,19 @@ namespace AST.Nodes
         public string Name { get; set; }
         public INode? Parent { get; set; }
         public NodeType Type { get; set; }
+        public List<INode> Children { get; set; } = new List<INode>();
         public INode Root => Utils.GetRoot(this);
 
-        public FileNode(string name, INode? parent)
+        public FileNode(string name, INode? parent = null)
         {
             Name = name;
             Parent = parent;
             Type = NodeType.File;
+        }
+
+        public void AddChild(INode child)
+        {
+            Children.Add(child);
         }
 
         public void Accept(IFileVisitor visitor)

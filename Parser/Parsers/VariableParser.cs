@@ -12,6 +12,11 @@ namespace Parser.Parsers
             this.expressionParser = expressionParser;
         }
 
+        internal bool IsVariable(TokenStream stream)
+        {
+            return stream.Peek().Type is TokenType.Var or TokenType.Let;
+        }
+
         public INode Parse(TokenStream stream, INode? parent)
         {
             var token = stream.Peek();

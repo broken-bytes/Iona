@@ -5,33 +5,59 @@ using System.Diagnostics.Contracts;
 
 namespace Parser.Parsers
 {
-    public class ClassParser : IParser
+    public class ClassParser
     {
-        private readonly FuncParser funcParser;
-        private readonly InitParser initParser;
-        private readonly PropertyParser propertyParser;
+        private StatementParser? statementParser;
+        private readonly AccessLevelParser accessLevelParser;
+        private readonly GenericArgsParser genericArgsParser;
         private readonly TypeParser typeParser;
 
         internal ClassParser(
-            FuncParser funcParser,
-            InitParser initParser,
-            PropertyParser propertyParser,
+            AccessLevelParser accessLevelParser,
+            GenericArgsParser genericArgsParser,
             TypeParser typeParser
         )
         {
-            this.funcParser = funcParser;
-            this.initParser = initParser;
-            this.propertyParser = propertyParser;
+            this.accessLevelParser = accessLevelParser;
+            this.genericArgsParser = genericArgsParser;
             this.typeParser = typeParser;
+        }
+
+        internal void Setup(StatementParser statementParser)
+        {
+            this.statementParser = statementParser;
+        }
+
+        internal bool IsClass(TokenStream stream)
+        {
+            var tokens = stream.Peek(2);
+
+            if (tokens[0].Type is TokenType.Class)
+            {
+                return true;
+            }
+
+            if (accessLevelParser.IsAccessLevel(tokens[0]) && tokens[1].Type is TokenType.Class)
+            {
+                return true;
+            }
+
+            return false;
         }
 
         public INode Parse(TokenStream stream, INode? parent)
         {
+            if (statementParser == null)
+            {
+                var error = stream.Peek();
+                throw new ParserException(ParserExceptionCode.Unknown, error.Line, error.ColumnStart, error.ColumnEnd, error.File);
+            }
+
             ClassNode? classNode = null;
 
             try
             {
-                AccessLevel accessLevel = (this as IParser).ParseAccessLevel(stream);
+                AccessLevel accessLevel = accessLevelParser.Parse(stream);
 
                 // Consume the contract keyword
                 stream.Consume(TokenType.Class, TokenFamily.Keyword);
@@ -39,8 +65,8 @@ namespace Parser.Parsers
                 // Consume the contract name
                 var name = stream.Consume(TokenType.Identifier, TokenFamily.Keyword);
 
-                classNode = new ClassNode(name.Value, accessLevel);
-                classNode.GenericArguments = (this as IParser).ParseGenericArgs(stream);
+                classNode = new ClassNode(name.Value, accessLevel, parent);
+                classNode.GenericArguments = genericArgsParser.Parse(stream);
 
                 // Check if the class fulfills a contract
                 if (stream.Peek().Type == TokenType.Colon)
@@ -74,32 +100,7 @@ namespace Parser.Parsers
                 // Parse the contract body
                 while (token.Type != TokenType.CurlyRight)
                 {
-                    // Contracts may have props or funcs
-                    switch (token.Type)
-                    {
-                        case TokenType.Fn or TokenType.Mutating:
-                            classNode.Body.AddChild(funcParser.Parse(stream, classNode.Body));
-                            break;
-                        case TokenType.Var or TokenType.Let:
-                            classNode.Body.AddChild(propertyParser.Parse(stream, classNode.Body));
-                            break;
-                        case TokenType.Init:
-                            classNode.Body.AddChild(initParser.Parse(stream, classNode.Body));
-                            break;
-                        default:
-                            classNode.Body.AddChild(
-                                new ErrorNode(
-                                    token.Line,
-                                    token.ColumnStart,
-                                    token.ColumnEnd,
-                                    token.File,
-                                    $"Unexpected token {token.Value}",
-                                    classNode.Body
-                                )
-                            );
-                            stream.Consume();
-                            break;
-                    }
+                    classNode.Body.AddChild(statementParser.Parse(stream, classNode.Body));
 
                     token = stream.Peek();
 

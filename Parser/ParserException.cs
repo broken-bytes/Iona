@@ -3,6 +3,7 @@ namespace Parser
 {
     public enum ParserExceptionCode
     {
+        Unknown = 00,
         UnexpectedToken = 01,
         UnexpectedEndOfFile = 02,
     }

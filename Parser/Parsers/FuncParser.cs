@@ -4,32 +4,55 @@ using Lexer.Tokens;
 
 namespace Parser.Parsers
 {
-    public class FuncParser : IParser
+    public class FuncParser
     {
-        ExpressionParser expressionParser;
-        StatementParser statementParser;
-        TypeParser typeParser;
-        VariableParser variableParser;
+        private readonly AccessLevelParser accessLevelParser;
+        private readonly TypeParser typeParser;
+        private StatementParser? statementParser;
 
         internal FuncParser(
-            ExpressionParser expressionParser,
-            StatementParser statementParser,
-            TypeParser typeParser,
-            VariableParser variableParser 
+            AccessLevelParser accessLevelParser,
+            TypeParser typeParser
         )
         {
-            this.expressionParser = expressionParser;
-            this.statementParser = statementParser;
+            this.accessLevelParser = accessLevelParser;
             this.typeParser = typeParser;
-            this.variableParser = variableParser;
+        }
+
+        internal void Setup(StatementParser statementParser)
+        {
+            this.statementParser = statementParser;
+        }
+
+        internal bool IsFunc(Lexer.Tokens.TokenStream stream)
+        {
+            var tokens = stream.Peek(2);
+
+            if (tokens[0].Type is TokenType.Fn or TokenType.Mutating)
+            {
+                return true;
+            }
+
+            if (accessLevelParser.IsAccessLevel(tokens[0]) && tokens[1].Type is TokenType.Fn or TokenType.Mutating)
+            {
+                return true;
+            }
+
+            return false;
         }
 
         public INode Parse(Lexer.Tokens.TokenStream stream, INode? parent)
         {
+            if (statementParser == null)
+            {
+                var error = stream.Peek();
+                throw new ParserException(ParserExceptionCode.Unknown, error.Line, error.ColumnStart, error.ColumnEnd, error.File);
+            }
+
             bool isMutating = false;
 
             // Funcs have an access level
-            var accessLevel = (this as IParser).ParseAccessLevel(stream);
+            var accessLevel = accessLevelParser.Parse(stream);
 
             // Funcs may be static or instance
             var isStatic = false;
@@ -110,27 +133,7 @@ namespace Parser.Parsers
 
             while(token.Type != TokenType.CurlyRight)
             {
-                // Funcs may have variables
-                if (token.Type is TokenType.Var or TokenType.Let)
-                {
-                    func.Body.AddChild(variableParser.Parse(stream, func.Body));
-                } 
-                else if(token.Type is TokenType.Return)
-                {
-                    stream.Consume(TokenType.Return, TokenFamily.Keyword);
-                    // Parse the return value
-                    var expression = (IExpressionNode)expressionParser.Parse(stream, null);
-                    var returnNode = new ReturnNode(expression, func.Body);
-                    expression.Parent = returnNode;
-
-                    func.Body.AddChild(returnNode);
-                }
-                else
-                {
-                    stream.Consume();
-                }
-
-                // TODO: Parse if statements, while loops, etc.
+                func.Body.AddChild(statementParser.Parse(stream, func.Body));
 
                 token = stream.Peek();
             }

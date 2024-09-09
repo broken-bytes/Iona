@@ -4,27 +4,59 @@ using Lexer.Tokens;
 
 namespace Parser.Parsers
 {
-    internal class PropertyParser : IParser
+    internal class PropertyParser
     {
-        ExpressionParser expressionParser;
-        TypeParser typeParser;
+        private readonly AccessLevelParser accessLevelParser;
+        private readonly ExpressionParser expressionParser;
+        private readonly TypeParser typeParser;
+        private StatementParser? statementParser;
 
         internal PropertyParser(
+            AccessLevelParser accessLevelParser,
             ExpressionParser expressionParser,
             TypeParser typeParser
         )
         {
+            this.accessLevelParser = accessLevelParser;
             this.expressionParser = expressionParser;
             this.typeParser = typeParser;
         }
 
+        internal void Setup(StatementParser statementParser)
+        {
+            this.statementParser = statementParser;
+        }
+
+        internal bool IsProperty(TokenStream stream)
+        {
+            var tokens = stream.Peek(2);
+
+            if (tokens[0].Type is TokenType.Var or TokenType.Let)
+            {
+                return true;
+            }
+
+            if (accessLevelParser.IsAccessLevel(tokens[0]) && tokens[1].Type is TokenType.Var or TokenType.Let)
+            {
+                return true;
+            }
+
+            return false;
+        }
+
         public INode Parse(TokenStream stream, INode? parent)
         {
+            if (statementParser == null)
+            {
+                var error = stream.Peek();
+                throw new ParserException(ParserExceptionCode.Unknown, error.Line, error.ColumnStart, error.ColumnEnd, error.File);
+            }
+
             PropertyNode? property = null;
 
             try
             {
-                AccessLevel accessLevel = (this as IParser).ParseAccessLevel(stream);
+                AccessLevel accessLevel = accessLevelParser.Parse(stream);
                 bool isMutable = false;
 
                 // Consume the property keyword, can be either var or let

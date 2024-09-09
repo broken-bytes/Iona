@@ -5,26 +5,59 @@ using System.Net.Security;
 
 namespace Parser.Parsers
 {
-    public class ContractParser : IParser
+    public class ContractParser
     {
-        private readonly FuncParser funcParser;
-        private readonly PropertyParser propertyParser;
+        private StatementParser? statementParser;
+        private readonly AccessLevelParser accessLevelParser;
+        private readonly GenericArgsParser genericArgsParser;
         private readonly TypeParser typeParser;
 
-        internal ContractParser(FuncParser funcParser, PropertyParser propertyParser, TypeParser typeParser)
+        internal ContractParser(
+            AccessLevelParser accessLevelParser,
+            GenericArgsParser genericArgsParser,
+            TypeParser typeParser
+        )
         {
-            this.funcParser = funcParser;
-            this.propertyParser = propertyParser;
+            this.accessLevelParser = accessLevelParser;
+            this.genericArgsParser = genericArgsParser;
             this.typeParser = typeParser;
+        }
+
+        internal void Setup(StatementParser statementParser)
+        {
+            this.statementParser = statementParser;
+        }
+
+        internal bool IsContract(TokenStream stream)
+        {
+            var tokens = stream.Peek(2);
+
+            if (tokens[0].Type is TokenType.Contract)
+            {
+                return true;
+            }
+
+            if (accessLevelParser.IsAccessLevel(tokens[0]) && tokens[1].Type is TokenType.Contract)
+            {
+                return true;
+            }
+
+            return false;
         }
 
         public INode Parse(TokenStream stream, INode? parent)
         {
+            if (statementParser == null)
+            {
+                var error = stream.Peek();
+                throw new ParserException(ParserExceptionCode.Unknown, error.Line, error.ColumnStart, error.ColumnEnd, error.File);
+            }
+
             ContractNode? contract = null;
 
             try
             {
-                AccessLevel accessLevel = (this as IParser).ParseAccessLevel(stream); 
+                AccessLevel accessLevel = accessLevelParser.Parse(stream);
 
                 // Consume the contract keyword
                 stream.Consume(TokenType.Contract, TokenFamily.Keyword);
@@ -32,8 +65,8 @@ namespace Parser.Parsers
                 // Consume the contract name
                 var name = stream.Consume(TokenType.Identifier, TokenFamily.Keyword);
 
-                contract = new ContractNode(name.Value, accessLevel);
-                contract.GenericArguments = (this as IParser).ParseGenericArgs(stream);
+                contract = new ContractNode(name.Value, accessLevel, parent);
+                contract.GenericArguments = genericArgsParser.Parse(stream);
                 contract.Body = new BlockNode(contract);
 
                 // Check if the struct fulfills a contract
@@ -68,28 +101,7 @@ namespace Parser.Parsers
                 while (token.Type != TokenType.CurlyRight)
                 {
                     // Contracts may have props or funcs
-                    switch (token.Type)
-                    {
-                        case TokenType.Fn or TokenType.Mutating:
-                            contract.Body.AddChild(funcParser.Parse(stream));
-                            break;
-                        case TokenType.Var or TokenType.Let:
-                            contract.Body.AddChild(propertyParser.Parse(stream));
-                            break;
-                        default:
-                            contract.Body.AddChild(
-                                new ErrorNode(
-                                    token.Line,
-                                    token.ColumnStart,
-                                    token.ColumnEnd,
-                                    token.File,
-                                    $"Unexpected token {token.Value}",
-                                    contract.Body
-                                )
-                            );
-                            stream.Consume();
-                            break;
-                    }
+                    contract.Body.AddChild(statementParser.Parse(stream, contract.Body));
 
                     token = stream.Peek();
 

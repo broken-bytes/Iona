@@ -4,17 +4,17 @@ using System;
 
 namespace Parser.Parsers
 {
-    internal class StatementParser : IParser
+    internal class StatementParser
     {
-        ClassParser classParser;
-        ContractParser contractParser;
-        ExpressionParser expressionParser;
-        FuncParser funcParser;
-        InitParser initParser;
-        ModuleParser moduleParser;
-        PropertyParser propertyParser;
-        StructParser structParser;
-        VariableParser variableParser;
+        private readonly ClassParser classParser;
+        private readonly ContractParser contractParser;
+        private readonly ExpressionParser expressionParser;
+        private readonly FuncParser funcParser;
+        private readonly InitParser initParser;
+        private readonly ModuleParser moduleParser;
+        private readonly PropertyParser propertyParser;
+        private readonly StructParser structParser;
+        private readonly VariableParser variableParser;
 
         internal StatementParser(
             ClassParser classParser,
@@ -41,14 +41,49 @@ namespace Parser.Parsers
 
         public INode Parse(TokenStream stream, INode? parent)
         {
-            if (stream.Peek().Type == TokenType.Class)
+            if (IsCompoundAssignment(stream) || IsBasicAssignment(stream))
+            {
+                return ParseAssignment(stream, parent);
+            }
+
+            if (classParser.IsClass(stream))
             {
                 classParser.Parse(stream, parent);
             }
 
-            if (IsCompoundAssignment(stream) || IsBasicAssignment(stream))
+            if (contractParser.IsContract(stream))
             {
-                return ParseAssignment(stream, parent);
+                return contractParser.Parse(stream, parent);
+            }
+
+            if (funcParser.IsFunc(stream))
+            {
+                return funcParser.Parse(stream, parent);
+            }
+
+            if (initParser.IsInit(stream))
+            {
+                return initParser.Parse(stream, parent);
+            }
+
+            if (moduleParser.IsModule(stream))
+            {
+                return moduleParser.Parse(stream, parent);
+            }
+
+            if (structParser.IsStruct(stream))
+            {
+                return structParser.Parse(stream, parent);
+            }
+
+            if (propertyParser.IsProperty(stream) || variableParser.IsVariable(stream))
+            {
+                if(parent != null && parent.Parent is ClassNode or ContractNode or StructNode)
+                {
+                    return propertyParser.Parse(stream, parent);
+                }
+
+                return variableParser.Parse(stream, parent);
             }
 
             return ParseReturn(stream, parent);

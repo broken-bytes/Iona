@@ -5,7 +5,7 @@ using System.Linq.Expressions;
 
 namespace Parser.Parsers
 {
-    public class ExpressionParser : IParser
+    public class ExpressionParser
     {
         internal ExpressionParser()
         {

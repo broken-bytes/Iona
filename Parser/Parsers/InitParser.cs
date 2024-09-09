@@ -4,21 +4,53 @@ using Lexer.Tokens;
 
 namespace Parser.Parsers
 {
-    public class InitParser : IParser
+    public class InitParser
     {
-        VariableParser variableParser;
-        TypeParser typeParser;
+        private StatementParser? statementParser;
+        private readonly AccessLevelParser accessLevelParser;
+        private readonly TypeParser typeParser;
 
-        internal InitParser(VariableParser variableParser, TypeParser typeParser)
+        internal InitParser(
+            AccessLevelParser accessLevelParser,
+            TypeParser typeParser
+        )
         {
-            this.variableParser = variableParser;
+            this.accessLevelParser = accessLevelParser;
             this.typeParser = typeParser;
+        }
+
+        internal void Setup(StatementParser statementParser)
+        {
+            this.statementParser = statementParser;
+        }
+
+        internal bool IsInit(Lexer.Tokens.TokenStream stream)
+        {
+            var tokens = stream.Peek(2);
+
+            if (tokens[0].Type is TokenType.Init)
+            {
+                return true;
+            }
+
+            if (accessLevelParser.IsAccessLevel(tokens[0]) && tokens[1].Type is TokenType.Init)
+            {
+                return true;
+            }
+
+            return false;
         }
 
         public INode Parse(Lexer.Tokens.TokenStream stream, INode? parent)
         {
+            if(statementParser == null)
+            {
+                var error = stream.Peek();
+                throw new ParserException(ParserExceptionCode.Unknown, error.Line, error.ColumnStart, error.ColumnEnd, error.File);
+            }
+
             // Funcs have an access level
-            var accessLevel = (this as IParser).ParseAccessLevel(stream);
+            var accessLevel = accessLevelParser.Parse(stream);
 
             // Funcs can be mutating or non-mutating
             var token = stream.Peek();
@@ -78,17 +110,7 @@ namespace Parser.Parsers
 
             while (token.Type != TokenType.CurlyRight)
             {
-                // Funcs may have variables
-                if (token.Type is TokenType.Var or TokenType.Let)
-                {
-                    init.Body.AddChild(variableParser.Parse(stream, init.Body));
-                }
-                else
-                {
-                    stream.Consume();
-                }
-
-                // TODO: Parse if statements, while loops, etc.
+                init.Body.AddChild(statementParser.Parse(stream, init.Body));
 
                 token = stream.Peek();
             }

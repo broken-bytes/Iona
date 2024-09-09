@@ -5,31 +5,38 @@ using Lexer.Tokens;
 
 namespace Parser.Parsers
 {
-    public class ModuleParser : IParser
+    public class ModuleParser
     {
-        ClassParser classParser;
-        ContractParser contractParser;
-        FuncParser funcParser;
-        StructParser structParser;
-        VariableParser variableParser;
+        private StatementParser? statementParser;
 
-        internal ModuleParser(
-            ClassParser classParser,
-            ContractParser contractParser, 
-            FuncParser funcParser, 
-            VariableParser variableParser,
-            StructParser structParser
-        )
+        internal ModuleParser()
         {
-            this.classParser = classParser;
-            this.contractParser = contractParser;
-            this.funcParser = funcParser;
-            this.variableParser = variableParser;
-            this.structParser = structParser;
+
+        }
+
+        internal void Setup(StatementParser statementParser)
+        {
+            this.statementParser = statementParser;
+        }
+
+        internal bool IsModule(TokenStream stream)
+        {
+            if (stream.First().Type is TokenType.Module)
+            {
+                return true;
+            }
+
+            return false;
         }
 
         public INode Parse(TokenStream stream, INode? parent)
         {
+            if (statementParser == null)
+            {
+                var error = stream.Peek();
+                throw new ParserException(ParserExceptionCode.Unknown, error.Line, error.ColumnStart, error.ColumnEnd, error.File);
+            }
+
             // Peek so we have a valid token to begin with
             ModuleNode? module = null;
 
@@ -37,7 +44,7 @@ namespace Parser.Parsers
             {
                 stream.Consume(TokenType.Module, TokenFamily.Keyword);
 
-                module = new ModuleNode("", null);
+                module = new ModuleNode("", parent);
 
                 var token = stream.Consume(TokenType.Identifier, TokenFamily.Identifier);
                 module.Name = token.Value;
@@ -63,40 +70,7 @@ namespace Parser.Parsers
                 // Parse classes, contracts, structs, etc.
                 while (token.Type != TokenType.EndOfFile)
                 {
-                    switch (token.Type)
-                    {
-                        case TokenType.Class:
-                            var clazz = classParser.Parse(stream);
-                            module.AddChild(clazz);
-                            break;
-                        case TokenType.Contract:
-                            var contract = contractParser.Parse(stream);
-                            module.AddChild(contract);
-                            break;
-                        case TokenType.Struct:
-                            var structure = structParser.Parse(stream);
-                            module.AddChild(structure);
-                            break;
-                        case TokenType.Fn or TokenType.Mutating:
-                            var func = funcParser.Parse(stream);
-                            module.AddChild(func);
-                            break;
-                        case TokenType.Var or TokenType.Let:
-                            var variable = variableParser.Parse(stream);
-                            module.AddChild(variable);
-                            break;
-                        default:
-                            module.AddChild(
-                                new ErrorNode(
-                                    token.Line,
-                                    token.ColumnStart,
-                                    token.ColumnEnd,
-                                    token.File,
-                                    $"Unexpected token {token.Value}"
-                                )
-                            );
-                            break;
-                    }
+                    module.AddChild(statementParser.Parse(stream, module));
 
                     token = stream.Peek();
 

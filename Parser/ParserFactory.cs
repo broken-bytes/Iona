@@ -6,19 +6,39 @@ namespace Parser
     {
         public static IParser Create()
         {
+            var accessLevelParser = new AccessLevelParser();
+            var genericArgsParser = new GenericArgsParser();
             var typeParser = new TypeParser();
             var expressionParser = new ExpressionParser();
-            var statementParser = new StatementParser(expressionParser);
-            var propertyParser = new PropertyParser(expressionParser, typeParser);
+            var propertyParser = new PropertyParser(accessLevelParser, expressionParser, typeParser);
             var variableParser = new VariableParser(expressionParser);
-            var funcParser = new FuncParser(expressionParser, statementParser, typeParser, variableParser);
-            var initParser = new InitParser(variableParser, typeParser);
-            var classParser = new ClassParser(funcParser, initParser, propertyParser, typeParser);
-            var contractParser = new ContractParser(funcParser, propertyParser, typeParser);
-            var structParser = new StructParser(funcParser, initParser,propertyParser, typeParser);
-            var moduleParser = new ModuleParser(classParser, contractParser, funcParser, variableParser, structParser);
+            var funcParser = new FuncParser(accessLevelParser, typeParser);
+            var initParser = new InitParser(accessLevelParser, typeParser);
+            var classParser = new ClassParser(accessLevelParser, genericArgsParser, typeParser);
+            var contractParser = new ContractParser(accessLevelParser, genericArgsParser, typeParser);
+            var structParser = new StructParser(accessLevelParser, genericArgsParser, typeParser);
+            var moduleParser = new ModuleParser();
+            var statementParser = new StatementParser(
+                classParser, 
+                contractParser, 
+                expressionParser, 
+                funcParser,
+                initParser,
+                moduleParser,
+                propertyParser,
+                structParser,
+                variableParser
+            );
 
-            return new Parser(moduleParser);
+            classParser.Setup(statementParser);
+            contractParser.Setup(statementParser);
+            funcParser.Setup(statementParser);
+            initParser.Setup(statementParser);
+            moduleParser.Setup(statementParser);
+            propertyParser.Setup(statementParser);
+            structParser.Setup(statementParser);
+
+            return new Parser(statementParser);
         }
     }
 }

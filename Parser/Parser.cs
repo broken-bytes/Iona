@@ -6,17 +6,23 @@ namespace Parser
 {
     public class Parser : IParser
     {
-        private ModuleParser moduleParser;
+        private readonly StatementParser statementParser;
 
-        internal Parser(ModuleParser moduleParser)
+        internal Parser(StatementParser statementParser)
         {
-            this.moduleParser = moduleParser;
+            this.statementParser = statementParser;
         }
 
-        public INode Parse(TokenStream tokens, INode? parent = null)
+        public INode Parse(TokenStream stream)
         {
-            // Every file should start with a module declaration, thus we can directly use the module parser
-            return moduleParser.Parse(tokens, null);
+            // Create a file node
+            var fileNode = new FileNode(stream.First().File);
+
+            var module = statementParser.Parse(stream, fileNode);
+
+            fileNode.AddChild(module);
+
+            return fileNode;
         }
     }
 }

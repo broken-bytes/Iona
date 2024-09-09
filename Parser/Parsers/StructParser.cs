@@ -1,37 +1,64 @@
 ﻿using AST.Nodes;
 using AST.Types;
 using Lexer.Tokens;
+using System.Diagnostics.Contracts;
 using System.Net.Security;
 
 namespace Parser.Parsers
 {
-    public class StructParser : IParser
+    public class StructParser
     {
-        private readonly FuncParser funcParser;
-        private readonly InitParser initParser;
-        private readonly PropertyParser propertyParser;
+        private readonly AccessLevelParser accessLevelParser;
+        private readonly GenericArgsParser genericArgsParser;
         private readonly TypeParser typeParser;
+        private StatementParser? statementParser;
 
         internal StructParser(
-            FuncParser funcParser, 
-            InitParser initParser,
-            PropertyParser propertyParser, 
+            AccessLevelParser accessLevelParser,
+            GenericArgsParser genericArgsParser,
             TypeParser typeParser
         )
         {
-            this.funcParser = funcParser;
-            this.initParser = initParser;
-            this.propertyParser = propertyParser;
+            this.accessLevelParser = accessLevelParser;
+            this.genericArgsParser = genericArgsParser;
             this.typeParser = typeParser;
+        }
+
+        internal void Setup(StatementParser statementParser)
+        {
+            this.statementParser = statementParser;
+        }
+
+        internal bool IsStruct(Lexer.Tokens.TokenStream stream)
+        {
+            var tokens = stream.Peek(2);
+
+            if (tokens[0].Type is TokenType.Struct)
+            {
+                return true;
+            }
+
+            if (accessLevelParser.IsAccessLevel(tokens[0]) && tokens[1].Type is TokenType.Struct)
+            {
+                return true;
+            }
+
+            return false;
         }
 
         public INode Parse(TokenStream stream, INode? parent)
         {
+            if (statementParser == null)
+            {
+                var error = stream.Peek();
+                throw new ParserException(ParserExceptionCode.Unknown, error.Line, error.ColumnStart, error.ColumnEnd, error.File);
+            }
+
             StructNode? structNode = null;
 
             try
             {
-                AccessLevel accessLevel = (this as IParser).ParseAccessLevel(stream);
+                AccessLevel accessLevel = accessLevelParser.Parse(stream);
 
                 // Consume the contract keyword
                 stream.Consume(TokenType.Struct, TokenFamily.Keyword);
@@ -40,7 +67,7 @@ namespace Parser.Parsers
                 var name = stream.Consume(TokenType.Identifier, TokenFamily.Keyword);
 
                 structNode = new StructNode(name.Value, accessLevel, parent);
-                structNode.GenericArguments = (this as IParser).ParseGenericArgs(stream);
+                structNode.GenericArguments = genericArgsParser.Parse(stream);
 
                 // Check if the struct fulfills a contract
                 if (stream.Peek().Type == TokenType.Colon)
@@ -74,33 +101,9 @@ namespace Parser.Parsers
                 // Parse the contract body
                 while (token.Type != TokenType.CurlyRight)
                 {
-                    // Contracts may have props or funcs
-                    switch (token.Type)
-                    {
-                        case TokenType.Fn or TokenType.Mutating:
-                            structNode.Body.AddChild(funcParser.Parse(stream, structNode.Body));
-                            break;
-                        case TokenType.Var or TokenType.Let:
-                            structNode.Body.AddChild(propertyParser.Parse(stream, structNode.Body));
-                            break;
-                        case TokenType.Init:
-                            structNode.Body.AddChild(initParser.Parse(stream, structNode.Body));
-                            break;
-                        default:
-                            structNode.Body.AddChild(
-                                new ErrorNode(
-                                    token.Line,
-                                    token.ColumnStart,
-                                    token.ColumnEnd,
-                                    token.File,
-                                    $"Unexpected token {token.Value}",
-                                    structNode.Body
-                                )
-                            );
-                            stream.Consume();
-                            break;
-                    }
+                    // Structs may have props or funcs
 
+                    structNode.Body.AddChild(statementParser.Parse(stream, structNode.Body));
                     token = stream.Peek();
 
                     while (token.Type == TokenType.Linebreak)
