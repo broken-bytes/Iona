@@ -1,6 +1,4 @@
-﻿using AST.Visitors;
-
-namespace AST.Types
+﻿namespace AST.Types
 {
     public class ArrayType : IType
     {

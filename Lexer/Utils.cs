@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Lexer.Tokens;
+﻿using Lexer.Tokens;
 
 namespace Lexer
 {
@@ -301,7 +296,7 @@ namespace Lexer
                 case Special.Colon: return ":";
                 case Special.HardUnwrap: return "!";
                 case Special.SoftUnwrap: return "?";
-                default: 
+                default:
                     throw new ArgumentException("Invalid Operator");
             }
         }

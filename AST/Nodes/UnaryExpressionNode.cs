@@ -3,7 +3,7 @@ using AST.Visitors;
 
 namespace AST.Nodes
 {
-    public  class UnaryExpressionNode : IExpressionNode
+    public class UnaryExpressionNode : IExpressionNode
     {
         public INode? Parent { get; set; }
         public NodeType Type { get; set; }

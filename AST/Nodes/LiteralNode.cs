@@ -3,7 +3,7 @@ using AST.Visitors;
 
 namespace AST.Nodes
 {
-    public class LiteralNode: IExpressionNode
+    public class LiteralNode : IExpressionNode
     {
         public string Value { get; set; }
         public INode? Parent { get; set; }

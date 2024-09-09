@@ -113,7 +113,7 @@ namespace Parser.Parsers
                 func.ReturnType = typeParser.Parse(stream);
             }
 
-            if(stream.Peek().Type != TokenType.CurlyLeft)
+            if (stream.Peek().Type != TokenType.CurlyLeft)
             {
                 return func;
             }
@@ -131,7 +131,7 @@ namespace Parser.Parsers
                 token = stream.Peek();
             }
 
-            while(token.Type != TokenType.CurlyRight)
+            while (token.Type != TokenType.CurlyRight)
             {
                 func.Body.AddChild(statementParser.Parse(stream, func.Body));
 

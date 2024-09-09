@@ -1,7 +1,6 @@
 ﻿using AST.Nodes;
 using AST.Types;
 using Lexer.Tokens;
-using System.Linq.Expressions;
 
 namespace Parser.Parsers
 {
@@ -21,24 +20,24 @@ namespace Parser.Parsers
             {
                 return ParseUnaryExpression(stream, parent);
             }
-            else if(IsComparisonExpression(stream))
+            else if (IsComparisonExpression(stream))
             {
                 return ParseComparisonExpression(stream, parent);
             }
-            else if(IsFunctionCall(stream))
+            else if (IsFunctionCall(stream))
             {
                 return ParseFuncCall(stream, parent);
             }
-           
+
             return ParsePrimaryExpression(stream, parent);
         }
 
         public bool IsExpression(TokenStream stream)
         {
             if (
-                IsBinaryExpression(stream) || 
-                IsUnaryExpression(stream) || 
-                IsComparisonExpression(stream) || 
+                IsBinaryExpression(stream) ||
+                IsUnaryExpression(stream) ||
+                IsComparisonExpression(stream) ||
                 IsFunctionCall(stream)
             )
             {
@@ -154,18 +153,18 @@ namespace Parser.Parsers
                 var identifier = stream.Consume(TokenType.Identifier, TokenFamily.Identifier);
                 return new IdentifierNode(identifier.Value);
             }
-            else if(token.Type == TokenType.BracketLeft)
+            else if (token.Type == TokenType.BracketLeft)
             {
                 // Could be an array literal
                 var array = new ArrayLiteralNode(parent);
                 stream.Consume(TokenType.BracketLeft, TokenFamily.Operator);
 
-                while(stream.Peek().Type != TokenType.BracketRight)
+                while (stream.Peek().Type != TokenType.BracketRight)
                 {
                     var expression = Parse(stream, parent);
                     array.Values.Add((IExpressionNode)expression);
 
-                    if(stream.Peek().Type == TokenType.Comma)
+                    if (stream.Peek().Type == TokenType.Comma)
                     {
                         stream.Consume(TokenType.Comma, TokenFamily.Operator);
                     }
@@ -195,7 +194,7 @@ namespace Parser.Parsers
 
             stream.Consume(TokenType.ParenLeft, TokenFamily.Operator);
 
-            while(stream.Peek().Type != TokenType.ParenRight)
+            while (stream.Peek().Type != TokenType.ParenRight)
             {
                 // Parse the name of the argument([name]: value)
                 var argName = stream.Consume(TokenType.Identifier, TokenFamily.Keyword).Value;
@@ -203,7 +202,7 @@ namespace Parser.Parsers
                 var expression = Parse(stream, parent);
                 funcCall.Args.Add(new FuncCallArg { Name = argName, Value = (IExpressionNode)expression });
 
-                if(stream.Peek().Type == TokenType.Comma)
+                if (stream.Peek().Type == TokenType.Comma)
                 {
                     stream.Consume(TokenType.Comma, TokenFamily.Operator);
                 }

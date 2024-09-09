@@ -16,11 +16,11 @@ namespace AST.Nodes
         public IExpressionNode? Value { get; set; }
 
         public PropertyNode(
-            string name, 
-            AccessLevel accessLevel, 
+            string name,
+            AccessLevel accessLevel,
             bool isMutable,
-            IType? type = null, 
-            IExpressionNode? value = null, 
+            IType? type = null,
+            IExpressionNode? value = null,
             INode? parent = null
         )
         {

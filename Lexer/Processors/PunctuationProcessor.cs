@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Lexer.Processors;
-using Lexer.Tokens;
+﻿using Lexer.Tokens;
 
 namespace Lexer.Processors
 {
@@ -18,7 +12,8 @@ namespace Lexer.Processors
             }
 
             // Check if the first character is a comma
-            if(Utils.CheckMatchingSequence(source, Special.Comma.AsString())) {
+            if (Utils.CheckMatchingSequence(source, Special.Comma.AsString()))
+            {
                 return Utils.MakeToken(TokenType.Comma, Special.Comma.AsString());
             }
 

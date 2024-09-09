@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Lexer.Tokens;
+﻿using Lexer.Tokens;
 
 namespace Lexer.Processors
 {
@@ -29,7 +24,7 @@ namespace Lexer.Processors
             }
 
             string tokenValue = source.Substring(0, i);
-            
+
             return Utils.MakeToken(TokenType.Identifier, tokenValue);
         }
     }

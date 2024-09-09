@@ -1,5 +1,4 @@
 ﻿using AST.Nodes;
-using AST.Types;
 using Lexer.Tokens;
 
 
@@ -61,7 +60,7 @@ namespace Parser.Parsers
 
                 token = stream.Peek();
 
-                while(token.Type == TokenType.Linebreak)
+                while (token.Type == TokenType.Linebreak)
                 {
                     stream.Consume(TokenType.Linebreak, TokenFamily.Keyword);
                     token = stream.Peek();

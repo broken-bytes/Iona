@@ -2,7 +2,7 @@
 
 namespace AST.Nodes
 {
-    public interface IAccessLevelNode: INode
+    public interface IAccessLevelNode : INode
     {
         AccessLevel AccessLevel { get; set; }
     }

@@ -1,16 +1,12 @@
 ﻿using Lexer.Tokens;
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 
 namespace Lexer.Processors
 {
     public class NumberProcessor : IProcessor
     {
 
-        public NumberProcessor() {}
+        public NumberProcessor() { }
 
         private Token? ProcessInteger(string source)
         {

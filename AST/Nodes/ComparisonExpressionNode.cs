@@ -1,5 +1,4 @@
-﻿using AST.Nodes;
-using AST.Types;
+﻿using AST.Types;
 using AST.Visitors;
 
 namespace AST.Nodes

@@ -13,9 +13,9 @@ namespace AST.Nodes
         public INode Root { get => Utils.GetRoot(this); }
 
         public ArrayNode(
-            string name, 
-            INode? parent, 
-            NodeType type, 
+            string name,
+            INode? parent,
+            NodeType type,
             NodeKind kind,
             Types.Type itemType
         )

@@ -1,7 +1,6 @@
 ﻿using AST.Nodes;
 using AST.Types;
 using Lexer.Tokens;
-using System.Net.Security;
 
 namespace Parser.Parsers
 {

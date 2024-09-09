@@ -19,9 +19,9 @@ namespace Parser
             var structParser = new StructParser(accessLevelParser, genericArgsParser, typeParser);
             var moduleParser = new ModuleParser();
             var statementParser = new StatementParser(
-                classParser, 
-                contractParser, 
-                expressionParser, 
+                classParser,
+                contractParser,
+                expressionParser,
                 funcParser,
                 initParser,
                 moduleParser,

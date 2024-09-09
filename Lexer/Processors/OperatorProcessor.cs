@@ -1,9 +1,4 @@
 ﻿using Lexer.Tokens;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Lexer.Processors
 {
@@ -32,7 +27,7 @@ namespace Lexer.Processors
             {
                 return token;
             }
-            
+
             token = ProcessMathOperator(operatorStr);
             if (token != null)
             {

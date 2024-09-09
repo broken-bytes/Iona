@@ -1,6 +1,5 @@
 ﻿using AST.Nodes;
 using Lexer.Tokens;
-using System;
 
 namespace Parser.Parsers
 {
@@ -78,7 +77,7 @@ namespace Parser.Parsers
 
             if (propertyParser.IsProperty(stream) || variableParser.IsVariable(stream))
             {
-                if(parent != null && parent.Parent is ClassNode or ContractNode or StructNode)
+                if (parent != null && parent.Parent is ClassNode or ContractNode or StructNode)
                 {
                     return propertyParser.Parse(stream, parent);
                 }

@@ -3,7 +3,7 @@ using AST.Visitors;
 
 namespace AST.Nodes
 {
-    public  class FuncCallNode : INode
+    public class FuncCallNode : INode
     {
         public INode? Parent { get; set; }
         public NodeType Type { get; set; }

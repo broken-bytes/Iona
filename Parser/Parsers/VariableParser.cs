@@ -23,8 +23,8 @@ namespace Parser.Parsers
             if (token.Type == TokenType.Var)
             {
                 stream.Consume(TokenType.Var, TokenFamily.Keyword);
-            } 
-            else if(token.Type == TokenType.Let)
+            }
+            else if (token.Type == TokenType.Let)
             {
                 stream.Consume(TokenType.Let, TokenFamily.Keyword);
             }

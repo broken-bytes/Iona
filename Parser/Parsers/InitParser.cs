@@ -43,7 +43,7 @@ namespace Parser.Parsers
 
         public INode Parse(Lexer.Tokens.TokenStream stream, INode? parent)
         {
-            if(statementParser == null)
+            if (statementParser == null)
             {
                 var error = stream.Peek();
                 throw new ParserException(ParserExceptionCode.Unknown, error.Line, error.ColumnStart, error.ColumnEnd, error.File);

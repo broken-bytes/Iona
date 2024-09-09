@@ -18,10 +18,10 @@ namespace AST.Nodes
         public BlockNode? Body { get; set; }
 
         public FuncNode(
-            string name, 
-            AccessLevel access, 
+            string name,
+            AccessLevel access,
             bool isMutable,
-            bool isStatic, 
+            bool isStatic,
             INode? parent = null
         )
         {
