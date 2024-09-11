@@ -4,7 +4,7 @@ namespace Lexer.Processors
 {
     public class LiteralProcessor : IProcessor
     {
-        private IProcessor numberProcessor;
+        private readonly IProcessor numberProcessor;
 
         public LiteralProcessor(IProcessor numberProcessor)
         {
@@ -48,12 +48,12 @@ namespace Lexer.Processors
             else if (closingQuoteIndex == 1)
             {
                 // Empty string
-                return Utils.MakeToken(TokenType.String, "");
+                return Utils.MakeToken(TokenType.String, "\"\"");
             }
             else
             {
                 string literalValue = source.Substring(1, closingQuoteIndex - 1); // Extract the literal value
-                return Utils.MakeToken(TokenType.String, literalValue);
+                return Utils.MakeToken(TokenType.String, $"\"{literalValue}\"");
             }
         }
 

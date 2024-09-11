@@ -51,7 +51,7 @@ namespace Lexer
                 }
 
                 // Handle line breaks
-                if (code[start] == '\n')
+                if (start < code.Length && code[start] == '\n')
                 {
                     currentLine++;
                     start++;
