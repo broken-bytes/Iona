@@ -1,4 +1,5 @@
-﻿using Lexer;
+﻿using ASTLogger;
+using Lexer;
 using Parser;
 
 namespace Compiler
@@ -18,8 +19,9 @@ namespace Compiler
         {
             var tokens = lexer.Tokenize(source, filename);
             var ast = parser.Parse(tokens);
-            Console.WriteLine(ast.Root);
-            // Do something with the AST
+            var logger = ASTLoggerFactory.Create();
+
+            logger.Log(ast);
         }
     }
 }

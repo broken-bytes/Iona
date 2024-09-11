@@ -19,7 +19,9 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AST", "AST\AST.csproj", "{8
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Iona", "Iona\Iona.csproj", "{A841A2AA-8BC8-4C32-9F95-515A327C466C}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Generator", "Generator\Generator.csproj", "{B7FBB683-14D0-463B-96DF-49CB45F7DBE4}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Generator", "Generator\Generator.csproj", "{B7FBB683-14D0-463B-96DF-49CB45F7DBE4}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ASTLogger", "ASTLogger\ASTLogger.csproj", "{816D9CDA-93E6-4A67-88A4-026E8B8B1A7D}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -51,6 +53,10 @@ Global
 		{B7FBB683-14D0-463B-96DF-49CB45F7DBE4}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{B7FBB683-14D0-463B-96DF-49CB45F7DBE4}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{B7FBB683-14D0-463B-96DF-49CB45F7DBE4}.Release|Any CPU.Build.0 = Release|Any CPU
+		{816D9CDA-93E6-4A67-88A4-026E8B8B1A7D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{816D9CDA-93E6-4A67-88A4-026E8B8B1A7D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{816D9CDA-93E6-4A67-88A4-026E8B8B1A7D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{816D9CDA-93E6-4A67-88A4-026E8B8B1A7D}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -6,6 +6,7 @@ contract Spawnable {
 
 struct Entity: Spawnable {
     var name: String = ""
+
     mut fn onSpawn() {
     }
 }

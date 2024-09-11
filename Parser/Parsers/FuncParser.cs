@@ -49,96 +49,122 @@ namespace Parser.Parsers
                 throw new ParserException(ParserExceptionCode.Unknown, error.Line, error.ColumnStart, error.ColumnEnd, error.File);
             }
 
-            bool isMutating = false;
+            FuncNode? func = null;
 
-            // Funcs have an access level
-            var accessLevel = accessLevelParser.Parse(stream);
-
-            // Funcs may be static or instance
-            var isStatic = false;
-
-            if (stream.Peek().Type == TokenType.Static)
+            try
             {
-                stream.Consume(Lexer.Tokens.TokenType.Static, Lexer.Tokens.TokenFamily.Keyword);
-                isStatic = true;
-            }
 
-            // Funcs can be mutating or non-mutating
-            var token = stream.Peek();
+                bool isMutating = false;
 
-            if (token.Type == TokenType.Mutating)
-            {
-                stream.Consume(Lexer.Tokens.TokenType.Mutating, Lexer.Tokens.TokenFamily.Keyword);
-                isMutating = true;
-            }
+                // Funcs have an access level
+                var accessLevel = accessLevelParser.Parse(stream);
 
-            // Consume the func keyword
-            stream.Consume(TokenType.Fn, TokenFamily.Keyword);
+                // Funcs may be static or instance
+                var isStatic = false;
 
-            // Consume the function name
-            var name = stream.Consume(TokenType.Identifier, TokenFamily.Keyword);
-
-            var func = new FuncNode(name.Value, accessLevel, isMutating, isStatic, parent);
-
-            // Parse the function parameters
-            stream.Consume(TokenType.ParenLeft, TokenFamily.Operator);
-
-            while (stream.Peek().Type != TokenType.ParenRight)
-            {
-                // Name of the parameter
-                var paramName = stream.Consume(TokenType.Identifier, TokenType.ParenRight).Value;
-
-                // Consume the colon
-                stream.Consume(TokenType.Colon, TokenType.ParenRight);
-
-                // Parse the type of the parameter
-                var paramType = typeParser.Parse(stream);
-
-                // Add the parameter to the function
-                func.Parameters.Add(new Parameter { Name = paramName, Type = paramType });
-
-                // If the next token is a comma, consume it
-                if (stream.Peek().Type == TokenType.Comma)
+                if (stream.Peek().Type == TokenType.Static)
                 {
-                    stream.Consume(TokenType.Comma, TokenType.ParenRight);
+                    stream.Consume(Lexer.Tokens.TokenType.Static, Lexer.Tokens.TokenFamily.Keyword);
+                    isStatic = true;
                 }
-            }
 
-            stream.Consume(TokenType.ParenRight, TokenFamily.Operator);
+                // Funcs can be mutating or non-mutating
+                var token = stream.Peek();
 
-            // Check if the function has a return type
-            if (stream.Peek().Type == TokenType.Arrow)
-            {
-                stream.Consume(TokenType.Arrow, TokenType.CurlyLeft);
-                func.ReturnType = typeParser.Parse(stream);
-            }
+                if (token.Type == TokenType.Mutating)
+                {
+                    stream.Consume(Lexer.Tokens.TokenType.Mutating, Lexer.Tokens.TokenFamily.Keyword);
+                    isMutating = true;
+                }
 
-            if (stream.Peek().Type != TokenType.CurlyLeft)
-            {
-                return func;
-            }
+                // Consume the func keyword
+                stream.Consume(TokenType.Fn, TokenFamily.Keyword);
 
-            func.Body = new BlockNode(func);
+                // Consume the function name
+                var name = stream.Consume(TokenType.Identifier, TokenFamily.Keyword);
 
-            // Consume the opening brace
-            stream.Consume(TokenType.CurlyLeft, TokenFamily.Keyword);
+                func = new FuncNode(name.Value, accessLevel, isMutating, isStatic, parent);
 
-            token = stream.Peek();
+                // Parse the function parameters
+                stream.Consume(TokenType.ParenLeft, TokenFamily.Operator);
 
-            while (token.Type == TokenType.Linebreak)
-            {
-                stream.Consume(TokenType.Linebreak, TokenFamily.Keyword);
+                while (stream.Peek().Type != TokenType.ParenRight)
+                {
+                    // Name of the parameter
+                    var paramName = stream.Consume(TokenType.Identifier, TokenType.ParenRight).Value;
+
+                    // Consume the colon
+                    stream.Consume(TokenType.Colon, TokenType.ParenRight);
+
+                    // Parse the type of the parameter
+                    var paramType = typeParser.Parse(stream);
+
+                    // Add the parameter to the function
+                    func.Parameters.Add(new Parameter { Name = paramName, Type = paramType });
+
+                    // If the next token is a comma, consume it
+                    if (stream.Peek().Type == TokenType.Comma)
+                    {
+                        stream.Consume(TokenType.Comma, TokenType.ParenRight);
+                    }
+                }
+
+                stream.Consume(TokenType.ParenRight, TokenFamily.Operator);
+
+                // Check if the function has a return type
+                if (stream.Peek().Type == TokenType.Arrow)
+                {
+                    stream.Consume(TokenType.Arrow, TokenType.CurlyLeft);
+                    func.ReturnType = typeParser.Parse(stream);
+                }
+
+                if (stream.Peek().Type != TokenType.CurlyLeft)
+                {
+                    return func;
+                }
+
+                func.Body = new BlockNode(func);
+
+                // Consume the opening brace
+                stream.Consume(TokenType.CurlyLeft, TokenFamily.Keyword);
+
                 token = stream.Peek();
-            }
 
-            while (token.Type != TokenType.CurlyRight)
+                while (token.Type == TokenType.Linebreak)
+                {
+                    stream.Consume(TokenType.Linebreak, TokenFamily.Keyword);
+                    token = stream.Peek();
+                }
+
+                while (token.Type != TokenType.CurlyRight)
+                {
+                    func.Body.AddChild(statementParser.Parse(stream, func.Body));
+
+                    token = stream.Peek();
+                }
+
+                stream.Consume(TokenType.CurlyRight, TokenFamily.Keyword);
+            } 
+            catch (TokenStreamException exception)
             {
-                func.Body.AddChild(statementParser.Parse(stream, func.Body));
+                if (func == null)
+                {
+                    func = new FuncNode("Error", AccessLevel.Internal, false, false, parent);
+                }
 
-                token = stream.Peek();
+                if (func.Body == null)
+                {
+                    func.Body = new BlockNode(func);
+                }
+
+                func.Body.AddChild(new ErrorNode(
+                    exception.ErrorToken.Line,
+                    exception.ErrorToken.ColumnStart,
+                    exception.ErrorToken.ColumnEnd,
+                    exception.ErrorToken.File,
+                    exception.ErrorToken.Value
+                ));
             }
-
-            stream.Consume(TokenType.CurlyRight, TokenFamily.Keyword);
 
             return func;
         }

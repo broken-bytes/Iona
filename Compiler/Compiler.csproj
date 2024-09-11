@@ -16,5 +16,8 @@
 	<ItemGroup>
 		<ProjectReference Include="..\Parser\Parser.csproj" />
 	</ItemGroup>
+	<ItemGroup>
+		<ProjectReference Include="..\ASTLogger\ASTLogger.csproj" />
+	</ItemGroup>
 
 </Project>

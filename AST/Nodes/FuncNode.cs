@@ -13,7 +13,7 @@ namespace AST.Nodes
         public StatementType StatementType { get; set; }
         public List<Parameter> Parameters { get; set; } = new List<Parameter>();
         public IType? ReturnType { get; set; }
-        bool IsMutable { get; set; }
+        public bool IsMutable { get; set; }
         public bool IsStatic { get; set; }
         public BlockNode? Body { get; set; }
 
