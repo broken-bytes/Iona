@@ -1,5 +1,6 @@
 module App
 
+/*
 contract Spawnable {
     mut fn onSpawn()
 }
@@ -31,20 +32,23 @@ class World {
     }
 
     mut fn spawn(entity: Entity) {
-        entities.push(entity)
+        entities.push(item: entity)
         entity.onSpawn()
     }
 }
+*/
 
 /*
 This is a multiline comment
 */
+
 fn main() -> Int {
     // This is a comment
     var world = World()
-    val world2 = world
+    let world2 = world
     let world3 = world
 
     world.spawn(entity: Entity { name: "Entity"})
     return world.start()
 }
+

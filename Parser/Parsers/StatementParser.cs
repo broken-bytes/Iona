@@ -99,7 +99,7 @@ namespace Parser.Parsers
 
         public bool IsStatement(TokenStream stream)
         {
-            return IsCompoundAssignment(stream) || IsBasicAssignment(stream) || IsReturnStatement(stream);
+            return IsCompoundAssignment(stream) || IsBasicAssignment(stream) || IsReturnStatement(stream) || IsVariable(stream) || IsProperty(stream);
         }
 
         // ------------------- Helper methods -------------------
@@ -117,6 +117,15 @@ namespace Parser.Parsers
         {
             var target = stream.Consume(TokenFamily.Identifier, TokenFamily.Keyword);
             var identifierNode = new IdentifierNode(target.Value);
+
+            // Consume the assign operator
+            var token = stream.Consume(TokenFamily.Operator, TokenFamily.Keyword);
+
+            if (token.Type != TokenType.Assign)
+            {
+                return new ErrorNode(token.Line, token.ColumnStart, token.ColumnEnd, token.File, "Invalid operator after identifier");
+            }
+
             var value = expressionParser.Parse(stream, parent);
 
             return new AssignmentNode(AST.Types.AssignmentType.Assign, identifierNode, value, parent);
@@ -206,9 +215,19 @@ namespace Parser.Parsers
             }
         }
 
+        private bool IsProperty(TokenStream stream)
+        {
+            return propertyParser.IsProperty(stream);
+        }
+
         private bool IsReturnStatement(TokenStream stream)
         {
             return stream.Peek().Type == TokenType.Return;
+        }
+
+        private bool IsVariable(TokenStream stream)
+        {
+            return variableParser.IsVariable(stream);
         }
 
         private AssignmentType? GetAssignmentType(Token token)

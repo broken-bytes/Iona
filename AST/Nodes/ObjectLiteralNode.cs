@@ -3,7 +3,7 @@ using AST.Visitors;
 
 namespace AST.Nodes
 {
-    public class ObjectLiteralNode : INode
+    public class ObjectLiteralNode : IExpressionNode
     {
         public struct Argument
         {
@@ -16,6 +16,9 @@ namespace AST.Nodes
         public INode Root => Utils.GetRoot(this);
         public IType ObjectType { get; set; }
         public List<Argument> Arguments { get; set; } = new List<Argument>();
+
+        public ExpressionType ExpressionType => ExpressionType.ObjectLiteral;
+        public IType? ResultType => ObjectType;
 
         public ObjectLiteralNode(IType objectType, INode? parent)
         {

@@ -1,15 +1,24 @@
 ﻿using AST.Nodes;
 using AST.Types;
 using Lexer.Tokens;
+using Parser.Parsers.Parser.Parsers;
 
 namespace Parser.Parsers
 {
     public class ExpressionParser
     {
+        FuncCallParser funcCallParser;
+        MemberAccessParser memberAccessParser;
         TypeParser typeParser;
 
-        internal ExpressionParser(TypeParser typeParser)
+        internal ExpressionParser(
+            FuncCallParser funcCallParser,
+            MemberAccessParser memberAccessParser,
+            TypeParser typeParser
+        )
         {
+            this.funcCallParser = funcCallParser;
+            this.memberAccessParser = memberAccessParser;
             this.typeParser = typeParser;
         }
 
@@ -29,11 +38,15 @@ namespace Parser.Parsers
             }
             else if (IsFunctionCall(stream))
             {
-                return ParseFuncCall(stream, parent);
+                return funcCallParser.Parse(stream, parent);
             }
             else if (IsObjectLiteral(stream))
             {
                 return ParseObjectLiteral(stream, parent);
+            }
+            else if(memberAccessParser.IsMemberAccess(stream))
+            {
+                return memberAccessParser.Parse(stream, parent);
             }
 
             return ParsePrimaryExpression(stream, parent);
@@ -46,7 +59,8 @@ namespace Parser.Parsers
                 IsUnaryExpression(stream) ||
                 IsComparisonExpression(stream) ||
                 IsFunctionCall(stream) ||
-                IsObjectLiteral(stream)
+                IsObjectLiteral(stream) ||
+                IsMemberAccess(stream)
             )
             {
                 return true;
@@ -123,9 +137,6 @@ namespace Parser.Parsers
             }
 
 
-            // Consume the identifier token
-            var typeNode = stream.Consume(TokenType.Identifier, TokenFamily.Identifier).Value;
-
             // Get the type of the object
             var objectType = typeParser.Parse(stream);
 
@@ -145,11 +156,15 @@ namespace Parser.Parsers
                 var arg = new ObjectLiteralNode.Argument { Name = identifier, Value = (IExpressionNode)expression };
                 objectLiteral.Arguments.Add(arg);
 
-                if (stream.Peek().Type == TokenType.Comma)
+                token = stream.Peek();
+
+                if (token.Type == TokenType.Comma)
                 {
                     stream.Consume(TokenType.Comma, TokenFamily.Operator);
                 }
             }
+
+            stream.Consume(TokenType.CurlyRight, TokenFamily.Keyword);
 
             return objectLiteral;
         }
@@ -241,33 +256,6 @@ namespace Parser.Parsers
                     parent
                 );
             }
-        }
-
-        private INode ParseFuncCall(TokenStream stream, INode? parent)
-        {
-            var identifier = stream.Consume(TokenType.Identifier, TokenFamily.Keyword);
-            var identifierNode = new IdentifierNode(identifier.Value);
-            var funcCall = new FuncCallNode(identifierNode, parent);
-
-            stream.Consume(TokenType.ParenLeft, TokenFamily.Operator);
-
-            while (stream.Peek().Type != TokenType.ParenRight)
-            {
-                // Parse the name of the argument([name]: value)
-                var argName = stream.Consume(TokenType.Identifier, TokenFamily.Keyword).Value;
-                stream.Consume(TokenType.Colon, TokenFamily.Operator);
-                var expression = Parse(stream, parent);
-                funcCall.Args.Add(new FuncCallArg { Name = argName, Value = (IExpressionNode)expression });
-
-                if (stream.Peek().Type == TokenType.Comma)
-                {
-                    stream.Consume(TokenType.Comma, TokenFamily.Operator);
-                }
-            }
-
-            stream.Consume(TokenType.ParenRight, TokenFamily.Keyword);
-
-            return funcCall;
         }
 
         private BinaryOperation? GetBinaryOperation(Token token)
@@ -410,17 +398,12 @@ namespace Parser.Parsers
 
         private bool IsFunctionCall(TokenStream stream)
         {
-            var tokens = stream.Peek(3);
+            return funcCallParser.IsFuncCall(stream);
+        }
 
-            if (
-                tokens[0].Family == TokenFamily.Identifier &&
-                tokens[1].Type == TokenType.ParenLeft
-            )
-            {
-                return true;
-            }
-
-            return false;
+        private bool IsMemberAccess(TokenStream stream)
+        {
+            return memberAccessParser.IsMemberAccess(stream);
         }
 
         private bool IsObjectLiteral(TokenStream stream)

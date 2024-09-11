@@ -12,11 +12,14 @@ namespace ASTLogger
         IContractVisitor,
         IErrorVisitor,
         IFileVisitor,
+        IFuncCallVisitor,
         IFuncVisitor,
         IIdentifierVisitor,
         IInitVisitor,
         ILiteralVisitor,
+        IMemberAccessVisitor,
         IModuleVisitor,
+        IObjectLiteralVisitor,
         IPropertyVisitor,
         IStructVisitor,
         IUnaryExpressionVisitor,
@@ -32,6 +35,7 @@ namespace ASTLogger
         public void Visit(AssignmentNode node)
         {
             Log("ASSIGNMENT:");
+            Log($" - Type: {node.AssignmentType}");
             Log("- Target:");
 
             _indentLevel++;
@@ -134,6 +138,30 @@ namespace ASTLogger
             Spacer();
         }
 
+        public void Visit(FuncCallNode node)
+        {
+            Log("FUNCTION CALL:");
+            Log($"- Name: {((IdentifierNode)node.Target).Name}");
+
+            if (node.Args.Count > 0)
+            {
+                Log("- Arguments:");
+
+                _indentLevel++;
+                foreach (var argument in node.Args)
+                {
+                    Log($"Name: {argument.Name}");
+                    Log("Value: ");
+                    _indentLevel++;
+                    GetAndLogNode(argument.Value);
+                    _indentLevel--;
+                }
+                _indentLevel--;
+            }
+
+            Spacer();
+        }
+
         public void Visit(FuncNode node)
         {
             Log("FUNCTION:");
@@ -199,6 +227,24 @@ namespace ASTLogger
             Spacer();
         }
 
+        public void Visit(MemberAccessNode node)
+        {
+            Log("MEMBER ACCESS:");
+            Log("- Target:");
+
+            _indentLevel++;
+            GetAndLogNode(node.Target);
+            _indentLevel--;
+
+            Log("- Member:");
+
+            _indentLevel++;
+            GetAndLogNode(node.Member);
+            _indentLevel--;
+
+            Spacer();
+        }
+
         public void Visit(ModuleNode node)
         {
             Log("MODULE:");
@@ -209,6 +255,26 @@ namespace ASTLogger
             foreach (var child in node.Children)
             {
                 GetAndLogNode(child);
+            }
+
+            _indentLevel--;
+
+            Spacer();
+        }
+
+        public void Visit(ObjectLiteralNode node)
+        {
+            Log("OBJECT LITERAL:");
+            Log($"- Type: {node.Type}");
+
+            _indentLevel++;
+
+            foreach (var property in node.Arguments)
+            {
+                Log($"- {property.Name}:");
+                _indentLevel++;
+                GetAndLogNode(property.Value);
+                _indentLevel--;
             }
 
             _indentLevel--;
@@ -264,7 +330,13 @@ namespace ASTLogger
         {
             Log("VARIABLE:");
             Log($"- Name: {node.Name}");
-            Log($"- Value: {node.Value}");
+            if (node.Value != null)
+            {
+                Log("- Value:");
+                _indentLevel++;
+                GetAndLogNode(node.Value);
+                _indentLevel--;
+            }
             Spacer();
         }
 
@@ -293,6 +365,9 @@ namespace ASTLogger
                 case FileNode fileNode:
                     fileNode.Accept(this);
                     break;
+                case FuncCallNode funcCallNode:
+                    funcCallNode.Accept(this);
+                    break;
                 case FuncNode funcNode:
                     funcNode.Accept(this);
                     break;
@@ -305,8 +380,14 @@ namespace ASTLogger
                 case LiteralNode literalNode:
                     literalNode.Accept(this);
                     break;
+                case MemberAccessNode memberAccessNode:
+                    memberAccessNode.Accept(this);
+                    break;
                 case ModuleNode moduleNode:
                     moduleNode.Accept(this);
+                    break;
+                case ObjectLiteralNode objectLiteralNode:
+                    objectLiteralNode.Accept(this);
                     break;
                 case PropertyNode propertyNode:
                     propertyNode.Accept(this);

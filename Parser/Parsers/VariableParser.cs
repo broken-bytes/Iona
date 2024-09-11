@@ -46,9 +46,9 @@ namespace Parser.Parsers
 
                 // Check if the variable has a value (next token is an equals sign)
                 token = stream.Peek();
-                if (token.Type == TokenType.Equal)
+                if (token.Type == TokenType.Assign)
                 {
-                    stream.Consume(TokenType.Equal, TokenFamily.Keyword);
+                    stream.Consume(TokenType.Assign, TokenFamily.Keyword);
                     var node = expressionParser.Parse(stream, varNode);
                     varNode.Value = node;
                 }

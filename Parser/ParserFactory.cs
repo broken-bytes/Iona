@@ -1,4 +1,5 @@
 ﻿using Parser.Parsers;
+using Parser.Parsers.Parser.Parsers;
 
 namespace Parser
 {
@@ -9,7 +10,9 @@ namespace Parser
             var accessLevelParser = new AccessLevelParser();
             var genericArgsParser = new GenericArgsParser();
             var typeParser = new TypeParser();
-            var expressionParser = new ExpressionParser(typeParser);
+            var funcCallParser = new FuncCallParser();
+            var memberAccessParser = new MemberAccessParser();
+            var expressionParser = new ExpressionParser(funcCallParser, memberAccessParser, typeParser);
             var propertyParser = new PropertyParser(accessLevelParser, expressionParser, typeParser);
             var variableParser = new VariableParser(expressionParser);
             var funcParser = new FuncParser(accessLevelParser, typeParser);
@@ -32,8 +35,10 @@ namespace Parser
 
             classParser.Setup(statementParser);
             contractParser.Setup(statementParser);
-            funcParser.Setup(statementParser);
+            funcCallParser.Setup(expressionParser);
+            funcParser.Setup(expressionParser, statementParser);
             initParser.Setup(statementParser);
+            memberAccessParser.Setup(expressionParser);
             moduleParser.Setup(statementParser);
             propertyParser.Setup(statementParser);
             structParser.Setup(statementParser);

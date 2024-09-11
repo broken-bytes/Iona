@@ -8,6 +8,7 @@ namespace Parser.Parsers
     {
         private readonly AccessLevelParser accessLevelParser;
         private readonly TypeParser typeParser;
+        private ExpressionParser? expressionParser;
         private StatementParser? statementParser;
 
         internal FuncParser(
@@ -19,8 +20,12 @@ namespace Parser.Parsers
             this.typeParser = typeParser;
         }
 
-        internal void Setup(StatementParser statementParser)
+        internal void Setup(
+            ExpressionParser expressionParser,
+            StatementParser statementParser
+        )
         {
+            this.expressionParser = expressionParser;
             this.statementParser = statementParser;
         }
 
@@ -43,7 +48,7 @@ namespace Parser.Parsers
 
         public INode Parse(Lexer.Tokens.TokenStream stream, INode? parent)
         {
-            if (statementParser == null)
+            if (expressionParser == null || statementParser == null)
             {
                 var error = stream.Peek();
                 throw new ParserException(ParserExceptionCode.Unknown, error.Line, error.ColumnStart, error.ColumnEnd, error.File);
@@ -138,9 +143,34 @@ namespace Parser.Parsers
 
                 while (token.Type != TokenType.CurlyRight)
                 {
-                    func.Body.AddChild(statementParser.Parse(stream, func.Body));
+                    if (statementParser.IsStatement(stream))
+                    {
+                        func.Body.AddChild(statementParser.Parse(stream, func.Body));
+                    } 
+                    else if(expressionParser.IsExpression(stream))
+                    {
+                        func.Body.AddChild(expressionParser.Parse(stream, func.Body));
+                    } 
+                    else
+                    {
+                        var error = stream.Consume(token.Type, TokenType.Linebreak);
+                        var errorNode = new ErrorNode(
+                            error.Line,
+                            error.ColumnStart,
+                            error.ColumnEnd,
+                            error.File,
+                            $"Unexpected token {token.Value} expected start of expression or statement"
+                        );
+                        func.Body.AddChild(errorNode);
+                    }
 
                     token = stream.Peek();
+
+                    while (token.Type == TokenType.Linebreak)
+                    {
+                        stream.Consume(TokenType.Linebreak, TokenFamily.Keyword);
+                        token = stream.Peek();
+                    }
                 }
 
                 stream.Consume(TokenType.CurlyRight, TokenFamily.Keyword);

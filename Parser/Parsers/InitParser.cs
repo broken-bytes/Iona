@@ -41,7 +41,7 @@ namespace Parser.Parsers
             return false;
         }
 
-        public INode Parse(Lexer.Tokens.TokenStream stream, INode? parent)
+        public INode Parse(TokenStream stream, INode? parent)
         {
             if (statementParser == null)
             {

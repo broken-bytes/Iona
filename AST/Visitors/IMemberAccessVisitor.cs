@@ -4,6 +4,6 @@ namespace AST.Visitors
 {
     public interface IMemberAccessVisitor
     {
-        public void Visit(MemberAccessExpressionNode node);
+        public void Visit(MemberAccessNode node);
     }
 }
