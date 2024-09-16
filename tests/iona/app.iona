@@ -1,6 +1,5 @@
 module App
 
-/*
 contract Spawnable {
     mut fn onSpawn()
 }
@@ -36,7 +35,6 @@ class World {
         entity.onSpawn()
     }
 }
-*/
 
 /*
 This is a multiline comment

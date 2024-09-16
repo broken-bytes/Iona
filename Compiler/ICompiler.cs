@@ -2,6 +2,6 @@
 {
     public interface ICompiler
     {
-        public void Compile(string source, string filename);
+        public void Compile(List<CompilationUnit> files);
     }
 }

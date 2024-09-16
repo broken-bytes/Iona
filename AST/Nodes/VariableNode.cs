@@ -12,7 +12,7 @@ namespace AST.Nodes
         public INode Root => Utils.GetRoot(this);
         public AccessLevel AccessLevel { get; set; }
         public StatementType StatementType { get; set; }
-        public Types.Type? VariableType { get; set; }
+        public IType? TypeNode { get; set; }
         public INode? Value { get; set; }
 
         public VariableNode(string name, INode? parent = null)

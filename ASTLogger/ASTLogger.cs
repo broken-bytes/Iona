@@ -15,6 +15,7 @@ namespace ASTLogger
         IFuncCallVisitor,
         IFuncVisitor,
         IIdentifierVisitor,
+        IImportVisitor,
         IInitVisitor,
         ILiteralVisitor,
         IMemberAccessVisitor,
@@ -202,6 +203,13 @@ namespace ASTLogger
             Spacer();
         }
 
+        public void Visit(ImportNode node)
+        {
+            Log("IMPORT:");
+            Log($"- Name: {node.Name}");
+            Spacer();
+        }
+
         public void Visit(InitNode node)
         {
             Log("INIT:");
@@ -305,6 +313,16 @@ namespace ASTLogger
             Log("STRUCT:");
             Log($"- Name: {node.Name}");
             Log($"- Access Level: {node.AccessLevel}");
+            if (node.Contracts.Count > 0)
+            {
+                Log($"- Contracts");
+                _indentLevel++;
+                foreach (var contract in node.Contracts)
+                {
+                    Log($"- {contract.Module}.{contract.Name}");
+                }
+                _indentLevel--;
+            }
 
             _indentLevel++;
 
@@ -373,6 +391,9 @@ namespace ASTLogger
                     break;
                 case IdentifierNode identifierNode:
                     identifierNode.Accept(this);
+                    break;
+                case ImportNode importNode:
+                    importNode.Accept(this);
                     break;
                 case InitNode initNode:
                     initNode.Accept(this);

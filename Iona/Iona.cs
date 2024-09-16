@@ -11,6 +11,6 @@ class Iona
         // Normalize the code(converting \r\n to \n)
         code = code.Replace("\r\n", "\n");
 
-        compiler.Compile(code, fileName);
+        compiler.Compile(new List<CompilationUnit> { new CompilationUnit { Source = code, Name = fileName }});
     }
 }
