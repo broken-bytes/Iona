@@ -302,7 +302,13 @@ namespace ASTLogger
             Log("> PROPERTY:");
             Log($"- Name: {node.Name}");
             Log($"- Access Level: {node.AccessLevel}");
-
+            if (node.TypeNode != null)
+            {
+                Log("- Type: ");
+                _indentLevel++;
+                GetAndLogNode(node.TypeNode);
+                _indentLevel--;
+            }
             if (node.Value != null)
             {
                 Log("- Value: ");

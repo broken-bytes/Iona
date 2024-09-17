@@ -81,6 +81,7 @@ namespace Parser.Parsers
                     // Consume the type identifier
                     var type = typeParser.Parse(stream);
                     property.TypeNode = type;
+                    type.Parent = property;
                 }
 
                 // Parse the property value(if any)
