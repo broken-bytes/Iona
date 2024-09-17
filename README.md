@@ -7,8 +7,6 @@
 ## Overview
 Iona is a modern, highly asynchronous programming language designed for building scalable and efficient software. Iona focuses on modern practices like immutability, asynchronous computing and composition.
 
-Iona is the .NET flavour of *Hyve*: https://github.com/broken-bytes/Hyve
-
 ## Features
 - 🔮 **Powered by .NET**: Iona runs on .NET, allowing it to consume any CLR compatible language.
 - 🧊 **Immutability**: Immutable data structures and functions by default to increase robustness and predictability. 
