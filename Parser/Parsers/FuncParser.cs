@@ -121,6 +121,7 @@ namespace Parser.Parsers
                 {
                     stream.Consume(TokenType.Arrow, TokenType.CurlyLeft);
                     func.ReturnType = typeParser.Parse(stream);
+                    func.ReturnType.Parent = func;
                 }
 
                 if (stream.Peek().Type != TokenType.CurlyLeft)

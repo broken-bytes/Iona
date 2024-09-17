@@ -12,14 +12,14 @@ namespace AST.Nodes
         public AccessLevel AccessLevel { get; set; }
         bool IsMutable { get; set; }
         public StatementType StatementType { get; set; }
-        public IType? TypeNode { get; set; }
+        public INode? TypeNode { get; set; }
         public IExpressionNode? Value { get; set; }
 
         public PropertyNode(
             string name,
             AccessLevel accessLevel,
             bool isMutable,
-            IType? type = null,
+            INode? type = null,
             IExpressionNode? value = null,
             INode? parent = null
         )

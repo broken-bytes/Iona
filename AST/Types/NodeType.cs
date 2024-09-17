@@ -36,5 +36,6 @@
         Program,
         CodeBlock,
         Error,
+        TypeReference,
     }
 }

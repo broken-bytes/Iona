@@ -11,7 +11,7 @@ namespace AST.Nodes
         public INode Target { get; set; }
         public INode Member { get; set; }
         public ExpressionType ExpressionType => ExpressionType.MemberAccess;
-        public IType? ResultType => null;
+        public INode? ResultType => null;
 
         public MemberAccessNode(INode target, INode member, INode? parent)
         {

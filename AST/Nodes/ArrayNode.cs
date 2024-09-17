@@ -9,7 +9,7 @@ namespace AST.Nodes
         public INode? Parent { get; set; }
         public NodeType Type { get; set; }
         public NodeKind Kind { get; set; }
-        public Types.Type ItemType { get; set; }
+        public INode ItemType { get; set; }
         public INode Root { get => Utils.GetRoot(this); }
 
         public ArrayNode(
@@ -17,7 +17,7 @@ namespace AST.Nodes
             INode? parent,
             NodeType type,
             NodeKind kind,
-            Types.Type itemType
+            INode itemType
         )
         {
             Name = name;

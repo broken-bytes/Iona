@@ -5,6 +5,6 @@ namespace AST.Nodes
     public interface IExpressionNode : INode
     {
         public ExpressionType ExpressionType { get; }
-        public IType? ResultType { get; }
+        public INode? ResultType { get; }
     }
 }

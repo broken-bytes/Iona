@@ -1,8 +1,10 @@
-﻿namespace AST.Types
+﻿using AST.Nodes;
+
+namespace AST.Types
 {
     public struct Parameter
     {
         public string Name;
-        public IType Type;
+        public INode Type;
     }
 }

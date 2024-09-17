@@ -24,11 +24,15 @@ namespace Typeck
                 return table;
             }
 
-            // Inject the import of the Builtins module
-            var builtins = new ImportNode("Builtins", fileNode);
-            fileNode.Children.Insert(0, builtins);
+            var moduleNode = fileNode.Children.Find(c => c is ModuleNode);
 
-            var module = CreateSymbol(fileNode.Children[0]);
+            if (moduleNode == null)
+            {
+                // Panic
+                return table;
+            }
+
+            var module = CreateSymbol(moduleNode);
 
             if (module is ModuleSymbol symbol)
             {
@@ -40,7 +44,38 @@ namespace Typeck
 
         public void TypeCheck(INode node, SymbolTable table)
         {
+            // We need to check types for the following nodes:
+            // - ClassNode (Generic args, Inheritance)
+            // - ContractNode (Generic args, Inheritance)
+            // - EnumNode (Enum Type)
+            // - FuncNode (Return type, Parameters)
+            // - PropertyNode (Type)
+            // - StructNode (Generic args)
+            // - VariableNode (Type)
+            // - ExpressionNode (Type)
 
+            if (node is FileNode file)
+            {
+                foreach (var child in file.Children)
+                {
+                    TypeCheck(child, table);
+                }
+            }
+            else if (node is ModuleNode module)
+            {
+                foreach (var child in module.Children)
+                {
+                    TypeCheck(child, table);
+                }
+            }
+            else if (node is ClassNode clazz)
+            {
+                TypeCheckClass(clazz, table);
+            }
+            else if (node is FuncNode func)
+            {
+                TypeCheckFunc(func, table);
+            }
         }
 
         public SymbolTable MergeTables(List<SymbolTable> tables)
@@ -49,15 +84,13 @@ namespace Typeck
 
             RegisterBuiltins(mergedTable);
 
-            foreach ( var table in tables)
+            foreach (var table in tables)
             {
                 foreach (var module in table.Modules)
                 {
                     mergedTable.Modules.Add(module);
                 }
             }
-
-            RegisterBuiltins(mergedTable);
 
             return mergedTable;
         }
@@ -180,7 +213,7 @@ namespace Typeck
                     }
 
                     // Add the return type
-                    functionSymbol.ReturnType = new TypeSymbol(functionNode.ReturnType?.Name ?? "", TypeKind.Unknown);
+                    functionSymbol.ReturnType = new TypeSymbol("", TypeKind.Unknown);
 
                     // Parse the body
                     if (functionNode.Body != null)
@@ -267,7 +300,7 @@ namespace Typeck
                 {
                     var propNode = (PropertyNode)node;
 
-                    var type = new TypeSymbol(propNode.TypeNode?.Name ?? "", TypeKind.Unknown);
+                    var type = new TypeSymbol("", TypeKind.Unknown);
 
                     var propSymbol = new PropertySymbol(propNode.Name, type);
 
@@ -288,12 +321,165 @@ namespace Typeck
                 {
                     var variable = (VariableNode)node;
 
-                    var type = new TypeSymbol(variable.TypeNode?.Name ?? "", TypeKind.Unknown);
+                    var type = new TypeSymbol("", TypeKind.Unknown);
 
                     var variableSymbol = new VariableSymbol(variable.Name, type);
 
                     return variableSymbol;
                 }
+            }
+
+            return null;
+        }
+
+        // ---- Type checking ----
+        private void InferExpressionType(INode node, SymbolTable table)
+        {
+
+        }
+
+        private void TypeCheckClass(ClassNode node, SymbolTable table)
+        {
+            // TODO: Complete checks
+            if (node.Body != null)
+            {
+                foreach (var child in node.Body.Children)
+                {
+                    TypeCheck(child, table);
+                }
+            }
+        }
+
+        private void TypeCheckContract(ContractNode node, SymbolTable table)
+        {
+
+        }
+
+        private void TypeCheckEnum(EnumNode node, SymbolTable table)
+        {
+            // Check the enum type
+            // TODO: Enums don't support types yet
+        }
+
+        private void TypeCheckFunc(FuncNode node, SymbolTable table)
+        {
+            // Check the return type
+            if (node.ReturnType != null)
+            {
+                var returnType = TypeCheckTypeReference(node.ReturnType, table);
+                if (returnType != null)
+                {
+                    node.ReturnType = returnType;
+                }
+            }
+            else
+            {
+                // Find the builtins module
+                var builtins = new IdentifierNode("Builtins", node);
+                node.ReturnType = new MemberAccessNode(builtins, new TypeReferenceNode("None"), node);
+            }
+
+            // Check the parameters
+            foreach (var param in node.Parameters)
+            {
+                TypeCheck(param.Type, table);
+            }
+
+            if (node.Body != null)
+            {
+                foreach (var child in node.Body.Children)
+                {
+                    TypeCheck(child, table);
+                }
+            }
+        }
+
+        private INode? TypeCheckTypeReference(INode node, SymbolTable table)
+        {
+            if (node is not TypeReferenceNode type)
+            {
+                return null;
+            }
+
+            // First we need to find the module this type usage is in
+            var module = GetModuleForNode(node);
+
+            if (module == null)
+            {
+                // Panic
+                return null;
+            }
+
+            // Find the module in the symbol table
+            var moduleSymbol = table.Modules.Find(m => m.Name == module.Name);
+
+            if (moduleSymbol == null)
+            {
+                // Panic
+                return null;
+            }
+
+            // Find the type in the module
+
+
+            var moduleIdentifier = new IdentifierNode(module.Name, node);
+            var reference = new TypeReferenceNode(type.Name, node);
+            var access = new MemberAccessNode(moduleIdentifier, reference, node);
+
+            return access;
+        }
+
+        private TypeSymbol FindType(INode node, SymbolTable table)
+        {
+            // First we need to find the module this type usage is in
+            var module = GetModuleForNode(node);
+
+            if (module == null)
+            {
+                // Panic
+                return new TypeSymbol("", TypeKind.Unknown);
+            }
+
+            // Find the module in the symbol table
+            var moduleSymbol = table.Modules.Find(m => m.Name == module.Name);
+
+            if (moduleSymbol == null)
+            {
+                // Panic
+                return new TypeSymbol("", TypeKind.Unknown);
+            }
+
+            // Find the type in the module
+
+            if (node is TypeReferenceNode type) 
+            {
+                var moduleIdentifier = new IdentifierNode(module.Name, node);
+                var reference = new TypeReferenceNode(type.Name, node);
+                var access = new MemberAccessNode(moduleIdentifier, reference, node);
+
+            }
+
+            return new TypeSymbol("", TypeKind.Unknown);
+        }
+
+        private ModuleNode? GetModuleForNode(INode node)
+        {
+            if (node is ModuleNode or FileNode)
+            {
+                return null;
+            }
+
+
+            INode current = node;
+
+            while (current.Parent != null)
+            {
+                if (current is ModuleNode module)
+                {
+                    return module;
+                }
+
+                current = current.Parent;
             }
 
             return null;

@@ -41,7 +41,7 @@ namespace Parser.Parsers
                 {
                     stream.Consume(TokenType.Colon, TokenFamily.Keyword);
                     var type = stream.Consume(TokenType.Identifier, TokenFamily.Identifier);
-                    varNode.TypeNode = new AST.Types.Type(type.Value);
+                    varNode.TypeNode = new TypeReferenceNode(type.Value, varNode);
                 }
 
                 // Check if the variable has a value (next token is an equals sign)

@@ -1,4 +1,5 @@
-﻿using AST.Types;
+﻿using AST.Nodes;
+using AST.Types;
 using Lexer.Tokens;
 
 namespace Parser.Parsers
@@ -9,7 +10,7 @@ namespace Parser.Parsers
         {
         }
 
-        public IType Parse(TokenStream stream)
+        public INode Parse(TokenStream stream)
         {
             // The type may be an array type([T])
             var token = stream.Peek();
@@ -19,11 +20,11 @@ namespace Parser.Parsers
                 stream.Consume(TokenType.BracketLeft, TokenFamily.Keyword);
 
                 // Parse the type of the array
-                IType arrayType = Parse(stream);
+                INode arrayType = Parse(stream);
 
                 stream.Consume(TokenType.BracketRight, TokenFamily.Keyword);
 
-                return new ArrayType(arrayType);
+                return new ArrayTypeReferenceNode(arrayType);
             }
 
             // We need to be able to parse types and generics
@@ -35,12 +36,12 @@ namespace Parser.Parsers
                 // Consume the less than token
                 stream.Consume(TokenType.Less, TokenFamily.Operator);
 
-                var genericType = new GenericType(token.Value);
+                var genericType = new GenericTypeReferenceNode(token.Value);
 
                 while (stream.Peek().Type != TokenType.Greater)
                 {
                     // Parse the generic argument
-                    IType genericArg = Parse(stream);
+                    INode genericArg = Parse(stream);
 
                     // Add the generic argument to the list of generic arguments
                     // of the generic type
@@ -59,7 +60,7 @@ namespace Parser.Parsers
                 return genericType;
             }
 
-            return new AST.Types.Type(token.Value);
+            return new TypeReferenceNode(token.Value);
         }
     }
 }

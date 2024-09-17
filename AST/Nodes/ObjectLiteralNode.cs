@@ -14,13 +14,13 @@ namespace AST.Nodes
         public INode? Parent { get; set; }
         public NodeType Type { get; set; }
         public INode Root => Utils.GetRoot(this);
-        public IType ObjectType { get; set; }
+        public INode ObjectType { get; set; }
         public List<Argument> Arguments { get; set; } = new List<Argument>();
 
         public ExpressionType ExpressionType => ExpressionType.ObjectLiteral;
-        public IType? ResultType => ObjectType;
+        public INode? ResultType => ObjectType;
 
-        public ObjectLiteralNode(IType objectType, INode? parent)
+        public ObjectLiteralNode(INode objectType, INode? parent)
         {
             Parent = parent;
             Type = NodeType.ObjectLiteral;
