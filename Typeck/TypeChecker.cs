@@ -133,7 +133,49 @@ namespace Typeck
 
         public void Visit(FuncNode node)
         {
-            throw new NotImplementedException();
+            // Check the parameters if they have a (known) type
+            foreach (var param in node.Parameters)
+            {
+                if (param.Type is TypeReferenceNode type)
+                {
+                    var actualType = CheckTypeReference(type);
+
+                    if (actualType != null)
+                    {
+                        param.Type = actualType;
+                    } else
+                    {
+                        param.Type = new TypeReferenceNode("None", node);
+                    }
+                }
+            }
+
+            // Check the return type
+            if (node.ReturnType is TypeReferenceNode returnType)
+            {
+                var actualType = CheckTypeReference(returnType);
+
+                if (actualType != null)
+                {
+                    node.ReturnType = actualType;
+                } 
+                else
+                {
+                    var memberAccess = new MemberAccessNode(new IdentifierNode("Builtins", node), new TypeReferenceNode("None", node), node);
+                    node.ReturnType = memberAccess;
+                }
+            } 
+            else
+            {
+                var memberAccess = new MemberAccessNode(new IdentifierNode("Builtins", node), new TypeReferenceNode("None", node), node);
+                node.ReturnType = memberAccess;
+            }
+
+            // Check the body
+            if (node.Body != null)
+            {
+                node.Body.Accept(this);
+            }
         }
 
         public void Visit(IdentifierNode node)
@@ -148,7 +190,29 @@ namespace Typeck
 
         public void Visit(InitNode node)
         {
-            throw new NotImplementedException();
+            // Check the parameters if they have a (known) type
+            foreach (var param in node.Parameters)
+            {
+                if (param.Type is TypeReferenceNode type)
+                {
+                    var actualType = CheckTypeReference(type);
+
+                    if (actualType != null)
+                    {
+                        param.Type = actualType;
+                    }
+                    else
+                    {
+                        param.Type = new TypeReferenceNode("None", node);
+                    }
+                }
+            }
+
+            // Check the body
+            if (node.Body != null)
+            {
+                node.Body.Accept(this);
+            }
         }
 
         public void Visit(LiteralNode node)
@@ -204,7 +268,10 @@ namespace Typeck
 
         public void Visit(StructNode node)
         {
-            throw new NotImplementedException();
+            if (node.Body != null)
+            {
+                node.Body.Accept(this);
+            }
         }
 
         public void Visit(TypeReferenceNode node)
@@ -219,7 +286,11 @@ namespace Typeck
 
         public void Visit(VariableNode node)
         {
-            throw new NotImplementedException();
+            if (node.TypeNode is TypeReferenceNode type)
+            {
+                var actualType = CheckTypeReference(type);
+                node.TypeNode = actualType;
+            }
         }
 
         // ---- Helper methods ----
