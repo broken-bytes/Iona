@@ -6,10 +6,17 @@ namespace Typeck
 {
     internal class Typeck : ITypeck
     {
+        private readonly SymbolTableConstructor _tableConstructor;
+        private readonly TypeChecker _typeChecker;
+
+        internal Typeck(SymbolTableConstructor tableConstructor, TypeChecker typeChecker)
+        {
+            _tableConstructor = tableConstructor;
+            _typeChecker = typeChecker;
+        }
+
         public SymbolTable BuildSymbolTable(INode node)
         {
-            var tableConstructor = new SymbolTableConstructor();
-
             SymbolTable table;
 
             // The root node shall be a file node, but we strip it and only add the module
@@ -19,13 +26,18 @@ namespace Typeck
                 return new SymbolTable();
             }
 
-            tableConstructor.ConstructSymbolTable(fileNode, out table);
+            _tableConstructor.ConstructSymbolTable(fileNode, out table);
 
             return table;
         }
 
         public void TypeCheck(INode node, SymbolTable table)
         {
+            if (node is FileNode fileNode)
+            {
+                _typeChecker.TypeCheckAST(ref fileNode, table);
+            }
+            return;
             // We need to check types for the following nodes:
             // - ClassNode (Generic args, Inheritance)
             // - ContractNode (Generic args, Inheritance)

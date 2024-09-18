@@ -4,7 +4,10 @@
     {
         public static ITypeck Create()
         {
-            return new Typeck();
+            var tableConstructor = new SymbolTableConstructor();
+            var typeChecker = new TypeChecker();
+
+            return new Typeck(tableConstructor, typeChecker);
         }
     }
 }
