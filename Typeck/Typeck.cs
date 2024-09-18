@@ -8,38 +8,18 @@ namespace Typeck
     {
         public SymbolTable BuildSymbolTable(INode node)
         {
-            var table = new SymbolTable();
+            var tableConstructor = new SymbolTableConstructor();
+
+            SymbolTable table;
 
             // The root node shall be a file node, but we strip it and only add the module
             if (node is not FileNode fileNode)
             {
                 // Panic
-                return table;
+                return new SymbolTable();
             }
 
-            // Ensure that the file node has a module
-            if (fileNode.Children.Count == 0)
-            {
-                // Panic
-                return table;
-            }
-
-            fileNode.Children.Insert(0, new ImportNode("Builtins", fileNode));
-
-            var moduleNode = fileNode.Children.Find(c => c is ModuleNode);
-
-            if (moduleNode == null)
-            {
-                // Panic
-                return table;
-            }
-
-            var module = CreateSymbol(moduleNode);
-
-            if (module is ModuleSymbol symbol)
-            {
-                table.Modules.Add(symbol);
-            }
+            tableConstructor.ConstructSymbolTable(fileNode, out table);
 
             return table;
         }
@@ -132,224 +112,6 @@ namespace Typeck
             table.Modules.Add(builtins);
         }
 
-        // ---- Symbol table ----
-        private ISymbol? CreateSymbol(INode node)
-        {
-            ISymbol? symbol = null;
-
-            if (node is ModuleNode)
-            {
-                symbol = CreateModuleSymbol(node);
-            }
-            else if (node.Type is NodeType.Declaration)
-            {
-                var statement = ((IStatementNode)node).StatementType;
-                switch (statement)
-                {
-                    case StatementType.FunctionDeclaration:
-                        symbol = CreateFunctionSymbol(node);
-                        break;
-                    case StatementType.ClassDeclaration:
-                    case StatementType.ContractDeclaration:
-                    case StatementType.EnumDeclaration:
-                    case StatementType.StructDeclaration:
-                        symbol = CreateTypeSymbol(node);
-                        break;
-                    case StatementType.PropertyDeclaration:
-                        symbol = CreatePropertySymbol(node);
-                        break;
-                    case StatementType.VariableDeclaration:
-                        symbol = CreateVariableSymbol(node);
-                        break;
-                }
-            }
-            else if (node is BlockNode)
-            {
-                symbol = CreateBlockSymbol(node);
-            }
-
-            return symbol;
-        }
-
-        private ISymbol CreateBlockSymbol(INode node)
-        {
-            var blockSymbol = new BlockSymbol();
-
-            var blockNode = (BlockNode)node;
-
-            foreach (var child in blockNode.Children)
-            {
-                var symbol = CreateSymbol(child);
-
-                if (symbol != null)
-                {
-                    ((ISymbol)blockSymbol).AddSymbol(symbol);
-                }
-            }
-
-            return blockSymbol;
-        }
-
-        private ModuleSymbol? CreateModuleSymbol(INode node)
-        {
-            if (node is ModuleNode moduleNode)
-            {
-                var moduleSymbol = new ModuleSymbol(moduleNode.Name);
-
-                foreach (var child in moduleNode.Children)
-                {
-                    var symbol = CreateSymbol(child);
-
-                    if (symbol != null)
-                    {
-                        ((ISymbol)moduleSymbol).AddSymbol(symbol);
-                    }
-                }
-
-                return moduleSymbol;
-            }
-
-            return null;
-        }
-
-        private FuncSymbol? CreateFunctionSymbol(INode node)
-        {
-            if (node.Type is NodeType.Declaration)
-            {
-                var statement = (IStatementNode)node;
-
-                if (statement.StatementType == StatementType.FunctionDeclaration)
-                {
-                    var functionNode = (FuncNode)node;
-
-                    var functionSymbol = new FuncSymbol(functionNode.Name);
-
-                    // Add the parameters
-                    foreach (var param in functionNode.Parameters)
-                    {
-                        functionSymbol.Parameters.Add(new TypeSymbol(param.Name, TypeKind.Unknown));
-                    }
-
-                    // Add the return type
-                    functionSymbol.ReturnType = new TypeSymbol("", TypeKind.Unknown);
-
-                    // Parse the body
-                    if (functionNode.Body != null)
-                    {
-                        foreach (var child in functionNode.Body.Children)
-                        {
-                            var symbol = CreateSymbol(child);
-
-                            if (symbol != null)
-                            {
-                                ((ISymbol)functionSymbol).AddSymbol(symbol);
-                            }
-                        }
-                    }
-
-                    return functionSymbol;
-                }
-            }
-
-            return null;
-        }
-
-        private TypeSymbol? CreateTypeSymbol(INode node)
-        {
-            TypeSymbol? type = null;
-
-            if (node.Type is NodeType.Declaration)
-            {
-                var statement = (IStatementNode)node;
-
-                if (statement.StatementType == StatementType.ClassDeclaration)
-                {
-                    var classNode = (ClassNode)node;
-                    type = new TypeSymbol(classNode.Name, TypeKind.Class);
-
-                    if (classNode.Body != null)
-                    {
-                        ((ISymbol)type).AddSymbol(CreateBlockSymbol(classNode.Body));
-                    }
-                }
-                else if (statement.StatementType == StatementType.ContractDeclaration)
-                {
-                    var contractNode = (ContractNode)node;
-                    type = new TypeSymbol(contractNode.Name, TypeKind.Contract);
-
-                    if (contractNode.Body != null)
-                    {
-                        ((ISymbol)type).AddSymbol(CreateBlockSymbol(contractNode.Body));
-                    }
-                }
-                else if (statement.StatementType == StatementType.EnumDeclaration)
-                {
-                    var enumNode = (EnumNode)node;
-                    type = new TypeSymbol(enumNode.Name, TypeKind.Enum);
-                }
-                else if (statement.StatementType == StatementType.StructDeclaration)
-                {
-                    var structNode = (StructNode)node;
-                    type = new TypeSymbol(structNode.Name, TypeKind.Struct);
-
-                    if (structNode.Body != null)
-                    {
-                        ((ISymbol)type).AddSymbol(CreateBlockSymbol(structNode.Body));
-                    }
-                }
-
-                // Sanity check, don't parse children if the type is null
-                if (type == null)
-                {
-                    return null;
-                }
-            }
-
-            return type;
-        }
-
-        private PropertySymbol? CreatePropertySymbol(INode node)
-        {
-            if (node.Type is NodeType.Declaration)
-            {
-                var statement = (IStatementNode)node;
-
-                if (statement.StatementType == StatementType.PropertyDeclaration)
-                {
-                    var propNode = (PropertyNode)node;
-
-                    var type = new TypeSymbol("", TypeKind.Unknown);
-
-                    var propSymbol = new PropertySymbol(propNode.Name, type);
-
-                    return propSymbol;
-                }
-            }
-
-            return null;
-        }
-
-        private VariableSymbol? CreateVariableSymbol(INode node)
-        {
-            if (node.Type is NodeType.Declaration)
-            {
-                var statement = (IStatementNode)node;
-
-                if (statement.StatementType == StatementType.VariableDeclaration)
-                {
-                    var variable = (VariableNode)node;
-
-                    var type = new TypeSymbol("", TypeKind.Unknown);
-
-                    var variableSymbol = new VariableSymbol(variable.Name, type);
-
-                    return variableSymbol;
-                }
-            }
-
-            return null;
-        }
-
         // ---- Type checking ----
         private void InferExpressionType(INode node, SymbolTable table)
         {
@@ -414,7 +176,7 @@ namespace Typeck
 
         private void TypeCheckProperty(PropertyNode node, SymbolTable table)
         {
-            if(node.TypeNode == null)
+            if (node.TypeNode == null)
             {
                 // Panic
                 return;
@@ -464,7 +226,7 @@ namespace Typeck
 
             // Now we know the reference to the type and what module we are in
             // - Check if the type is in the current module
-            if(moduleSymbol.Symbols.Find(s => s.Name == type.Name) != null)
+            if (moduleSymbol.Symbols.Find(s => s.Name == type.Name) != null)
             {
                 var moduleName = new IdentifierNode(moduleSymbol.Name, node);
                 var access = new MemberAccessNode(moduleName, type, node);
@@ -473,6 +235,7 @@ namespace Typeck
             }
             else
             {
+                var typeFoundInModules = new List<ModuleSymbol>();
                 // The type is not in the current module, check the imported modules
                 foreach (var import in ((FileNode)module.Root).Children.Where(child => child is ImportNode))
                 {
@@ -486,13 +249,23 @@ namespace Typeck
                         return null;
                     }
 
-                    if(importModule.Symbols.Find(s => s.Name == type.Name) != null)
+                    if (importModule.Symbols.Find(s => s.Name == type.Name) != null)
                     {
-                        var moduleName = new IdentifierNode(importModule.Name, node);
-                        var access = new MemberAccessNode(moduleName, type, node);
-
-                        return access;
+                        typeFoundInModules.Add(importModule);
                     }
+                }
+
+                if(typeFoundInModules.Count == 1)
+                {
+                    var moduleName = new IdentifierNode(typeFoundInModules[0].Name, node);
+                    var access = new MemberAccessNode(moduleName, type, node);
+
+                    return access;
+                }
+                else if(typeFoundInModules.Count > 1)
+                {
+                    var moduleString = string.Join(", ", typeFoundInModules.Select(m => m.Name));
+                    return new ErrorNode(0, 0, 0, "", $"Ambiguous type reference, {type.Name} found in multiple modules [{moduleString}]");
                 }
             }
 

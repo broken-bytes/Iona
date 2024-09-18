@@ -3,7 +3,7 @@
     public class PropertySymbol : ISymbol
     {
         public string Name { get; set; }
-        public TypeSymbol Type { get; }
+        public TypeSymbol Type { get; set; }
         public List<ISymbol> Symbols { get; set; }
         public SymbolKind Kind { get; set; } = SymbolKind.Property;
         public ISymbol? Parent { get; set; }

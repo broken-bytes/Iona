@@ -171,10 +171,16 @@ namespace ASTLogger
             if (node.Parameters.Count > 0)
             {
                 Log("- Parameters:");
+                _indentLevel++;
                 foreach (var parameter in node.Parameters)
                 {
-                    Log($"  - {parameter}");
+                    Log($"- Name: {parameter.Name}");
+                    Log("- Type:");
+                    _indentLevel++;
+                    GetAndLogNode(parameter.Type);
+                    _indentLevel--;
                 }
+                _indentLevel--;
             }
             if (node.ReturnType != null)
             {
