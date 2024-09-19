@@ -1,5 +1,6 @@
 ﻿using AST.Types;
 using AST.Visitors;
+using static AST.Nodes.INode;
 
 namespace AST.Nodes
 {
@@ -9,11 +10,11 @@ namespace AST.Nodes
         public NodeType Type { get; set; }
         public INode Root => Utils.GetRoot(this);
         public StatementType StatementType { get; set; }
-        public IExpressionNode Value { get; set; }
+        public IExpressionNode? Value { get; set; }
+        public Metadata Meta { get; set; }
 
-        public ReturnNode(IExpressionNode value, INode? parent = null)
+        public ReturnNode(INode? parent = null)
         {
-            Value = value;
             Parent = parent;
             Type = NodeType.Statement;
             StatementType = StatementType.ReturnStatement;

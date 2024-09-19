@@ -39,6 +39,7 @@ namespace ASTLogger
             Log("> ASSIGNMENT:");
             Log($" - Type: {node.AssignmentType}");
             Log("- Target:");
+            LogMeta(node);
 
             _indentLevel++;
             GetAndLogNode(node.Target);
@@ -55,6 +56,7 @@ namespace ASTLogger
         public void Visit(BinaryExpressionNode node)
         {
             Log("> BINARY EXPRESSION:");
+            LogMeta(node);
             Log($"- Operator: {node.Operation}");
             Log($"- Left: {node.Left}");
             Log($"- Right: {node.Right}");
@@ -64,6 +66,7 @@ namespace ASTLogger
         public void Visit(BlockNode node)
         {
             Log("> BLOCK:");
+            LogMeta(node);
 
             _indentLevel++;
 
@@ -80,6 +83,7 @@ namespace ASTLogger
         public void Visit(ClassNode node)
         {
             Log("> CLASS:");
+            LogMeta(node);
             Log($"- Name: {node.Name}");
             Log($"- Access Level: {node.AccessLevel}");
 
@@ -98,6 +102,7 @@ namespace ASTLogger
         public void Visit(ContractNode node)
         {
             Log("> CONTRACT:");
+            LogMeta(node);
             Log($"- Name: {node.Name}");
             Log($"- Access Level: {node.AccessLevel}");
 
@@ -119,6 +124,7 @@ namespace ASTLogger
         public void Visit(ErrorNode node)
         {
             Log("> ERROR:");
+            LogMeta(node);
             Log($"- Message: {node.Message}");
             Spacer();
         }
@@ -126,6 +132,7 @@ namespace ASTLogger
         public void Visit(FileNode node)
         {
             Log("> FILE:");
+            LogMeta(node);
             Log($"- Name: {node.Name}");
 
             _indentLevel++;
@@ -143,6 +150,7 @@ namespace ASTLogger
         public void Visit(FuncCallNode node)
         {
             Log("> FUNCTION CALL:");
+            LogMeta(node);
             Log($"- Name: {((IdentifierNode)node.Target).Name}");
 
             if (node.Args.Count > 0)
@@ -167,6 +175,7 @@ namespace ASTLogger
         public void Visit(FuncNode node)
         {
             Log("> FUNCTION:");
+            LogMeta(node);
             Log($"- Name: {node.Name}");
             if (node.Parameters.Count > 0)
             {
@@ -212,6 +221,8 @@ namespace ASTLogger
         public void Visit(IdentifierNode node)
         {
             Log("> IDENTIFIER:");
+            LogMeta(node);
+
             Log($"- Name: {node.Name}");
             Spacer();
         }
@@ -219,6 +230,8 @@ namespace ASTLogger
         public void Visit(ImportNode node)
         {
             Log("> IMPORT:");
+            LogMeta(node);
+
             Log($"- Name: {node.Name}");
             Spacer();
         }
@@ -226,6 +239,8 @@ namespace ASTLogger
         public void Visit(InitNode node)
         {
             Log("> INIT:");
+            LogMeta(node);
+
             Log($"- Name: {node.Name}");
             Log($"- Access Level: {node.AccessLevel}");
 
@@ -243,7 +258,9 @@ namespace ASTLogger
 
         public void Visit(LiteralNode node)
         {
-            Log("> LITERAL:");
+            Log("> LITERAL:"); 
+            LogMeta(node);
+
             Log($"- Value: {node.Value}");
             Spacer();
         }
@@ -251,6 +268,8 @@ namespace ASTLogger
         public void Visit(MemberAccessNode node)
         {
             Log("> MEMBER ACCESS:");
+            LogMeta(node);
+
             Log("- Target:");
 
             _indentLevel++;
@@ -269,6 +288,8 @@ namespace ASTLogger
         public void Visit(ModuleNode node)
         {
             Log("> MODULE:");
+            LogMeta(node);
+
             Log($"- Name: {node.Name}");
 
             _indentLevel++;
@@ -286,6 +307,8 @@ namespace ASTLogger
         public void Visit(ObjectLiteralNode node)
         {
             Log("> OBJECT LITERAL:");
+            LogMeta(node);
+
             Log($"- Type: {node.Type}");
 
             _indentLevel++;
@@ -306,6 +329,8 @@ namespace ASTLogger
         public void Visit(PropertyNode node)
         {
             Log("> PROPERTY:");
+            LogMeta(node);
+
             Log($"- Name: {node.Name}");
             Log($"- Access Level: {node.AccessLevel}");
             if (node.TypeNode != null)
@@ -330,6 +355,8 @@ namespace ASTLogger
         public void Visit(StructNode node)
         {
             Log("> STRUCT:");
+            LogMeta(node);
+
             Log($"- Name: {node.Name}");
             Log($"- Access Level: {node.AccessLevel}");
             if (node.Contracts.Count > 0)
@@ -358,6 +385,8 @@ namespace ASTLogger
         public void Visit(TypeReferenceNode node)
         {
             Log("> TYPE REFERENCE:");
+            LogMeta(node);
+
             Log($"- Name: {node.Name}");
             Spacer();
         }
@@ -365,6 +394,8 @@ namespace ASTLogger
         public void Visit(UnaryExpressionNode node)
         {
             Log("> UNARY EXPRESSION:");
+            LogMeta(node);
+
             Log($"- Operator: {node.Operation}");
             Log($"- Operand: {node.Operand}");
             Spacer();
@@ -373,6 +404,8 @@ namespace ASTLogger
         public void Visit(VariableNode node)
         {
             Log("> VARIABLE:");
+            LogMeta(node);
+
             Log($"- Name: {node.Name}");
             if (node.Value != null)
             {
@@ -482,6 +515,12 @@ namespace ASTLogger
             }
 
             Console.WriteLine(builder.ToString());
+        }
+
+        private void LogMeta(INode node)
+        {
+            var meta = node.Meta;
+            Log($"- Location: L[{meta.LineStart}-{meta.LineEnd}] C[{meta.ColumnStart}-{meta.ColumnEnd}]");
         }
     }
 }

@@ -1,5 +1,6 @@
 ﻿using AST.Types;
 using AST.Visitors;
+using static AST.Nodes.INode;
 
 namespace AST.Nodes
 {
@@ -11,6 +12,7 @@ namespace AST.Nodes
         public NodeKind Kind { get; set; }
         public INode ItemType { get; set; }
         public INode Root { get => Utils.GetRoot(this); }
+        public Metadata Meta { get; set; }
 
         public ArrayNode(
             string name,

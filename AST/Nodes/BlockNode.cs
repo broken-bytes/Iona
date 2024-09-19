@@ -1,5 +1,6 @@
 ﻿using AST.Types;
 using AST.Visitors;
+using static AST.Nodes.INode;
 
 namespace AST.Nodes
 {
@@ -9,6 +10,7 @@ namespace AST.Nodes
         public NodeType Type { get; set; }
         public List<INode> Children { get; set; } = new List<INode>();
         public INode Root => Utils.GetRoot(this);
+        public Metadata Meta { get; set; }
 
         public BlockNode(INode? parent)
         {

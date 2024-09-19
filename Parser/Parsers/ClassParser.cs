@@ -59,13 +59,21 @@ namespace Parser.Parsers
                 AccessLevel accessLevel = accessLevelParser.Parse(stream);
 
                 // Consume the class keyword
-                stream.Consume(TokenType.Class, TokenFamily.Keyword);
+                var token = stream.Consume(TokenType.Class, TokenFamily.Keyword);
 
                 // Consume the class name
                 var name = stream.Consume(TokenType.Identifier, TokenFamily.Keyword);
 
                 classNode = new ClassNode(name.Value, accessLevel, parent);
-                classNode.GenericArguments = genericArgsParser.Parse(stream);
+                classNode.GenericArguments = genericArgsParser.Parse(stream, classNode);
+
+                Utils.SetMeta(classNode, new List<Token> { token, name });
+
+                if(classNode.GenericArguments.Count > 0)
+                {
+                    // Increase the column end to include the generic arguments + 1 for the closing bracket
+                    Utils.SetColumnEnd(classNode, classNode.GenericArguments[classNode.GenericArguments.Count - 1].Meta.ColumnEnd + 1);
+                }
 
                 // Check if the class fulfills a contract
                 if (stream.Peek().Type == TokenType.Colon)
@@ -81,14 +89,18 @@ namespace Parser.Parsers
 
                         contract = typeParser.Parse(stream, classNode);
                         classNode.Contracts.Add(contract);
+                        Utils.SetColumnEnd(classNode, contract.Meta.ColumnEnd + 1);
                     }
+
+                    Utils.IncreaseColumn(classNode, 1);
                 }
 
                 // Consume the opening brace
-                stream.Consume(TokenType.CurlyLeft, TokenFamily.Keyword);
+                token = stream.Consume(TokenType.CurlyLeft, TokenFamily.Keyword);
                 classNode.Body = new BlockNode(classNode);
+                Utils.SetMeta(classNode.Body, new List<Token> { token });
 
-                var token = stream.Peek();
+                token = stream.Peek();
 
                 while (token.Type == TokenType.Linebreak)
                 {
@@ -111,13 +123,15 @@ namespace Parser.Parsers
                 }
 
                 // Consume the closing brace
-                stream.Consume(TokenType.CurlyRight, TokenFamily.Keyword);
+                token = stream.Consume(TokenType.CurlyRight, TokenFamily.Keyword);
+                Utils.SetEnd(classNode.Body, token);
             }
             catch (TokenStreamException exception)
             {
                 if (classNode == null)
                 {
                     classNode = new ClassNode("Error", AccessLevel.Internal);
+                    Utils.SetMeta(classNode, new List<Token> { exception.ErrorToken });
                 }
 
                 if (classNode.Body == null)
@@ -125,13 +139,13 @@ namespace Parser.Parsers
                     classNode.Body = new BlockNode(classNode);
                 }
 
-                classNode.Body.AddChild(new ErrorNode(
-                    exception.ErrorToken.Line,
-                    exception.ErrorToken.ColumnStart,
-                    exception.ErrorToken.ColumnEnd,
-                    exception.ErrorToken.File,
+                var errorNode = new ErrorNode(
                     exception.ErrorToken.Value
-                ));
+                );
+
+                Utils.SetMeta(errorNode, new List<Token> { exception.ErrorToken });
+
+                classNode.Body.AddChild(errorNode);
             }
 
             return classNode;

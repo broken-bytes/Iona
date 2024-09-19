@@ -1,4 +1,5 @@
 ﻿using AST.Types;
+using static AST.Nodes.INode;
 
 namespace AST.Nodes
 {
@@ -10,6 +11,7 @@ namespace AST.Nodes
         public List<INode> GenericArguments { get; set; } = new List<INode>();
         public INode? Parent { get; set; }
         public NodeType Type { get; set; }
+        public Metadata Meta { get; set; }
 
         public INode Root => throw new NotImplementedException();
 

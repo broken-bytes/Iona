@@ -1,5 +1,6 @@
 ﻿using AST.Types;
 using AST.Visitors;
+using static AST.Nodes.INode;
 
 namespace AST.Nodes
 {
@@ -10,6 +11,7 @@ namespace AST.Nodes
         public INode Root => Utils.GetRoot(this);
         public IExpressionNode Target { get; set; }
         public List<FuncCallArg> Args { get; set; } = new List<FuncCallArg>();
+        public Metadata Meta { get; set; }
 
         public FuncCallNode(IExpressionNode target, INode? parent = null)
         {

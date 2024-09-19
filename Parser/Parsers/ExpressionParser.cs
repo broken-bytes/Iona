@@ -85,13 +85,13 @@ namespace Parser.Parsers
             }
             catch (ParserException exception)
             {
-                return new ErrorNode(
-                    exception.Line,
-                    exception.StartColumn,
-                    exception.EndColumn,
-                    exception.File,
+                var error = new ErrorNode(
                     exception.Message
                 );
+
+                // TODO: Proper error metadata
+
+                return error;
             }
         }
 
@@ -111,12 +111,10 @@ namespace Parser.Parsers
             catch (ParserException exception)
             {
                 return new ErrorNode(
-                    exception.Line,
-                    exception.StartColumn,
-                    exception.EndColumn,
-                    exception.File,
                     exception.Message
                 );
+
+                // TODO: Proper error metadata
             }
         }
 
@@ -127,13 +125,11 @@ namespace Parser.Parsers
                 var errorToken = stream.Peek();
 
                 return new ErrorNode(
-                    errorToken.Line,
-                    errorToken.ColumnStart,
-                    errorToken.ColumnEnd,
-                    errorToken.File,
                     "Invalid object literal",
                     parent
                 );
+
+                // TODO: Proper error metadata
             }
 
 
@@ -186,12 +182,10 @@ namespace Parser.Parsers
             catch (ParserException exception)
             {
                 return new ErrorNode(
-                    exception.Line,
-                    exception.StartColumn,
-                    exception.EndColumn,
-                    exception.File,
                     exception.Message
                 );
+
+                // TODO: Proper error metadata
             }
         }
 
@@ -219,18 +213,25 @@ namespace Parser.Parsers
                         break;
                 }
 
-                return new LiteralNode(token.Value, type, parent);
+                var literal = new LiteralNode(token.Value, type, parent);
+                Utils.SetMeta(literal, token);
+
+                return literal;
             }
             else if (token.Family == TokenFamily.Identifier)
             {
                 var identifier = stream.Consume(TokenType.Identifier, TokenFamily.Identifier);
-                return new IdentifierNode(identifier.Value);
+                var identifierNode = new IdentifierNode(identifier.Value);
+                Utils.SetMeta(identifierNode, identifier);
+
+                return identifierNode;
             }
             else if (token.Type == TokenType.BracketLeft)
             {
                 // Could be an array literal
                 var array = new ArrayLiteralNode(parent);
                 stream.Consume(TokenType.BracketLeft, TokenFamily.Operator);
+                Utils.SetStart(array, token);
 
                 while (stream.Peek().Type != TokenType.BracketRight)
                 {
@@ -243,20 +244,19 @@ namespace Parser.Parsers
                     }
                 }
 
-                stream.Consume(TokenType.BracketRight, TokenFamily.Keyword);
+                token = stream.Consume(TokenType.BracketRight, TokenFamily.Keyword);
+                Utils.SetEnd(array, token);
 
                 return array;
             }
             else
             {
                 return new ErrorNode(
-                    token.Line,
-                    token.ColumnStart,
-                    token.ColumnEnd,
-                    token.File,
                     "Unexpected token in expression",
                     parent
                 );
+
+                // TODO: Proper error metadata
             }
         }
 

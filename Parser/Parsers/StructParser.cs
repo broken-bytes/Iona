@@ -65,7 +65,7 @@ namespace Parser.Parsers
                 var name = stream.Consume(TokenType.Identifier, TokenFamily.Keyword);
 
                 structNode = new StructNode(name.Value, accessLevel, parent);
-                structNode.GenericArguments = genericArgsParser.Parse(stream);
+                structNode.GenericArguments = genericArgsParser.Parse(stream, structNode);
 
                 // Check if the struct fulfills a contract
                 if (stream.Peek().Type == TokenType.Colon)
@@ -127,12 +127,10 @@ namespace Parser.Parsers
                 }
 
                 structNode.Body.AddChild(new ErrorNode(
-                    exception.ErrorToken.Line,
-                    exception.ErrorToken.ColumnStart,
-                    exception.ErrorToken.ColumnEnd,
-                    exception.ErrorToken.File,
                     exception.ErrorToken.Value
                 ));
+
+                // TODO: Proper error metadata
             }
 
             return structNode;

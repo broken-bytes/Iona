@@ -156,12 +156,10 @@ namespace Parser.Parsers
                     {
                         var error = stream.Consume(token.Type, TokenType.Linebreak);
                         var errorNode = new ErrorNode(
-                            error.Line,
-                            error.ColumnStart,
-                            error.ColumnEnd,
-                            error.File,
                             $"Unexpected token {token.Value} expected start of expression or statement"
                         );
+                        // TODO: Proper error metadata
+
                         func.Body.AddChild(errorNode);
                     }
 
@@ -189,12 +187,10 @@ namespace Parser.Parsers
                 }
 
                 func.Body.AddChild(new ErrorNode(
-                    exception.ErrorToken.Line,
-                    exception.ErrorToken.ColumnStart,
-                    exception.ErrorToken.ColumnEnd,
-                    exception.ErrorToken.File,
                     exception.ErrorToken.Value
                 ));
+
+                // TODO: Proper error metadata
             }
 
             return func;

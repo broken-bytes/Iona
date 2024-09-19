@@ -1,5 +1,6 @@
 ﻿using AST.Types;
 using AST.Visitors;
+using static AST.Nodes.INode;
 
 namespace AST.Nodes
 {
@@ -12,6 +13,7 @@ namespace AST.Nodes
         public ComparisonOperation Operation { get; set; }
         public ExpressionType ExpressionType { get; set; }
         public INode Root { get => Utils.GetRoot(this); }
+        public Metadata Meta { get; set; }
 
         public ComparisonExpressionNode(
             INode left,

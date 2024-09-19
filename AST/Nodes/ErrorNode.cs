@@ -1,5 +1,6 @@
 ﻿using AST.Types;
 using AST.Visitors;
+using static AST.Nodes.INode;
 
 namespace AST.Nodes
 {
@@ -13,16 +14,17 @@ namespace AST.Nodes
         public int EndColumn { get; set; }
         public string File { get; set; }
         public string Message { get; set; }
+        public Metadata Meta { get; set; }
 
 
-        public ErrorNode(int line, int startColumn, int endColumn, string file, string message, INode? parent = null)
+        public ErrorNode(string message, INode? parent = null)
         {
             Parent = parent;
             Type = NodeType.Error;
-            Line = line;
-            StartColumn = startColumn;
-            EndColumn = endColumn;
-            File = file;
+            Line = 0;
+            StartColumn = 0;
+            EndColumn = 0;
+            File = "";
             Message = message;
         }
 

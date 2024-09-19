@@ -1,5 +1,6 @@
 ﻿using AST.Types;
 using AST.Visitors;
+using static AST.Nodes.INode;
 
 namespace AST.Nodes
 {
@@ -11,6 +12,7 @@ namespace AST.Nodes
         public INode Root => Utils.GetRoot(this);
         public ExpressionType ExpressionType => ExpressionType.Literal;
         public INode? ResultType { get; set; }
+        public Metadata Meta { get; set; }
 
         public ArrayLiteralNode(INode? parent = null)
         {

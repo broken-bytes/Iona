@@ -1,5 +1,6 @@
 ﻿using AST.Types;
 using AST.Visitors;
+using static AST.Nodes.INode;
 
 namespace AST.Nodes
 {
@@ -12,6 +13,7 @@ namespace AST.Nodes
         public INode Member { get; set; }
         public ExpressionType ExpressionType => ExpressionType.MemberAccess;
         public INode? ResultType => null;
+        public Metadata Meta { get; set; }
 
         public MemberAccessNode(INode target, INode member, INode? parent)
         {

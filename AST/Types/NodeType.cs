@@ -9,6 +9,7 @@
         Deallocation,
         Declaration,
         Expression,
+        GenericType,
         Statement,
         NominalType,
         Import,

@@ -1,5 +1,6 @@
 ﻿using AST.Types;
 using AST.Visitors;
+using static AST.Nodes.INode;
 
 namespace AST.Nodes
 {
@@ -14,6 +15,7 @@ namespace AST.Nodes
         public List<INode> Contracts { get; set; } = new List<INode>();
         public List<GenericArgument> GenericArguments { get; set; } = new List<GenericArgument>();
         public BlockNode? Body { get; set; }
+        public Metadata Meta { get; set; }
 
         public ClassNode(string name, AccessLevel accessLevel, INode? parent = null)
         {

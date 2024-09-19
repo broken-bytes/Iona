@@ -153,7 +153,7 @@ namespace Lexer
             };
         }
 
-        internal static void UpdateToken(Token token, string file, int line, int start)
+        internal static void UpdateToken(ref Token token, string file, int line, int start)
         {
             token.File = file;
             token.Line = line;

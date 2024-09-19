@@ -59,8 +59,10 @@ namespace Parser.Parsers
                 AccessLevel accessLevel = accessLevelParser.Parse(stream);
                 bool isMutable = false;
 
+                var decl = stream.Peek();
+
                 // Consume the property keyword, can be either var or let
-                if (stream.Peek().Type == TokenType.Var)
+                if (decl.Type == TokenType.Var)
                 {
                     stream.Consume(TokenType.Var, TokenFamily.Keyword);
                     isMutable = true;
@@ -73,22 +75,27 @@ namespace Parser.Parsers
                 var name = stream.Consume(TokenType.Identifier, TokenFamily.Keyword);
 
                 property = new PropertyNode(name.Value, accessLevel, isMutable, null, null, parent);
+                Utils.SetStart(property, decl);
 
                 // Check if the property has a type
                 if (stream.Peek().Type == TokenType.Colon)
                 {
                     stream.Consume(TokenType.Colon, TokenFamily.Keyword);
                     // Consume the type identifier
+                    var typeToken = stream.Peek();
                     var type = typeParser.Parse(stream, property);
                     property.TypeNode = type;
                     type.Parent = property;
+
+                    Utils.SetEnd(property, typeToken);
                 }
 
                 // Parse the property value(if any)
                 if (stream.Peek().Type == TokenType.Assign)
                 {
-                    stream.Consume(TokenType.Assign, TokenFamily.Operator);
+                    var assignToken = stream.Consume(TokenType.Assign, TokenFamily.Operator);
                     property.Value = (IExpressionNode?)expressionParser.Parse(stream, property);
+                    Utils.SetStart(property, assignToken);
                 }
 
                 return property;
@@ -96,13 +103,11 @@ namespace Parser.Parsers
             catch (TokenStreamWrongTypeException exception)
             {
                 return new ErrorNode(
-                    exception.ErrorToken.Line,
-                    exception.ErrorToken.ColumnStart,
-                    exception.ErrorToken.ColumnEnd,
-                    exception.ErrorToken.File,
                     exception.ErrorToken.Value,
                     parent
                 );
+
+                // TODO: Proper error metadata
             }
         }
     }

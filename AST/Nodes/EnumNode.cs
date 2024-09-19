@@ -1,5 +1,6 @@
 ﻿using AST.Types;
 using AST.Visitors;
+using static AST.Nodes.INode;
 
 namespace AST.Nodes
 {
@@ -13,6 +14,7 @@ namespace AST.Nodes
         public StatementType StatementType { get; set; }
         public List<IdentifierNode> Contracts { get; set; }
         public BlockNode? Body { get; set; }
+        public Metadata Meta { get; set; }
 
         public EnumNode(string name, AccessLevel accessLevel, List<IdentifierNode> contracts, INode? parent)
         {

@@ -1,11 +1,12 @@
-﻿using AST.Types;
+﻿using AST.Nodes;
+using AST.Types;
 using Lexer.Tokens;
 
 namespace Parser.Parsers
 {
     internal class GenericArgsParser
     {
-        public List<GenericArgument> Parse(TokenStream stream)
+        public List<GenericArgument> Parse(TokenStream stream, INode? parent)
         {
             var args = new List<GenericArgument>();
 
@@ -19,7 +20,8 @@ namespace Parser.Parsers
             while (stream.Peek().Type != TokenType.Greater)
             {
                 var token = stream.Consume(TokenType.Identifier, TokenFamily.Keyword);
-                var arg = new GenericArgument { Name = token.Value };
+                var arg = new GenericArgument(token.Value, parent);
+                Utils.SetMeta(arg, token);
 
                 // Check if the generic argument has constraints
                 // TODO: Implement constraints

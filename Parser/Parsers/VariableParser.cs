@@ -58,13 +58,11 @@ namespace Parser.Parsers
             catch (ParserException exception)
             {
                 return new ErrorNode(
-                    exception.Line,
-                    exception.StartColumn,
-                    exception.EndColumn,
-                    exception.File,
                     exception.Message,
                     parent
                 );
+
+                // TODO: Proper error metadata
             }
         }
     }

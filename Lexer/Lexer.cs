@@ -16,6 +16,7 @@ namespace Lexer
         {
             var tokens = new List<Token>();
             int start = 0;
+            int column = 1;
             int currentLine = 1;
 
             while (start < code.Length)
@@ -24,6 +25,7 @@ namespace Lexer
 
                 int whitespaceCount = Utils.DropWhitespace(substring);
                 start += whitespaceCount;
+                column += whitespaceCount;
 
                 if (start >= code.Length)
                 {
@@ -35,6 +37,7 @@ namespace Lexer
                 if (newStart.HasValue)
                 {
                     start = newStart.Value;
+                    column = 1;
                     continue;
                 }
 
@@ -43,9 +46,17 @@ namespace Lexer
                 {
                     if (processor.Process(substring) is Token token)
                     {
-                        Utils.UpdateToken(token, fileName, currentLine, start + 1);
+                        Utils.UpdateToken(ref token, fileName, currentLine, column);
                         start += token.Value.Length;
+                        column += token.Value.Length;
                         tokens.Add(token);
+
+                        if(token.Type == TokenType.Linebreak)
+                        {
+                            currentLine++;
+                            column = 1;
+                        }
+
                         break;
                     }
                 }
@@ -54,7 +65,8 @@ namespace Lexer
                 if (start < code.Length && code[start] == '\n')
                 {
                     currentLine++;
-                    start = 0;
+                    start++;
+                    column = 1;
                     tokens.Add(Utils.MakeToken(TokenType.Linebreak, "\n"));
                 }
             }

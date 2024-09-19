@@ -1,5 +1,6 @@
 ﻿using AST.Types;
 using AST.Visitors;
+using static AST.Nodes.INode;
 
 namespace AST.Nodes
 {
@@ -14,6 +15,7 @@ namespace AST.Nodes
         public StatementType StatementType { get; set; }
         public INode? TypeNode { get; set; }
         public INode? Value { get; set; }
+        public Metadata Meta { get; set; }
 
         public VariableNode(string name, INode? parent = null)
         {

@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using static AST.Nodes.INode;
 
 namespace AST.Nodes
 {
@@ -15,6 +16,7 @@ namespace AST.Nodes
         public NodeType Type { get; set; }
         public INode Root => Utils.GetRoot(this);
         public StatementType StatementType { get; set; }
+        public Metadata Meta { get; set; }
 
         public ImportNode(string name, INode? parent)
         {

@@ -117,24 +117,32 @@ namespace Parser.Parsers
         {
             var target = stream.Consume(TokenFamily.Identifier, TokenFamily.Keyword);
             var identifierNode = new IdentifierNode(target.Value);
+            Utils.SetMeta(identifierNode, target);
 
             // Consume the assign operator
             var token = stream.Consume(TokenFamily.Operator, TokenFamily.Keyword);
 
             if (token.Type != TokenType.Assign)
             {
-                return new ErrorNode(token.Line, token.ColumnStart, token.ColumnEnd, token.File, "Invalid operator after identifier");
+                var error = new ErrorNode("Invalid operator after identifier");
+                Utils.SetMeta(error, token);
+
+                return error;
             }
 
             var value = expressionParser.Parse(stream, parent);
 
-            return new AssignmentNode(AST.Types.AssignmentType.Assign, identifierNode, value, parent);
+            var assign = new AssignmentNode(AST.Types.AssignmentType.Assign, identifierNode, value, parent);
+            Utils.SetMeta(assign, target);
+
+            return assign;
         }
 
         private INode ParseCompoundAssignment(TokenStream stream, INode? parent)
         {
             var target = stream.Consume(TokenFamily.Identifier, TokenFamily.Keyword);
             var identifierNode = new IdentifierNode(target.Value);
+            Utils.SetMeta(identifierNode, target);
 
             // Consume the compound operator
             var token = stream.Consume(TokenFamily.Operator, TokenFamily.Keyword);
@@ -144,21 +152,30 @@ namespace Parser.Parsers
 
             if(compoundOperation == null)
             {
-                return new ErrorNode(token.Line, token.ColumnStart, token.ColumnEnd, token.File, "Invalid operator after identifier");
+                var error = new ErrorNode("Invalid operator after identifier");
+                Utils.SetMeta(error, token);
+
+                return error;
             }
 
             var value = expressionParser.Parse(stream, parent);
 
-            return new AssignmentNode(compoundOperation.Value, identifierNode, value, parent);
+            var assignment = new AssignmentNode(compoundOperation.Value, identifierNode, value, parent);
+            Utils.SetMeta(assignment, target);
+
+            return assignment;
         }
 
         private INode ParseReturn(TokenStream stream, INode? parent)
         {
+            var token = stream.Consume(TokenType.Return, TokenFamily.Keyword);
 
-            stream.Consume(TokenType.Return, TokenFamily.Keyword);
+            var returnNode = new ReturnNode(parent);
+            Utils.SetMeta(returnNode, token);
+
             // Parse the return value
             var expression = (IExpressionNode)expressionParser.Parse(stream, parent);
-            var returnNode = new ReturnNode(expression);
+            returnNode.Value = expression;
 
             return returnNode;
         }
