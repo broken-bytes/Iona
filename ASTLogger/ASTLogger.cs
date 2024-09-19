@@ -110,10 +110,7 @@ namespace ASTLogger
 
             if (node.Body != null)
             {
-                foreach (var child in node.Body.Children)
-                {
-                    GetAndLogNode(child);
-                }
+                GetAndLogNode(node.Body);
             }
 
             _indentLevel--;

@@ -41,11 +41,12 @@ namespace Parser.Parsers
 
             try
             {
-                stream.Consume(TokenType.Module, TokenFamily.Keyword);
+                var token = stream.Consume(TokenType.Module, TokenFamily.Keyword);
 
                 module = new ModuleNode("", parent);
+                Utils.SetMeta(module, token);
 
-                var token = stream.Consume(TokenType.Identifier, TokenFamily.Identifier);
+                token = stream.Consume(TokenType.Identifier, TokenFamily.Identifier);
                 module.Name = token.Value;
 
                 token = stream.Peek();
@@ -55,6 +56,7 @@ namespace Parser.Parsers
                     stream.Consume(TokenType.Dot, TokenFamily.Keyword);
                     token = stream.Consume(TokenType.Identifier, TokenFamily.Keyword);
                     module.Name += token.Value;
+                    Utils.SetEnd(module, token);
                     token = stream.Peek();
                 }
 

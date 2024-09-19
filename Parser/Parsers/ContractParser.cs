@@ -65,7 +65,7 @@ namespace Parser.Parsers
                 var name = stream.Consume(TokenType.Identifier, TokenFamily.Keyword);
 
                 contract = new ContractNode(name.Value, accessLevel, parent);
-                Utils.SetStart(contract, token);
+                Utils.SetMeta(contract, token);
                 contract.GenericArguments = genericArgsParser.Parse(stream, contract);
 
                 if (contract.GenericArguments.Count > 0)
@@ -122,7 +122,7 @@ namespace Parser.Parsers
 
                 // Consume the closing brace
                 token = stream.Consume(TokenType.CurlyRight, TokenFamily.Keyword);
-                Utils.SetEnd(contract, token);
+                Utils.SetEnd(contract.Body, token);
             }
             catch (TokenStreamWrongTypeException exception)
             {
