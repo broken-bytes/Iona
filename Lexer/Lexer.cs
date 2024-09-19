@@ -54,7 +54,7 @@ namespace Lexer
                 if (start < code.Length && code[start] == '\n')
                 {
                     currentLine++;
-                    start++;
+                    start = 0;
                     tokens.Add(Utils.MakeToken(TokenType.Linebreak, "\n"));
                 }
             }
