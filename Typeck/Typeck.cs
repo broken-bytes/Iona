@@ -28,6 +28,9 @@ namespace Typeck
 
             _tableConstructor.ConstructSymbolTable(fileNode, out table);
 
+            // Add the builtins module to the imports of the file node
+            fileNode.Children.Insert(0, new ImportNode("Builtins", fileNode));
+
             return table;
         }
 

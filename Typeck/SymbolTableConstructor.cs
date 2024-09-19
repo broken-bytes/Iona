@@ -194,6 +194,11 @@ namespace Typeck
                 symbol.Parameters.Add(parameter);
             }
 
+            if(node.ReturnType is TypeReferenceNode returnType)
+            {
+                symbol.ReturnType = new TypeSymbol(returnType.Name, TypeKind.Unknown);
+            }
+
             AddSymbol(symbol);
 
             _currentSymbol = symbol;

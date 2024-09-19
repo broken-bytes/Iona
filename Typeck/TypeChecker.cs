@@ -1,6 +1,7 @@
 ﻿using AST.Nodes;
 using AST.Types;
 using AST.Visitors;
+using System.Reflection.PortableExecutable;
 using Typeck.Symbols;
 
 namespace Typeck
@@ -143,7 +144,8 @@ namespace Typeck
                     if (actualType != null)
                     {
                         param.Type = actualType;
-                    } else
+                    }
+                    else
                     {
                         param.Type = new TypeReferenceNode("None", node);
                     }
@@ -171,13 +173,13 @@ namespace Typeck
                 if (actualType != null)
                 {
                     node.ReturnType = actualType;
-                } 
+                }
                 else
                 {
                     var memberAccess = new MemberAccessNode(new IdentifierNode("Builtins", node), new TypeReferenceNode("None", node), node);
                     node.ReturnType = memberAccess;
                 }
-            } 
+            }
             else
             {
                 var memberAccess = new MemberAccessNode(new IdentifierNode("Builtins", node), new TypeReferenceNode("None", node), node);
@@ -272,7 +274,7 @@ namespace Typeck
 
         public void Visit(PropertyNode node)
         {
-            if (node.TypeNode is TypeReferenceNode type) 
+            if (node.TypeNode is TypeReferenceNode type)
             {
                 var actualType = CheckTypeReference(type);
                 node.TypeNode = actualType;
@@ -342,9 +344,46 @@ namespace Typeck
             }
 
             // Traverse the scopes
-            for(int x = 0; x < nodeOrder.Count; x++)
+            for (int x = 0; x < nodeOrder.Count; x++)
             {
-                // We need to match the symbol with the node, eventually finding out the type in question
+                // If the node is an member access, we need to check if the left side is a type in the current module, or a different module
+                // If it is a different module, we need to find the module in the symbol table and check if the right side is a type in that module
+                if (nodeOrder[x] is MemberAccessNode member)
+                {
+                    var left = currentSymbol.Symbols.Find(sym => sym is TypeSymbol && sym.Name == ((IdentifierNode)member.Root).Name);
+
+                    if (left != null)
+                    {
+                        Console.WriteLine(left);
+                    }
+                }
+                else if (nodeOrder[x] is TypeReferenceNode type)
+                {
+                    var symbol = currentSymbol.Symbols.Find(sym => sym is TypeSymbol && sym.Name == type.Name);
+
+                    if (symbol != null)
+                    {
+                        return type;
+                    }
+
+                    // If the type is not found in the current module, we need to check if we find it in an imported module
+                    foreach (var import in ((FileNode)module.Root).Children.OfType<ImportNode>().Select(import => import.Name))
+                    {
+                        var importedModule = _symbolTable.Modules.Find(mod => mod.Name == import);
+
+                        if (importedModule != null)
+                        {
+                            var importedSymbol = importedModule.Symbols.Find(sym => sym is TypeSymbol && sym.Name == type.Name);
+
+                            if (importedSymbol != null)
+                            {
+                                var memberAccess = new MemberAccessNode(new IdentifierNode(import, node), type, node);
+
+                                return memberAccess;
+                            }
+                        }
+                    }
+                }
             }
 
             return null;
