@@ -59,13 +59,20 @@ namespace Parser.Parsers
                 AccessLevel accessLevel = accessLevelParser.Parse(stream);
 
                 // Consume the contract keyword
-                stream.Consume(TokenType.Struct, TokenFamily.Keyword);
+                var token = stream.Consume(TokenType.Struct, TokenFamily.Keyword);
 
                 // Consume the contract name
                 var name = stream.Consume(TokenType.Identifier, TokenFamily.Keyword);
 
                 structNode = new StructNode(name.Value, accessLevel, parent);
+                Utils.SetStart(structNode, token);
+                Utils.SetEnd(structNode, name);
                 structNode.GenericArguments = genericArgsParser.Parse(stream, structNode);
+
+                if(structNode.GenericArguments.Count > 0)
+                {
+                    Utils.SetColumnEnd(structNode, structNode.GenericArguments[structNode.GenericArguments.Count - 1].Meta.ColumnEnd);
+                }
 
                 // Check if the struct fulfills a contract
                 if (stream.Peek().Type == TokenType.Colon)
@@ -85,10 +92,11 @@ namespace Parser.Parsers
                 }
 
                 // Consume the opening brace
-                stream.Consume(TokenType.CurlyLeft, TokenFamily.Keyword);
+                token = stream.Consume(TokenType.CurlyLeft, TokenFamily.Keyword);
                 structNode.Body = new BlockNode(structNode);
+                Utils.SetStart(structNode.Body, token);
 
-                var token = stream.Peek();
+                token = stream.Peek();
 
                 while (token.Type == TokenType.Linebreak)
                 {
@@ -112,7 +120,8 @@ namespace Parser.Parsers
                 }
 
                 // Consume the closing brace
-                stream.Consume(TokenType.CurlyRight, TokenFamily.Keyword);
+                token = stream.Consume(TokenType.CurlyRight, TokenFamily.Keyword);
+                Utils.SetEnd(structNode.Body, token);
             }
             catch (TokenStreamWrongTypeException exception)
             {

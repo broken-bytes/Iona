@@ -56,9 +56,10 @@ namespace Parser.Parsers
             var token = stream.Peek();
 
             // Consume the init keyword
-            stream.Consume(TokenType.Init, TokenFamily.Keyword);
+            token = stream.Consume(TokenType.Init, TokenFamily.Keyword);
 
             var init = new InitNode(accessLevel, parent);
+            Utils.SetStart(init, token);
 
             // Inits may omit the parentheses if they have no parameters
             if (stream.Peek().Type == TokenType.ParenLeft)
@@ -87,15 +88,20 @@ namespace Parser.Parsers
                     }
                 }
 
-                stream.Consume(TokenType.ParenRight, TokenFamily.Operator);
+                token = stream.Consume(TokenType.ParenRight, TokenFamily.Operator);
             }
 
-            if (stream.Peek().Type != TokenType.CurlyLeft)
+            Utils.SetEnd(init, token);
+
+            token = stream.Peek();
+
+            if (token.Type != TokenType.CurlyLeft)
             {
                 return init;
             }
 
             init.Body = new BlockNode(init);
+            Utils.SetStart(init.Body, token);
 
             // Consume the opening brace
             stream.Consume(TokenType.CurlyLeft, TokenFamily.Keyword);
@@ -116,6 +122,8 @@ namespace Parser.Parsers
             }
 
             stream.Consume(TokenType.CurlyRight, TokenFamily.Keyword);
+
+            Utils.SetEnd(init.Body, token);
 
             return init;
         }

@@ -59,14 +59,19 @@ namespace Parser.Parsers
                 AccessLevel accessLevel = accessLevelParser.Parse(stream);
 
                 // Consume the contract keyword
-                stream.Consume(TokenType.Contract, TokenFamily.Keyword);
+                var token = stream.Consume(TokenType.Contract, TokenFamily.Keyword);
 
                 // Consume the contract name
                 var name = stream.Consume(TokenType.Identifier, TokenFamily.Keyword);
 
                 contract = new ContractNode(name.Value, accessLevel, parent);
+                Utils.SetStart(contract, token);
                 contract.GenericArguments = genericArgsParser.Parse(stream, contract);
-                contract.Body = new BlockNode(contract);
+
+                if (contract.GenericArguments.Count > 0)
+                {
+                    Utils.SetColumnEnd(contract, contract.GenericArguments[contract.GenericArguments.Count - 1].Meta.ColumnEnd);
+                }
 
                 // Check if the struct fulfills a contract
                 if (stream.Peek().Type == TokenType.Colon)
@@ -83,12 +88,16 @@ namespace Parser.Parsers
                         refinement = typeParser.Parse(stream, contract);
                         contract.Refinements.Add(refinement);
                     }
+
+                    Utils.SetColumnEnd(contract, contract.Refinements[contract.Refinements.Count - 1].Meta.ColumnEnd);
                 }
 
                 // Consume the opening brace
-                stream.Consume(TokenType.CurlyLeft, TokenFamily.Keyword);
+                token = stream.Consume(TokenType.CurlyLeft, TokenFamily.Keyword);
+                contract.Body = new BlockNode(contract);
+                Utils.SetStart(contract.Body, token);
 
-                var token = stream.Peek();
+                token = stream.Peek();
 
                 while (token.Type == TokenType.Linebreak)
                 {
@@ -112,7 +121,8 @@ namespace Parser.Parsers
                 }
 
                 // Consume the closing brace
-                stream.Consume(TokenType.CurlyRight, TokenFamily.Keyword);
+                token = stream.Consume(TokenType.CurlyRight, TokenFamily.Keyword);
+                Utils.SetEnd(contract, token);
             }
             catch (TokenStreamWrongTypeException exception)
             {

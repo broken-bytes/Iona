@@ -95,7 +95,12 @@ namespace Parser.Parsers
                 {
                     var assignToken = stream.Consume(TokenType.Assign, TokenFamily.Operator);
                     property.Value = (IExpressionNode?)expressionParser.Parse(stream, property);
-                    Utils.SetStart(property, assignToken);
+
+                    if(property.Value != null)
+                    {
+                        property.Value.Parent = property;
+                        Utils.SetStart(property.Value, assignToken);
+                    }
                 }
 
                 return property;

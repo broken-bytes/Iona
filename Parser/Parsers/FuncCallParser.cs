@@ -59,7 +59,9 @@ namespace Parser.Parsers
 
                 var identifier = stream.Consume(TokenType.Identifier, TokenFamily.Keyword);
                 var identifierNode = new IdentifierNode(identifier.Value);
+                Utils.SetMeta(identifierNode, identifier);
                 var funcCall = new FuncCallNode(identifierNode, parent);
+                Utils.SetStart(funcCall, identifier);
 
                 stream.Consume(TokenType.ParenLeft, TokenFamily.Operator);
 
@@ -80,7 +82,8 @@ namespace Parser.Parsers
                     }
                 }
 
-                stream.Consume(TokenType.ParenRight, TokenFamily.Keyword);
+                token = stream.Consume(TokenType.ParenRight, TokenFamily.Keyword);
+                Utils.SetEnd(funcCall, token);
 
                 return funcCall;
             }

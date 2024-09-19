@@ -145,10 +145,6 @@ namespace Typeck
                     {
                         param.Type = actualType;
                     }
-                    else
-                    {
-                        param.Type = new TypeReferenceNode("None", node);
-                    }
                 }
                 else if (param.Type is MemberAccessNode memberAccess)
                 {
@@ -157,10 +153,6 @@ namespace Typeck
                     if (actualType != null)
                     {
                         param.Type = actualType;
-                    }
-                    else
-                    {
-                        param.Type = new TypeReferenceNode("None", node);
                     }
                 }
             }
@@ -174,16 +166,6 @@ namespace Typeck
                 {
                     node.ReturnType = actualType;
                 }
-                else
-                {
-                    var memberAccess = new MemberAccessNode(new IdentifierNode("Builtins", node), new TypeReferenceNode("None", node), node);
-                    node.ReturnType = memberAccess;
-                }
-            }
-            else
-            {
-                var memberAccess = new MemberAccessNode(new IdentifierNode("Builtins", node), new TypeReferenceNode("None", node), node);
-                node.ReturnType = memberAccess;
             }
 
             // Check the body
@@ -375,12 +357,16 @@ namespace Typeck
                         {
                             var importedSymbol = importedModule.Symbols.Find(sym => sym is TypeSymbol && sym.Name == type.Name);
 
-                            if (importedSymbol != null)
+                            if (importedSymbol == null)
                             {
-                                var memberAccess = new MemberAccessNode(new IdentifierNode(import, node), type, node);
+                                // Add an error to the node
+                                var errorNode = new ErrorNode($"Type {type.Name} not found. Are you missing an import?", type);
+                                errorNode.Parent = type.Parent;
 
-                                return memberAccess;
+                                return errorNode;
                             }
+
+                            return node;
                         }
                     }
                 }

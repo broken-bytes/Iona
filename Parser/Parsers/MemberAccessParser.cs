@@ -43,12 +43,15 @@ namespace Parser.Parsers
 
             var token = stream.Consume(TokenType.Identifier, TokenFamily.Keyword);
 
-            stream.Consume(TokenType.Dot, TokenFamily.Operator);
+            var dot = stream.Consume(TokenType.Dot, TokenFamily.Operator);
 
             var target = new IdentifierNode(token.Value, null);
+            Utils.SetMeta(target, token);
             var member = expressionParser.Parse(stream, null);
 
             var memberAccess = new MemberAccessNode(target, member, parent);
+            Utils.SetStart(memberAccess, token);
+            Utils.SetEnd(memberAccess, dot);
 
             token = stream.Peek();
 

@@ -133,6 +133,7 @@ namespace Parser.Parsers
             }
 
 
+            var typeName = stream.Peek();
             // Get the type of the object
             var objectType = typeParser.Parse(stream, null);
 
@@ -140,6 +141,7 @@ namespace Parser.Parsers
             var token = stream.Consume(TokenType.CurlyLeft, TokenFamily.Keyword);
 
             var objectLiteral = new ObjectLiteralNode(objectType, parent);
+            Utils.SetStart(objectLiteral, typeName);
 
             objectType.Parent = objectLiteral;
 
@@ -162,7 +164,8 @@ namespace Parser.Parsers
                 }
             }
 
-            stream.Consume(TokenType.CurlyRight, TokenFamily.Keyword);
+            token = stream.Consume(TokenType.CurlyRight, TokenFamily.Keyword);
+            Utils.SetEnd(objectLiteral, token);
 
             return objectLiteral;
         }

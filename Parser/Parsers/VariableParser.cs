@@ -20,6 +20,7 @@ namespace Parser.Parsers
         public INode Parse(TokenStream stream, INode? parent)
         {
             var token = stream.Peek();
+
             if (token.Type == TokenType.Var)
             {
                 stream.Consume(TokenType.Var, TokenFamily.Keyword);
@@ -34,6 +35,8 @@ namespace Parser.Parsers
                 var identifier = stream.Consume(TokenType.Identifier, TokenFamily.Identifier);
 
                 var varNode = new VariableNode(identifier.Value, parent);
+                Utils.SetStart(varNode, token);
+                Utils.SetEnd(varNode, identifier);
 
                 // Check if the variable has a type (next token is a colon)
                 token = stream.Peek();
@@ -42,6 +45,7 @@ namespace Parser.Parsers
                     stream.Consume(TokenType.Colon, TokenFamily.Keyword);
                     var type = stream.Consume(TokenType.Identifier, TokenFamily.Identifier);
                     varNode.TypeNode = new TypeReferenceNode(type.Value, varNode);
+                    Utils.SetEnd(varNode.TypeNode, type);
                 }
 
                 // Check if the variable has a value (next token is an equals sign)

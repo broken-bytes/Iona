@@ -17,18 +17,22 @@ namespace Parser.Parsers
 
             if (token.Type == TokenType.BracketLeft)
             {
-                stream.Consume(TokenType.BracketLeft, TokenFamily.Keyword);
+                token = stream.Consume(TokenType.BracketLeft, TokenFamily.Keyword);
 
                 // Parse the type of the array
                 INode arrayType = Parse(stream, parent);
 
-                stream.Consume(TokenType.BracketRight, TokenFamily.Keyword);
+                var end = stream.Consume(TokenType.BracketRight, TokenFamily.Keyword);
 
-                return new ArrayTypeReferenceNode(arrayType);
+                var arrayRef = new ArrayTypeReferenceNode(arrayType);
+                Utils.SetStart(arrayRef, token);
+                Utils.SetEnd(arrayRef, end);
+
+                return arrayRef;
             }
 
             // We need to be able to parse types and generics
-            token = stream.Consume(TokenType.Identifier, TokenFamily.Keyword);
+            var identifier = stream.Consume(TokenType.Identifier, TokenFamily.Keyword);
 
             // Check if the type is a generic
             if (stream.Peek().Type == TokenType.Less)
@@ -37,6 +41,7 @@ namespace Parser.Parsers
                 stream.Consume(TokenType.Less, TokenFamily.Operator);
 
                 var genericType = new GenericTypeReferenceNode(token.Value);
+                Utils.SetStart(genericType, token);
 
                 while (stream.Peek().Type != TokenType.Greater)
                 {
@@ -55,12 +60,17 @@ namespace Parser.Parsers
                     }
                 }
 
-                stream.Consume(TokenType.Greater, TokenFamily.Operator);
+                token = stream.Consume(TokenType.Greater, TokenFamily.Operator);
+                Utils.SetEnd(genericType, token);
 
                 return genericType;
             }
 
-            return new TypeReferenceNode(token.Value, parent);
+            var type = new TypeReferenceNode(token.Value, parent);
+            Utils.SetStart(type, token);
+            Utils.SetEnd(type, identifier);
+
+            return type;
         }
     }
 }

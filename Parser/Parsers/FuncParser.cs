@@ -46,7 +46,7 @@ namespace Parser.Parsers
             return false;
         }
 
-        public INode Parse(Lexer.Tokens.TokenStream stream, INode? parent)
+        public INode Parse(TokenStream stream, INode? parent)
         {
             if (expressionParser == null || statementParser == null)
             {
@@ -69,26 +69,27 @@ namespace Parser.Parsers
 
                 if (stream.Peek().Type == TokenType.Static)
                 {
-                    stream.Consume(Lexer.Tokens.TokenType.Static, Lexer.Tokens.TokenFamily.Keyword);
+                    stream.Consume(TokenType.Static, TokenFamily.Keyword);
                     isStatic = true;
                 }
 
                 // Funcs can be mutating or non-mutating
-                var token = stream.Peek();
+                var mut = stream.Peek();
 
-                if (token.Type == TokenType.Mutating)
+                if (mut.Type == TokenType.Mutating)
                 {
-                    stream.Consume(Lexer.Tokens.TokenType.Mutating, Lexer.Tokens.TokenFamily.Keyword);
+                    stream.Consume(TokenType.Mutating, TokenFamily.Keyword);
                     isMutating = true;
                 }
 
                 // Consume the func keyword
-                stream.Consume(TokenType.Fn, TokenFamily.Keyword);
+                var token = stream.Consume(TokenType.Fn, TokenFamily.Keyword);
 
                 // Consume the function name
                 var name = stream.Consume(TokenType.Identifier, TokenFamily.Keyword);
 
                 func = new FuncNode(name.Value, accessLevel, isMutating, isStatic, parent);
+                Utils.SetStart(func, isMutating ? mut : token);
 
                 // Parse the function parameters
                 stream.Consume(TokenType.ParenLeft, TokenFamily.Operator);
@@ -114,7 +115,8 @@ namespace Parser.Parsers
                     }
                 }
 
-                stream.Consume(TokenType.ParenRight, TokenFamily.Operator);
+                token = stream.Consume(TokenType.ParenRight, TokenFamily.Operator);
+                Utils.SetEnd(func, token);
 
                 // Check if the function has a return type
                 if (stream.Peek().Type == TokenType.Arrow)
@@ -122,14 +124,18 @@ namespace Parser.Parsers
                     stream.Consume(TokenType.Arrow, TokenType.CurlyLeft);
                     func.ReturnType = typeParser.Parse(stream, func);
                     func.ReturnType.Parent = func;
+                    Utils.SetColumnEnd(func, func.ReturnType.Meta.ColumnEnd);
                 }
 
-                if (stream.Peek().Type != TokenType.CurlyLeft)
+                token = stream.Peek();
+
+                if (token.Type != TokenType.CurlyLeft)
                 {
                     return func;
                 }
 
                 func.Body = new BlockNode(func);
+                Utils.SetStart(func.Body, token);
 
                 // Consume the opening brace
                 stream.Consume(TokenType.CurlyLeft, TokenFamily.Keyword);
@@ -172,7 +178,8 @@ namespace Parser.Parsers
                     }
                 }
 
-                stream.Consume(TokenType.CurlyRight, TokenFamily.Keyword);
+                token = stream.Consume(TokenType.CurlyRight, TokenFamily.Keyword);
+                Utils.SetEnd(func.Body, token);
             } 
             catch (TokenStreamException exception)
             {

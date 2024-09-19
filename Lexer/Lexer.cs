@@ -33,11 +33,12 @@ namespace Lexer
                 }
 
                 // Handle comments
-                int? newStart = HandleComments(substring, start);
-                if (newStart.HasValue)
+                var commentAfter = HandleComments(substring, start, currentLine);
+                if (commentAfter.HasValue)
                 {
-                    start = newStart.Value;
+                    start = commentAfter.Value.Item1;
                     column = 1;
+                    currentLine = commentAfter.Value.Item2;
                     continue;
                 }
 
@@ -77,7 +78,7 @@ namespace Lexer
             return new TokenStream(tokens);
         }
 
-        private int? HandleComments(string substring, int currentStart)
+        private (int, int)? HandleComments(string substring, int currentStart, int currentLine)
         {
             if (substring.StartsWith("//"))
             {
@@ -87,15 +88,28 @@ namespace Lexer
                 {
                     endOfLine = substring.Length;
                 }
-                return currentStart + endOfLine;
+                return (currentStart + endOfLine, currentLine);
             }
             else if (substring.StartsWith("/*"))
             {
+                var currLine = currentLine;
                 // Multi-line comment: find the closing "*/"
                 int endOfComment = substring.IndexOf("*/");
                 if (endOfComment != -1)
                 {
-                    return currentStart + endOfComment + 2; // +2 to include the "*/"
+                    var counter = 0;
+                    while (counter < endOfComment)
+                    {
+                        if (substring[counter] == '\n')
+                        {
+                            // We need to increase the line count for each line break in the comment
+                            currLine++;
+                        }
+                        counter++;
+                    }
+
+                    // We need to increase the line count for each line break in the comment
+                    return (currentStart + endOfComment + 2, currLine); // +2 to include the "*/"
                 }
                 else
                 {
