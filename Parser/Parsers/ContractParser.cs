@@ -73,14 +73,14 @@ namespace Parser.Parsers
                 {
                     stream.Consume(TokenType.Colon, TokenFamily.Operator);
 
-                    var refinement = typeParser.Parse(stream);
+                    var refinement = typeParser.Parse(stream, contract);
                     contract.Refinements.Add(refinement);
 
                     while (stream.Peek().Type != TokenType.CurlyLeft)
                     {
                         stream.Consume(TokenType.Comma, TokenFamily.Operator);
 
-                        refinement = typeParser.Parse(stream);
+                        refinement = typeParser.Parse(stream, contract);
                         contract.Refinements.Add(refinement);
                     }
                 }

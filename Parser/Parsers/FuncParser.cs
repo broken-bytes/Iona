@@ -102,7 +102,7 @@ namespace Parser.Parsers
                     stream.Consume(TokenType.Colon, TokenType.ParenRight);
 
                     // Parse the type of the parameter
-                    var paramType = typeParser.Parse(stream);
+                    var paramType = typeParser.Parse(stream, func);
 
                     // Add the parameter to the function
                     func.Parameters.Add(new Parameter { Name = paramName, Type = paramType });
@@ -120,7 +120,7 @@ namespace Parser.Parsers
                 if (stream.Peek().Type == TokenType.Arrow)
                 {
                     stream.Consume(TokenType.Arrow, TokenType.CurlyLeft);
-                    func.ReturnType = typeParser.Parse(stream);
+                    func.ReturnType = typeParser.Parse(stream, func);
                     func.ReturnType.Parent = func;
                 }
 

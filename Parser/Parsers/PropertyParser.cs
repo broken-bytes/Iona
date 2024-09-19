@@ -79,7 +79,7 @@ namespace Parser.Parsers
                 {
                     stream.Consume(TokenType.Colon, TokenFamily.Keyword);
                     // Consume the type identifier
-                    var type = typeParser.Parse(stream);
+                    var type = typeParser.Parse(stream, property);
                     property.TypeNode = type;
                     type.Parent = property;
                 }

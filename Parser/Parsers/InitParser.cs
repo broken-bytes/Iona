@@ -75,7 +75,7 @@ namespace Parser.Parsers
                     stream.Consume(TokenType.Colon, TokenType.ParenRight);
 
                     // Parse the type of the parameter
-                    var paramType = typeParser.Parse(stream);
+                    var paramType = typeParser.Parse(stream, init);
 
                     // Add the parameter to the function
                     init.Parameters.Add(new Parameter { Name = paramName, Type = paramType });

@@ -10,7 +10,7 @@ namespace Parser.Parsers
         {
         }
 
-        public INode Parse(TokenStream stream)
+        public INode Parse(TokenStream stream, INode? parent)
         {
             // The type may be an array type([T])
             var token = stream.Peek();
@@ -20,7 +20,7 @@ namespace Parser.Parsers
                 stream.Consume(TokenType.BracketLeft, TokenFamily.Keyword);
 
                 // Parse the type of the array
-                INode arrayType = Parse(stream);
+                INode arrayType = Parse(stream, parent);
 
                 stream.Consume(TokenType.BracketRight, TokenFamily.Keyword);
 
@@ -41,7 +41,7 @@ namespace Parser.Parsers
                 while (stream.Peek().Type != TokenType.Greater)
                 {
                     // Parse the generic argument
-                    INode genericArg = Parse(stream);
+                    INode genericArg = Parse(stream, parent);
 
                     // Add the generic argument to the list of generic arguments
                     // of the generic type
@@ -60,7 +60,7 @@ namespace Parser.Parsers
                 return genericType;
             }
 
-            return new TypeReferenceNode(token.Value);
+            return new TypeReferenceNode(token.Value, parent);
         }
     }
 }

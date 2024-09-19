@@ -148,6 +148,19 @@ namespace Typeck
                         param.Type = new TypeReferenceNode("None", node);
                     }
                 }
+                else if (param.Type is MemberAccessNode memberAccess)
+                {
+                    var actualType = CheckTypeReference(memberAccess);
+
+                    if (actualType != null)
+                    {
+                        param.Type = actualType;
+                    }
+                    else
+                    {
+                        param.Type = new TypeReferenceNode("None", node);
+                    }
+                }
             }
 
             // Check the return type
@@ -294,10 +307,45 @@ namespace Typeck
         }
 
         // ---- Helper methods ----
-        private INode? CheckTypeReference(TypeReferenceNode node)
+        private INode? CheckTypeReference(INode node)
         {
-            // Check if the type exists in the current module
-            var module = GetModuleForNode(node);
+            // We first need to find the scope this type reference is in(to find nested types, or the module)
+            var nodeOrder = new List<INode>();
+
+            INode current = node;
+
+            while (current.Parent != null)
+            {
+                nodeOrder.Add(current);
+                current = current.Parent;
+            }
+
+            // Reverse the list so we start at the root
+            nodeOrder.Reverse();
+
+            // Now get the first module in the list (each file can only have one module)
+            var module = (ModuleNode)nodeOrder[0];
+
+            if (module == null)
+            {
+                return null;
+            }
+
+            // Now we know the model and the scopes in correct order, we can traverse both the ast and the symbol table to find the type
+            INode? currentScope = module;
+            ISymbol? currentSymbol = _symbolTable.Modules.Find(mod => mod.Name == module.Name);
+
+            // Ensure the module is in the symbol table
+            if (currentSymbol == null)
+            {
+                return null;
+            }
+
+            // Traverse the scopes
+            for(int x = 0; x < nodeOrder.Count; x++)
+            {
+                // We need to match the symbol with the node, eventually finding out the type in question
+            }
 
             return null;
         }

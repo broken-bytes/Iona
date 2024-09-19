@@ -58,10 +58,10 @@ namespace Parser.Parsers
             {
                 AccessLevel accessLevel = accessLevelParser.Parse(stream);
 
-                // Consume the contract keyword
+                // Consume the class keyword
                 stream.Consume(TokenType.Class, TokenFamily.Keyword);
 
-                // Consume the contract name
+                // Consume the class name
                 var name = stream.Consume(TokenType.Identifier, TokenFamily.Keyword);
 
                 classNode = new ClassNode(name.Value, accessLevel, parent);
@@ -72,14 +72,14 @@ namespace Parser.Parsers
                 {
                     stream.Consume(TokenType.Colon, TokenFamily.Operator);
 
-                    var contract = typeParser.Parse(stream);
+                    var contract = typeParser.Parse(stream, classNode);
                     classNode.Contracts.Add(contract);
 
                     while (stream.Peek().Type != TokenType.CurlyLeft)
                     {
                         stream.Consume(TokenType.Comma, TokenFamily.Operator);
 
-                        contract = typeParser.Parse(stream);
+                        contract = typeParser.Parse(stream, classNode);
                         classNode.Contracts.Add(contract);
                     }
                 }

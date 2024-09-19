@@ -138,12 +138,14 @@ namespace Parser.Parsers
 
 
             // Get the type of the object
-            var objectType = typeParser.Parse(stream);
+            var objectType = typeParser.Parse(stream, null);
 
             // Parse the object literal
             var token = stream.Consume(TokenType.CurlyLeft, TokenFamily.Keyword);
 
             var objectLiteral = new ObjectLiteralNode(objectType, parent);
+
+            objectType.Parent = objectLiteral;
 
             // Parse the arguments
             while (token.Type != TokenType.CurlyRight)

@@ -72,14 +72,14 @@ namespace Parser.Parsers
                 {
                     stream.Consume(TokenType.Colon, TokenFamily.Operator);
 
-                    var contract = typeParser.Parse(stream);
+                    var contract = typeParser.Parse(stream, structNode);
                     structNode.Contracts.Add(contract);
 
                     while (stream.Peek().Type != TokenType.CurlyLeft)
                     {
                         stream.Consume(TokenType.Comma, TokenFamily.Operator);
 
-                        contract = typeParser.Parse(stream);
+                        contract = typeParser.Parse(stream, structNode);
                         structNode.Contracts.Add(contract);
                     }
                 }

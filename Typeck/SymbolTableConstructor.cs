@@ -6,6 +6,7 @@ using Typeck.Symbols;
 namespace Typeck
 {
     internal class SymbolTableConstructor :
+        IArrayVisitor,
         IAssignmentVisitor,
         IBlockVisitor,
         IBinaryExpressionVisitor,
@@ -43,6 +44,11 @@ namespace Typeck
             file.Accept(this);
         }
 
+        public void Visit(ArrayNode node)
+        {
+            throw new NotImplementedException();
+        }
+
         public void Visit(AssignmentNode node)
         {
             throw new NotImplementedException();
@@ -64,6 +70,9 @@ namespace Typeck
             {
                 switch (child)
                 {
+                    case ArrayNode array:
+                        array.Accept(this);
+                        break;
                     case BlockNode block:
                         block.Accept(this);
                         break;
