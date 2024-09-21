@@ -1,6 +1,7 @@
 ﻿using AST.Nodes;
 using AST.Types;
 using Lexer.Tokens;
+using System;
 
 namespace Parser.Parsers
 {
@@ -8,14 +9,17 @@ namespace Parser.Parsers
     {
         private StatementParser? statementParser;
         private readonly AccessLevelParser accessLevelParser;
+        private readonly BlockParser blockParser;
         private readonly TypeParser typeParser;
 
         internal InitParser(
             AccessLevelParser accessLevelParser,
+            BlockParser blockParser,
             TypeParser typeParser
         )
         {
             this.accessLevelParser = accessLevelParser;
+            this.blockParser = blockParser;
             this.typeParser = typeParser;
         }
 
@@ -52,11 +56,8 @@ namespace Parser.Parsers
             // Funcs have an access level
             var accessLevel = accessLevelParser.Parse(stream);
 
-            // Funcs can be mutating or non-mutating
-            var token = stream.Peek();
-
             // Consume the init keyword
-            token = stream.Consume(TokenType.Init, TokenFamily.Keyword);
+            var token = stream.Consume(TokenType.Init, TokenFamily.Keyword);
 
             var init = new InitNode(accessLevel, parent);
             Utils.SetStart(init, token);
@@ -99,31 +100,8 @@ namespace Parser.Parsers
             {
                 return init;
             }
-
-            init.Body = new BlockNode(init);
-            Utils.SetStart(init.Body, token);
-
-            // Consume the opening brace
-            stream.Consume(TokenType.CurlyLeft, TokenFamily.Keyword);
-
-            token = stream.Peek();
-
-            while (token.Type == TokenType.Linebreak)
-            {
-                stream.Consume(TokenType.Linebreak, TokenFamily.Keyword);
-                token = stream.Peek();
-            }
-
-            while (token.Type != TokenType.CurlyRight)
-            {
-                init.Body.AddChild(statementParser.Parse(stream, init.Body));
-
-                token = stream.Peek();
-            }
-
-            stream.Consume(TokenType.CurlyRight, TokenFamily.Keyword);
-
-            Utils.SetEnd(init.Body, token);
+            
+            init.Body = (BlockNode?)blockParser.Parse(stream, init);
 
             return init;
         }

@@ -123,7 +123,10 @@ namespace Lexer
             // Check if source is longer and the next character is an operator or whitespace
             if (source.StartsWith(target) &&
                 source.Length > target.Length &&
-                (IsOperator(source[target.Length]) || char.IsWhiteSpace(source[target.Length])))
+                (IsOperator(source[target.Length]) || 
+                char.IsWhiteSpace(source[target.Length]) ||
+                (IsGrouping(source[target.Length])))
+            )
             {
                 return true;
             }
@@ -133,9 +136,14 @@ namespace Lexer
 
         internal static bool IsOperator(char c)
         {
-            // Define your set of operators here
             char[] operators = { '+', '-', '*', '/', '%', '=', '<', '>', '!', '&', '|', '^', '~', '?', ':', '.', };
             return operators.Contains(c);
+        }
+
+        internal static bool IsGrouping(char c)
+        {
+            char[] groupings = { '(', ')', '[', ']', '{', '}', };
+            return groupings.Contains(c);
         }
 
         internal static Token MakeToken(TokenType tokenType, string value)

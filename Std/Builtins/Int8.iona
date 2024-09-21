@@ -1,0 +1,9 @@
+module Builtins
+
+public struct Int8 {
+    private var value: sbyte
+
+    public init(value: Integer) {
+        self.value = value
+    }
+}

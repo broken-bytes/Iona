@@ -28,8 +28,10 @@ namespace Typeck
 
             _tableConstructor.ConstructSymbolTable(fileNode, out table);
 
+#if !IONA_BOOTSTRAP
             // Add the builtins module to the imports of the file node
             fileNode.Children.Insert(0, new ImportNode("Builtins", fileNode));
+#endif
 
             return table;
         }
@@ -46,8 +48,6 @@ namespace Typeck
         {
             var mergedTable = new SymbolTable();
 
-            RegisterBuiltins(mergedTable);
-
             foreach (var table in tables)
             {
                 foreach (var module in table.Modules)
@@ -57,25 +57,6 @@ namespace Typeck
             }
 
             return mergedTable;
-        }
-
-        // ---- Helper methods ----
-        // ---- Type checking ----
-        private void RegisterBuiltins(SymbolTable table)
-        {
-            // Add the builtins to the global table (Int, Float, String, Bool)
-            var intType = new TypeSymbol("Int", TypeKind.Struct);
-            var floatType = new TypeSymbol("Float", TypeKind.Struct);
-            var stringType = new TypeSymbol("String", TypeKind.Class);
-            var boolType = new TypeSymbol("Bool", TypeKind.Struct);
-
-            var builtins = new ModuleSymbol("Builtins");
-            ((ISymbol)builtins).AddSymbol(intType);
-            ((ISymbol)builtins).AddSymbol(floatType);
-            ((ISymbol)builtins).AddSymbol(stringType);
-            ((ISymbol)builtins).AddSymbol(boolType);
-
-            table.Modules.Add(builtins);
         }
     }
 }

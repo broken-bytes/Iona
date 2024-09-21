@@ -1,0 +1,9 @@
+module Builtins
+
+public struct Int16 {
+    private var value: short
+
+    public init(value: Integer) {
+        self.value = value
+    }
+}

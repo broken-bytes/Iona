@@ -7,16 +7,19 @@ namespace Parser.Parsers
     public class FuncParser
     {
         private readonly AccessLevelParser accessLevelParser;
+        private readonly BlockParser blockParser;
         private readonly TypeParser typeParser;
         private ExpressionParser? expressionParser;
         private StatementParser? statementParser;
 
         internal FuncParser(
             AccessLevelParser accessLevelParser,
+            BlockParser blockParser,
             TypeParser typeParser
         )
         {
             this.accessLevelParser = accessLevelParser;
+            this.blockParser = blockParser;
             this.typeParser = typeParser;
         }
 
@@ -134,52 +137,7 @@ namespace Parser.Parsers
                     return func;
                 }
 
-                func.Body = new BlockNode(func);
-                Utils.SetStart(func.Body, token);
-
-                // Consume the opening brace
-                stream.Consume(TokenType.CurlyLeft, TokenFamily.Keyword);
-
-                token = stream.Peek();
-
-                while (token.Type == TokenType.Linebreak)
-                {
-                    stream.Consume(TokenType.Linebreak, TokenFamily.Keyword);
-                    token = stream.Peek();
-                }
-
-                while (token.Type != TokenType.CurlyRight)
-                {
-                    if (statementParser.IsStatement(stream))
-                    {
-                        func.Body.AddChild(statementParser.Parse(stream, func.Body));
-                    } 
-                    else if(expressionParser.IsExpression(stream))
-                    {
-                        func.Body.AddChild(expressionParser.Parse(stream, func.Body));
-                    } 
-                    else
-                    {
-                        var error = stream.Consume(token.Type, TokenType.Linebreak);
-                        var errorNode = new ErrorNode(
-                            $"Unexpected token {token.Value} expected start of expression or statement"
-                        );
-                        // TODO: Proper error metadata
-
-                        func.Body.AddChild(errorNode);
-                    }
-
-                    token = stream.Peek();
-
-                    while (token.Type == TokenType.Linebreak)
-                    {
-                        stream.Consume(TokenType.Linebreak, TokenFamily.Keyword);
-                        token = stream.Peek();
-                    }
-                }
-
-                token = stream.Consume(TokenType.CurlyRight, TokenFamily.Keyword);
-                Utils.SetEnd(func.Body, token);
+                func.Body = (BlockNode?)blockParser.Parse(stream, func);
             } 
             catch (TokenStreamException exception)
             {

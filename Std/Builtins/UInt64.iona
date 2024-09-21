@@ -1,0 +1,9 @@
+module Builtins
+
+public struct UInt64 {
+    private var value: ulong
+
+    public init(value: Integer) {
+        self.value = value
+    }
+}

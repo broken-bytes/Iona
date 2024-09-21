@@ -1,0 +1,9 @@
+module Builtins
+
+public struct Int {
+    private var value: nint
+
+    public init(value: Integer) {
+        self.value = value
+    }
+}

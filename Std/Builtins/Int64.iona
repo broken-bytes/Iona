@@ -1,0 +1,9 @@
+module Builtins
+
+public struct Int64 {
+    private var value: long
+
+    public init(value: Integer) {
+        self.value = value
+    }
+}

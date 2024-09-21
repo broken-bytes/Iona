@@ -1,0 +1,9 @@
+module Builtins
+
+public struct Double {
+    private var value: double
+
+    public init(value: FloatingPoint) {
+        self.value = value
+    }
+}

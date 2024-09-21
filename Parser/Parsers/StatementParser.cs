@@ -99,7 +99,12 @@ namespace Parser.Parsers
 
         public bool IsStatement(TokenStream stream)
         {
-            return IsCompoundAssignment(stream) || IsBasicAssignment(stream) || IsReturnStatement(stream) || IsVariable(stream) || IsProperty(stream);
+            return 
+                IsCompoundAssignment(stream) || 
+                IsBasicAssignment(stream) || 
+                IsReturnStatement(stream) || 
+                IsVariable(stream) || 
+                IsProperty(stream);
         }
 
         // ------------------- Helper methods -------------------

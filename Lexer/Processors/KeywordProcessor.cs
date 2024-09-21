@@ -39,6 +39,10 @@ namespace Lexer.Processors
             {
                 return Utils.MakeToken(TokenType.Fn, Keyword.Fn.AsString());
             }
+            else if (Utils.CheckMatchingSequence(source, Keyword.Init.AsString()))
+            {
+                return Utils.MakeToken(TokenType.Init, Keyword.Init.AsString());
+            }
             else if (Utils.CheckMatchingSequence(source, Keyword.Let.AsString()))
             {
                 return Utils.MakeToken(TokenType.Let, Keyword.Let.AsString());
@@ -74,10 +78,6 @@ namespace Lexer.Processors
             else if (Utils.CheckMatchingSequence(source, Keyword.Static.AsString()))
             {
                 return Utils.MakeToken(TokenType.Static, Keyword.Static.AsString());
-            }
-            else if (Utils.CheckMatchingSequence(source, Keyword.Init.AsString()))
-            {
-                return Utils.MakeToken(TokenType.Init, Keyword.Init.AsString());
             }
 
             return null;
