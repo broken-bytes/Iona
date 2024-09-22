@@ -3,6 +3,7 @@ using AST.Visitors;
 using Mono.Cecil.Cil;
 using Mono.Cecil;
 using Symbols;
+using Symbols.Symbols;
 
 namespace Generator
 {
@@ -61,7 +62,22 @@ namespace Generator
                         var property = currentType.Properties.FirstOrDefault(p => p.Name == member.Name);
 
                         // load the current instance (this)
-                        il.Emit(OpCodes.Ldarg_0); 
+                        il.Emit(OpCodes.Ldarg_0);
+
+                        // We need to check if the right hand side is a parameter or a local variable or a property
+                        var symbol = table.FindBy(right);
+
+                        // We traverse the hierarchy of the symbols in reverse order so we go one level up every time we don't find the symbol
+                        ISymbol? currentSymbol = symbol;
+                        ISymbol? foundSymbol = currentSymbol.LookupSymbol(right.Name);
+
+                        while (foundSymbol == null)
+                        {
+                            currentSymbol = currentSymbol?.Parent;
+                            foundSymbol = currentSymbol?.LookupSymbol(right.Name);
+                        }
+
+                        Console.WriteLine(foundSymbol);
                     }
                 }
             }

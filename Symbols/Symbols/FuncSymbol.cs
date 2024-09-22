@@ -4,7 +4,6 @@
     {
         public string Name { get; set; }
         public TypeSymbol ReturnType { get; set; }
-        public List<ParameterSymbol> Parameters { get; set; }
         public List<ISymbol> Symbols { get; set; }
         public SymbolKind Kind { get; set; } = SymbolKind.Function;
         public ISymbol? Parent { get; set; }
@@ -13,7 +12,6 @@
         {
             Name = name;
             ReturnType = new TypeSymbol("", TypeKind.Unknown);
-            Parameters = new List<ParameterSymbol>();
             Symbols = new List<ISymbol>();
         }
     }

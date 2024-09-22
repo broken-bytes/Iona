@@ -17,5 +17,21 @@ namespace AST.Nodes
         NodeType Type { get; set; }
         INode Root { get; }
         Metadata Meta { get; set; }
+
+        public List<INode> Hierarchy()
+        {
+            List<INode> nodeOrder = new List<INode>();
+            INode current = this;
+
+            while (current.Parent != null)
+            {
+                current = current.Parent;
+                nodeOrder.Add(current);
+            }
+
+            nodeOrder.Reverse();
+
+            return nodeOrder;
+        }
     }
 }

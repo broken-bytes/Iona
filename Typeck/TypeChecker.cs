@@ -293,21 +293,11 @@ namespace Typeck
         private INode? CheckTypeReference(INode node)
         {
             // We first need to find the scope this type reference is in(to find nested types, or the module)
-            var nodeOrder = new List<INode>();
-
-            INode current = node;
-
-            while (current.Parent != null)
-            {
-                nodeOrder.Add(current);
-                current = current.Parent;
-            }
-
-            // Reverse the list so we start at the root
-            nodeOrder.Reverse();
+            List<INode> nodeOrder = node.Hierarchy();
 
             // Now get the first module in the list (each file can only have one module)
-            var module = (ModuleNode)nodeOrder[0];
+            var file = (FileNode)nodeOrder[0];
+            var module = file.Children.OfType<ModuleNode>().FirstOrDefault();
 
             if (module == null)
             {
@@ -396,29 +386,6 @@ namespace Typeck
                 }
             }
 #endif
-            return null;
-        }
-
-        private ModuleNode? GetModuleForNode(INode node)
-        {
-            if (node is ModuleNode or FileNode)
-            {
-                return null;
-            }
-
-
-            INode current = node;
-
-            while (current.Parent != null)
-            {
-                if (current is ModuleNode module)
-                {
-                    return module;
-                }
-
-                current = current.Parent;
-            }
-
             return null;
         }
     }

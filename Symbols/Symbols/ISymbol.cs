@@ -12,5 +12,18 @@
             Symbols.Add(symbol);
             symbol.Parent = this;
         }
+
+        public ISymbol? LookupSymbol(string name)
+        {
+            foreach (var symbol in Symbols)
+            {
+                if (symbol.Name == name)
+                {
+                    return symbol;
+                }
+            }
+
+            return null;
+        }
     }
 }

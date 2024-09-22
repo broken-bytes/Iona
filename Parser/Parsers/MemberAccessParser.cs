@@ -38,7 +38,13 @@ namespace Parser.Parsers
             if (expressionParser == null || statementParser == null)
             {
                 var error = stream.Peek();
-                throw new ParserException(ParserExceptionCode.Unknown, error.Line, error.ColumnStart, error.ColumnEnd, error.File);
+                throw new ParserException(
+                    ParserExceptionCode.Unknown, 
+                    error.Line, 
+                    error.ColumnStart, 
+                    error.ColumnEnd, 
+                    error.File
+                );
             }
 
             if (!IsMemberAccess(stream))
@@ -51,7 +57,7 @@ namespace Parser.Parsers
 
             var dot = stream.Consume(TokenType.Dot, TokenFamily.Operator);
 
-            var target = new IdentifierNode(token.Value, null);
+            var target = new IdentifierNode(token.Value);
             Utils.SetMeta(target, token);
 
             if (statementParser.IsStatement(stream))
@@ -84,7 +90,7 @@ namespace Parser.Parsers
                     return ReorderStatement(target, statement);
                 }
 
-                var nextMember = expressionParser.Parse(stream, null);
+                var nextMember = expressionParser.Parse(stream, memberAccess);
 
                 memberAccess.Target = new MemberAccessNode(memberAccess.Target, nextMember, parent);
             }
@@ -99,6 +105,9 @@ namespace Parser.Parsers
             {
                 assignment.Parent = target.Parent;
                 assignment.Target = new MemberAccessNode(target, assignment.Target, assignment);
+
+                assignment.Target.Parent = assignment;
+                assignment.Value.Parent = assignment;
                 
                 return assignment;
             }

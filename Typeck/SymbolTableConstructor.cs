@@ -192,7 +192,7 @@ namespace Typeck
 
                 var paramType = new TypeSymbol(typeRef.Name, TypeKind.Unknown);
                 var parameter = new ParameterSymbol(param.Name, paramType);
-                symbol.Parameters.Add(parameter);
+                symbol.Symbols.Add(parameter);
             }
 
             if(node.ReturnType is TypeReferenceNode returnType)
@@ -239,7 +239,7 @@ namespace Typeck
 
                 var paramType = new TypeSymbol(typeRef.Name, TypeKind.Unknown);
                 var parameter = new ParameterSymbol(param.Name, paramType);
-                symbol.Parameters.Add(parameter);
+                symbol.Symbols.Add(parameter);
             }
 
             AddSymbol(symbol);
