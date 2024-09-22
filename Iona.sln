@@ -23,7 +23,9 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Generator", "Generator\Gene
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ASTLogger", "ASTLogger\ASTLogger.csproj", "{816D9CDA-93E6-4A67-88A4-026E8B8B1A7D}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Typeck", "Typeck\Typeck.csproj", "{FC041478-2FFD-4113-983E-502A3D1AFF40}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Typeck", "Typeck\Typeck.csproj", "{FC041478-2FFD-4113-983E-502A3D1AFF40}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Symbols", "Symbols\Symbols.csproj", "{67675345-4319-4429-AD93-DFA7D103C066}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -63,6 +65,10 @@ Global
 		{FC041478-2FFD-4113-983E-502A3D1AFF40}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{FC041478-2FFD-4113-983E-502A3D1AFF40}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{FC041478-2FFD-4113-983E-502A3D1AFF40}.Release|Any CPU.Build.0 = Release|Any CPU
+		{67675345-4319-4429-AD93-DFA7D103C066}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{67675345-4319-4429-AD93-DFA7D103C066}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{67675345-4319-4429-AD93-DFA7D103C066}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{67675345-4319-4429-AD93-DFA7D103C066}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

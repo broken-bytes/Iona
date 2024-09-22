@@ -1,6 +1,6 @@
-﻿namespace Typeck.Symbols
+﻿namespace Symbols.Symbols
 {
-    public class InitSymbol : ISymbol
+    public class FuncSymbol : ISymbol
     {
         public string Name { get; set; }
         public TypeSymbol ReturnType { get; set; }
@@ -9,7 +9,7 @@
         public SymbolKind Kind { get; set; } = SymbolKind.Function;
         public ISymbol? Parent { get; set; }
 
-        public InitSymbol(string name)
+        public FuncSymbol(string name)
         {
             Name = name;
             ReturnType = new TypeSymbol("", TypeKind.Unknown);

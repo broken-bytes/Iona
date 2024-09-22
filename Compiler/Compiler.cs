@@ -2,7 +2,8 @@
 using Lexer;
 using Parser;
 using Typeck;
-using Typeck.Symbols;
+using Symbols;
+using Symbols.Symbols;
 using AST.Nodes;
 using Generator;
 using System.Collections.Concurrent;
@@ -24,7 +25,7 @@ namespace Compiler
             this.generator = generator;
         }
 
-        public void Compile(List<CompilationUnit> files)
+        public void Compile(string assemblyName, List<CompilationUnit> files)
         {
             SymbolTable globalTable = new SymbolTable();
 
@@ -49,7 +50,11 @@ namespace Compiler
 
             Parallel.ForEach(asts, ast => logger.Log(ast));
 
-            Parallel.ForEach(asts, ast => generator.GenerateCIL(ast));
+            var assembly = generator.CreateAssembly(assemblyName, globalTable);
+
+            Parallel.ForEach(asts, ast => assembly.Generate(ast));
+
+            assembly.Build();
 
             // Generate code via the final AST
         }

@@ -1,8 +1,7 @@
 ﻿using AST.Nodes;
-using AST.Types;
 using AST.Visitors;
-using System.Reflection.PortableExecutable;
-using Typeck.Symbols;
+using Symbols;
+using Symbols.Symbols;
 
 namespace Typeck
 {
@@ -372,6 +371,31 @@ namespace Typeck
                 }
             }
 
+#if IONA_BOOTSTRAP
+            // Edge case for Bootstrap mode: CIL primitive types don't need to be in the symbol table
+            if (node is TypeReferenceNode typeNode)
+            {
+                switch (typeNode.Name)
+                {
+                    case "bool":
+                    case "byte":
+                    case "decimal":
+                    case "double":
+                    case "float":
+                    case "int":
+                    case "long":
+                    case "nint":
+                    case "nuint":
+                    case "sbyte":
+                    case "short":
+                    case "string":
+                    case "uint":
+                    case "ulong":
+                    case "ushort":
+                        return typeNode;
+                }
+            }
+#endif
             return null;
         }
 

@@ -1,5 +1,6 @@
 ﻿using AST.Nodes;
-using Typeck.Symbols;
+using Symbols;
+using Symbols.Symbols;
 
 namespace Typeck
 {

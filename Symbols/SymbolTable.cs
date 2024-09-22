@@ -1,4 +1,6 @@
-﻿namespace Typeck.Symbols
+﻿using Symbols.Symbols;
+
+namespace Symbols
 {
     public class SymbolTable
     {

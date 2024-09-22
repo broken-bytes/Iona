@@ -11,12 +11,14 @@ namespace AST.Nodes
         public NodeType Type { get; set; }
         public INode Root => Utils.GetRoot(this);
         public Metadata Meta { get; set; }
+        public string Module { get; set; }
 
         public TypeReferenceNode(string name, INode? parent = null)
         {
             Name = name;
             Parent = parent;
             Type = NodeType.TypeReference;
+            Module = "";
         }
 
         public void Accept(ITypeReferenceVisitor visitor)

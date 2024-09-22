@@ -1,7 +1,8 @@
 ﻿using AST.Nodes;
 using AST.Types;
 using AST.Visitors;
-using Typeck.Symbols;
+using Symbols;
+using Symbols.Symbols;
 
 namespace Typeck
 {

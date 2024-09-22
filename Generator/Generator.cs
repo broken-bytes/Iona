@@ -1,14 +1,17 @@
 ﻿using AST.Nodes;
+using AST.Visitors;
+using Mono.Cecil;
+using Mono.Cecil.Cil;
+using Symbols;
+using System;
 
 namespace Generator
 {
     public class Generator : IGenerator
     {
-        public string GenerateCIL(INode node)
+        public Assembly CreateAssembly(string name, SymbolTable table)
         {
-            Console.WriteLine("Generator - GenerateCIL: NOT IMPLEMENTED");
-            // TODO: Implement this method
-            return "";
+            return new Assembly(name, table);
         }
     }
 }

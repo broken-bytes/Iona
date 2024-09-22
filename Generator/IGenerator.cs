@@ -1,9 +1,10 @@
 ﻿using AST.Nodes;
+using Symbols;
 
 namespace Generator
 {
     public interface IGenerator
     {
-        public string GenerateCIL(INode node);
+        public Assembly CreateAssembly(string name, SymbolTable table);
     }
 }

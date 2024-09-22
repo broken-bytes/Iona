@@ -239,6 +239,20 @@ namespace ASTLogger
             LogMeta(node);
 
             Log($"- Name: {node.Name}");
+            if (node.Parameters.Count > 0)
+            {
+                Log("- Parameters:");
+                _indentLevel++;
+                foreach (var parameter in node.Parameters)
+                {
+                    Log($"- Name: {parameter.Name}");
+                    Log("- Type:");
+                    _indentLevel++;
+                    GetAndLogNode(parameter.Type);
+                    _indentLevel--;
+                }
+                _indentLevel--;
+            }
             Log($"- Access Level: {node.AccessLevel}");
 
             _indentLevel++;

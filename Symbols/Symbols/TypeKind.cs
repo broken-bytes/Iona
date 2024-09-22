@@ -1,4 +1,4 @@
-﻿namespace Typeck.Symbols
+﻿namespace Symbols.Symbols
 {
     public enum TypeKind
     {

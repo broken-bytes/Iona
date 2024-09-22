@@ -3,7 +3,7 @@ module Builtins
 public struct Int {
     private var value: nint
 
-    public init(value: Integer) {
+    public init(value: Int) {
         self.value = value
     }
 }
