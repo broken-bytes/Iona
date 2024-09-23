@@ -23,6 +23,7 @@ namespace ASTLogger
         IObjectLiteralVisitor,
         IOperatorVisitor,
         IPropertyVisitor,
+        IReturnVisitor,
         IStructVisitor,
         ITypeReferenceVisitor,
         IUnaryExpressionVisitor,
@@ -59,8 +60,14 @@ namespace ASTLogger
             Log("> BINARY EXPRESSION:");
             LogMeta(node);
             Log($"- Operator: {node.Operation}");
-            Log($"- Left: {node.Left}");
-            Log($"- Right: {node.Right}");
+            Log($"- Left:");
+            _indentLevel++;
+            GetAndLogNode(node.Left);
+            _indentLevel--;
+            Log($"- Right:");
+            _indentLevel++;
+            GetAndLogNode(node.Right);
+            _indentLevel--;
             Spacer();
         }
 
@@ -270,7 +277,7 @@ namespace ASTLogger
 
         public void Visit(LiteralNode node)
         {
-            Log("> LITERAL:"); 
+            Log("> LITERAL:");
             LogMeta(node);
 
             Log($"- Value: {node.Value}");
@@ -377,6 +384,22 @@ namespace ASTLogger
             {
                 Log("- Value: ");
 
+                _indentLevel++;
+                GetAndLogNode(node.Value);
+                _indentLevel--;
+            }
+
+            Spacer();
+        }
+
+        public void Visit(ReturnNode node)
+        {
+            Log("> RETURN:");
+            LogMeta(node);
+
+            if (node.Value != null)
+            {
+                Log("- Value:");
                 _indentLevel++;
                 GetAndLogNode(node.Value);
                 _indentLevel--;
@@ -507,6 +530,9 @@ namespace ASTLogger
                     break;
                 case PropertyNode propertyNode:
                     propertyNode.Accept(this);
+                    break;
+                case ReturnNode returnNode:
+                    returnNode.Accept(this);
                     break;
                 case StructNode structNode:
                     structNode.Accept(this);

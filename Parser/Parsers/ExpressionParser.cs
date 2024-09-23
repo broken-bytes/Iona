@@ -44,10 +44,6 @@ namespace Parser.Parsers
             {
                 return ParseObjectLiteral(stream, parent);
             }
-            else if(memberAccessParser.IsMemberAccess(stream))
-            {
-                return memberAccessParser.Parse(stream, parent);
-            }
 
             return ParsePrimaryExpression(stream, parent);
         }
@@ -196,6 +192,12 @@ namespace Parser.Parsers
         {
             // Check if literal or identifier
             var token = stream.Peek();
+
+            if (IsMemberAccess(stream))
+            {
+                return memberAccessParser.Parse(stream, parent);
+            }
+
             if (token.Family == TokenFamily.Literal)
             {
                 token = stream.Consume(TokenFamily.Literal, TokenFamily.Keyword);
@@ -323,11 +325,22 @@ namespace Parser.Parsers
             var tokens = stream.Peek(2);
 
             if (
-                (tokens[0].Family == TokenFamily.Identifier || tokens[0].Family == TokenFamily.Literal) &&
-                IsBinaryOperator(tokens[1])
+                (tokens[0].Family == TokenFamily.Identifier || tokens[0].Family == TokenFamily.Literal) 
+                && IsBinaryOperator(tokens[1])
             )
             {
                 return true;
+            }
+
+            // We might have a member access and need to fully parse it until we can determine if it's a binary expression
+            if(IsMemberAccess(stream))
+            {
+                var op = PeekTokenAfterMemberAccess(stream);
+
+                if(IsBinaryOperator(op))
+                {
+                    return true;
+                }
             }
 
             return false;
@@ -409,6 +422,21 @@ namespace Parser.Parsers
         private bool IsMemberAccess(TokenStream stream)
         {
             return memberAccessParser.IsMemberAccess(stream);
+        }
+
+        private Token PeekTokenAfterMemberAccess(TokenStream stream)
+        {
+            var tokens = stream.Peek(2);
+
+            var lastToken = tokens[1];
+
+            while (lastToken.Type is TokenType.Dot or TokenType.Identifier)
+            {
+                lastToken = tokens[tokens.Count - 1];
+                tokens = stream.Peek(tokens.Count + 1);
+            }
+
+            return lastToken;
         }
 
         private bool IsObjectLiteral(TokenStream stream)

@@ -60,10 +60,6 @@ namespace Parser.Parsers
                     {
                         block.AddChild(expressionParser.Parse(stream, block));
                     }
-                    else if (memberAccessParser.IsMemberAccess(stream))
-                    {
-                        block.AddChild(memberAccessParser.Parse(stream, block));
-                    }
                     else if (token.Type == TokenType.Linebreak)
                     {
                         stream.Consume(TokenType.Linebreak, TokenFamily.Keyword);

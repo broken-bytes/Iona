@@ -14,11 +14,13 @@ using FieldAttributes = Mono.Cecil.FieldAttributes;
 using TypeAttributes = Mono.Cecil.TypeAttributes;
 using System.Runtime.InteropServices;
 using MethodBody = Mono.Cecil.Cil.MethodBody;
+using System.Linq.Expressions;
 
 namespace Generator
 {
     public class AssemblyBuilder :
         IAssignmentVisitor,
+        IBinaryExpressionVisitor,
         IBlockVisitor,
         IIdentifierVisitor,
         IInitVisitor,
@@ -26,6 +28,7 @@ namespace Generator
         IModuleVisitor,
         IOperatorVisitor,
         IPropertyVisitor,
+        IReturnVisitor,
         IStructVisitor,
         ITypeReferenceVisitor
     {
@@ -102,7 +105,7 @@ namespace Generator
                         if (foundSymbol is ParameterSymbol parameter)
                         {
                             var index = parameter.Parent.Symbols.OfType<ParameterSymbol>().ToList().FindIndex(symbol => symbol.Name == parameter.Name);
-                            
+
                             // Increase the index by 1 if we are inside a method not a free function
                             if (!currentMethod.IsStatic)
                             {
@@ -136,6 +139,61 @@ namespace Generator
             }
         }
 
+        public void Visit(BinaryExpressionNode node)
+        {
+            if (assembly == null || currentMethod == null)
+            {
+                return;
+            }
+
+            var il = currentMethod.Body.GetILProcessor();
+
+            if (node.Left is IdentifierNode left)
+            {
+                EmitIdentifierReference(left);
+            }
+            else if (node.Left is MemberAccessNode memberAccess)
+            {
+                EmitMemberAccess(memberAccess);
+            }
+            else 
+            {
+                return;
+            }
+
+            switch (node.Operation)
+            {
+                case BinaryOperation.Add:
+                    il.Emit(OpCodes.Add);
+                    break;
+                case BinaryOperation.Subtract:
+                    il.Emit(OpCodes.Sub);
+                    break;
+                case BinaryOperation.Multiply:
+                    il.Emit(OpCodes.Mul);
+                    break;
+                case BinaryOperation.Divide:
+                    il.Emit(OpCodes.Div);
+                    break;
+                case BinaryOperation.Mod:
+                    il.Emit(OpCodes.Rem);
+                    break;
+            }
+
+            if (node.Right is IdentifierNode right)
+            {
+                EmitIdentifierReference(right);
+            }
+            else if (node.Right is MemberAccessNode memberAccess)
+            {
+                EmitMemberAccess(memberAccess);
+            }
+            else
+            {
+                return;
+            }
+        }
+
         public void Visit(BlockNode node)
         {
             foreach (var child in node.Children)
@@ -144,26 +202,30 @@ namespace Generator
                 {
                     property.Accept(this);
                 }
-
-                if (child is InitNode init)
+                else if (child is InitNode init)
                 {
                     init.Accept(this);
                 }
-
-                if (child is BlockNode block)
+                else if (child is BlockNode block)
                 {
                     block.Accept(this);
                 }
-
-                if (child is AssignmentNode assignment)
+                 else if (child is AssignmentNode assignment)
                 {
                     assignment.Accept(this);
                 }
-
-                if (child is OperatorNode op)
+                else if (child is OperatorNode op)
                 {
                     op.Accept(this);
-                } 
+                }
+                else if (child is BinaryExpressionNode binary)
+                {
+                    binary.Accept(this);
+                }
+                else if (child is ReturnNode ret)
+                {
+                    ret.Accept(this);
+                }
             }
         }
 
@@ -253,103 +315,103 @@ namespace Generator
 
         public void Visit(OperatorNode node)
         {
+            if (currentType == null)
+            {
+                return;
+            }
+
             // Get the type of the operator and generate the CIL operator overload
             var opType = node.Op;
+            // Get the return type of the operator
+            var returnType = (TypeReferenceNode)node.ReturnType;
+
+            // Get the reference to the return type
+            TypeReference? reference = null;
+
+            if (returnType == null)
+            {
+                return;
+            }
+
+            reference = new TypeReference(returnType.Module, returnType.Name, assembly.MainModule, assembly.MainModule);
+
+            MethodAttributes methodAttributes = MethodAttributes.Public | MethodAttributes.Static;
+
+            MethodDefinition? method = null;
 
             if (opType == OperatorType.Add)
             {
-                // Get the return type of the operator
-                var returnType = (TypeReferenceNode)node.ReturnType;
+                method = new MethodDefinition("op_Addition", methodAttributes, reference);
+            }
+            else if (opType == OperatorType.Subtract)
+            {
+                method = new MethodDefinition("op_Subtraction", methodAttributes, reference);
+            }
+            else if (opType == OperatorType.Multiply)
+            {
+                method = new MethodDefinition("op_Multiply", methodAttributes, reference);
+            }
+            else if (opType == OperatorType.Divide)
+            {
+                method = new MethodDefinition("op_Division", methodAttributes, reference);
+            }
+            else if (opType == OperatorType.Modulo)
+            {
+                method = new MethodDefinition("op_Modulus", methodAttributes, reference);
+            }
+            else if (opType == OperatorType.Equal)
+            {
+                method = new MethodDefinition("op_Equality", methodAttributes, assembly.MainModule.TypeSystem.Boolean);
+            }
+            else if (opType == OperatorType.NotEqual)
+            {
+                method = new MethodDefinition("op_Inequality", methodAttributes, assembly.MainModule.TypeSystem.Boolean);
+            }
+            else if (opType == OperatorType.GreaterThan)
+            {
+                method = new MethodDefinition("op_GreaterThan", methodAttributes, assembly.MainModule.TypeSystem.Boolean);
+            }
+            else if (opType == OperatorType.GreaterThanOrEqual)
+            {
+                method = new MethodDefinition("op_GreaterThanOrEqual", methodAttributes, assembly.MainModule.TypeSystem.Boolean);
+            }
+            else if (opType == OperatorType.LessThan)
+            {
+                method = new MethodDefinition("op_LessThan", methodAttributes, assembly.MainModule.TypeSystem.Boolean);
+            }
+            else if (opType == OperatorType.LessThanOrEqual)
+            {
+                method = new MethodDefinition("op_LessThanOrEqual", methodAttributes, assembly.MainModule.TypeSystem.Boolean);
+            }
 
-                // Get the reference to the return type
-                TypeReference? reference = null;
-                if (returnType == null)
+            if (method == null)
+            {
+                return;
+            }
+
+            // Add the parameters to the method
+            foreach (var param in node.Parameters)
+            {
+                var type = (TypeReferenceNode)param.Type;
+                TypeReference? paramReference = null;
+
+                if (type == null)
                 {
                     return;
                 }
 
-                reference = new TypeReference(returnType.Module, returnType.Name, assembly.MainModule, assembly.MainModule);
+                paramReference = new TypeReference(type.Module, type.Name, assembly.MainModule, assembly.MainModule);
 
-                MethodAttributes methodAttributes = MethodAttributes.Public | MethodAttributes.Static;
+                var def = new ParameterDefinition(param.Name, ParameterAttributes.None, paramReference);
+                method.Parameters.Add(def);
+            }
 
-                var addMethod = new MethodDefinition("op_Addition", methodAttributes, reference);
+            currentType.Methods.Add(method);
+            currentMethod = method;
 
-                // Add the parameters to the method
-                foreach (var param in node.Parameters)
-                {
-                    var type = (TypeReferenceNode)param.Type;
-                    TypeReference? paramReference = null;
-
-                    if (type == null)
-                    {
-                        return;
-                    }
-
-                    paramReference = new TypeReference(type.Module, type.Name, assembly.MainModule, assembly.MainModule);
-
-                    var def = new ParameterDefinition(param.Name, ParameterAttributes.None, paramReference);
-                    addMethod.Parameters.Add(def);
-                }
-
-                // Add a body to the method
-                addMethod.Body = new MethodBody(addMethod);
-
-                // Get the IL processor for the method
-                var il = addMethod.Body.GetILProcessor();
-                il.Emit(OpCodes.Ldarg_0);
-                il.Emit(OpCodes.Ldarg_1);
-
-                // Create the add operator overload
-                currentType?.Methods.Add(addMethod);
-            }
-            else if (opType == OperatorType.Subtract)
+            if (node.Body != null)
             {
-                // Subtract the two values on the stack
-                currentMethod?.Body.GetILProcessor().Emit(OpCodes.Sub);
-            }
-            else if (opType == OperatorType.Multiply)
-            {
-                // Multiply the two values on the stack
-                currentMethod?.Body.GetILProcessor().Emit(OpCodes.Mul);
-            }
-            else if (opType == OperatorType.Divide)
-            {
-                // Divide the two values on the stack
-                currentMethod?.Body.GetILProcessor().Emit(OpCodes.Div);
-            }
-            else if (opType == OperatorType.Modulo)
-            {
-                // Modulo the two values on the stack
-                currentMethod?.Body.GetILProcessor().Emit(OpCodes.Rem);
-            }
-            else if (opType == OperatorType.Equal)
-            {
-                // Check if the two values are equal
-                currentMethod?.Body.GetILProcessor().Emit(OpCodes.Ceq);
-            }
-            else if (opType == OperatorType.NotEqual)
-            {
-                // Check if the two values are not equal
-                currentMethod?.Body.GetILProcessor().Emit(OpCodes.Ceq);
-                currentMethod?.Body.GetILProcessor().Emit(OpCodes.Ldc_I4_0);
-                currentMethod?.Body.GetILProcessor().Emit(OpCodes.Ceq);
-            }
-            else if (opType == OperatorType.GreaterThan)
-            {
-                // Check if the first value is greater than the second
-                currentMethod?.Body.GetILProcessor().Emit(OpCodes.Cgt);
-            }
-            else if (opType == OperatorType.GreaterThanOrEqual)
-            {
-                // Check if the first value is greater than or equal to the second
-                currentMethod?.Body.GetILProcessor().Emit(OpCodes.Clt);
-                currentMethod?.Body.GetILProcessor().Emit(OpCodes.Ldc_I4_0);
-                currentMethod?.Body.GetILProcessor().Emit(OpCodes.Ceq);
-            }
-            else if (opType == OperatorType.LessThan)
-            {
-                // Check if the first value is less than the second
-                currentMethod?.Body.GetILProcessor().Emit(OpCodes.Clt);
+                node.Body.Accept(this);
             }
         }
 
@@ -486,6 +548,35 @@ namespace Generator
             currentType.Methods.Add(setter);
         }
 
+        public void Visit(ReturnNode node)
+        {
+            if (assembly == null || currentMethod == null)
+            {
+                return;
+            }
+
+            var il = currentMethod.Body.GetILProcessor();
+
+            if (node.Value is IdentifierNode identifier)
+            {
+                EmitIdentifierReference(identifier);
+            }
+            else if (node.Value is MemberAccessNode memberAccess)
+            {
+                EmitMemberAccess(memberAccess);
+            }
+            else if (node.Value is BinaryExpressionNode bin)
+            {
+                bin.Accept(this);
+            }
+            else
+            {
+                return;
+            }
+
+            il.Emit(OpCodes.Ret);
+        }
+
         public void Visit(StructNode node)
         {
             TypeAttributes typeAttributes = TypeAttributes.SequentialLayout;
@@ -506,9 +597,9 @@ namespace Generator
             // Load the system namespace
             // Manually construct the TypeReference for System.ValueType
             TypeReference valueTypeReference = new TypeReference(
-                "System", 
+                "System",
                 "ValueType",
-                assembly.MainModule, 
+                assembly.MainModule,
                 assembly.MainModule.TypeSystem.CoreLibrary
             );
 
@@ -531,6 +622,8 @@ namespace Generator
 
         }
 
+
+        // ---- Helper methods ----
         private void SetTypeLayout(TypeDefinition type, int size)
         {
             var structLayoutTypeReference = new TypeReference(
@@ -565,7 +658,7 @@ namespace Generator
 
             // Add the Size property (named value)
             var sizeProperty = new Mono.Cecil.CustomAttributeNamedArgument(
-                "Size", 
+                "Size",
                 new CustomAttributeArgument(assembly.MainModule.TypeSystem.Int32, size)
             );
             structLayoutAttribute.Properties.Add(sizeProperty);
@@ -577,9 +670,9 @@ namespace Generator
         private void AddFieldOffset(FieldDefinition field, int size)
         {
             var fieldOffsetTypeReference = new TypeReference(
-                "System.Runtime.InteropServices", 
+                "System.Runtime.InteropServices",
                 "FieldOffsetAttribute",
-                assembly.MainModule, 
+                assembly.MainModule,
                 assembly.MainModule.TypeSystem.CoreLibrary
             );
 
@@ -598,6 +691,61 @@ namespace Generator
             fieldOffsetAttribute.ConstructorArguments.Add(new CustomAttributeArgument(assembly.MainModule.TypeSystem.Int32, size));
 
             field.CustomAttributes.Add(fieldOffsetAttribute);
+        }
+
+        private void EmitIdentifierReference(IdentifierNode node)
+        {
+            if (currentMethod == null)
+            {
+                return;
+            }
+
+            var il = currentMethod.Body.GetILProcessor();
+
+            var symbol = table.FindBy(node);
+
+            if (symbol is VariableSymbol variable)
+            {
+                var index = variable.Parent.Symbols.OfType<VariableSymbol>().ToList().FindIndex(symbol => symbol.Name == variable.Name);
+
+                il.Emit(OpCodes.Ldloc, index);
+            }
+            else if (symbol is ParameterSymbol parameter)
+            {
+                var index = parameter.Parent.Symbols.OfType<ParameterSymbol>().ToList().FindIndex(symbol => symbol.Name == parameter.Name);
+
+                il.Emit(OpCodes.Ldarg, index);
+            }
+        }
+
+        private void EmitMemberAccess(MemberAccessNode node)
+        {
+            if (currentMethod == null)
+            {
+                return;
+            }
+
+            var il = currentMethod.Body.GetILProcessor();
+
+            if (node.Target is IdentifierNode target)
+            {
+                if (target.Name == "self")
+                {
+                    var symbol = table.FindBy(target);
+
+                    if (symbol is TypeSymbol structSymbol)
+                    {
+                        var memberIdentifier = ((IdentifierNode)node.Member).Name;
+
+                        var prop = structSymbol.Symbols.OfType<PropertySymbol>().FirstOrDefault(f => f.Name == memberIdentifier);
+
+                        if (prop != null)
+                        {
+                            // Get the property from the struct
+                        }
+                    }
+                }
+            }
         }
     }
 }

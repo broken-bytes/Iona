@@ -67,7 +67,9 @@ namespace Parser.Parsers
                 return ReorderStatement(target, statement);
             }
 
-            var member = expressionParser.Parse(stream, null);
+            var memberIdentifier = stream.Consume(TokenType.Identifier, TokenFamily.Keyword);
+
+            var member = new IdentifierNode(memberIdentifier.Value, null);
 
             var memberAccess = new MemberAccessNode(target, member, parent);
 
@@ -90,9 +92,13 @@ namespace Parser.Parsers
                     return ReorderStatement(target, statement);
                 }
 
-                var nextMember = expressionParser.Parse(stream, memberAccess);
+                var nextIdentifier = stream.Consume(TokenType.Identifier, TokenFamily.Keyword);
+                var next = new IdentifierNode(nextIdentifier.Value, null);
 
-                memberAccess.Target = new MemberAccessNode(memberAccess.Target, nextMember, parent);
+                memberAccess.Target = new MemberAccessNode(memberAccess.Target, next, parent);
+                memberAccess.Target.Parent = memberAccess;
+                memberAccess.Member.Parent = memberAccess;
+                Utils.SetStart(memberAccess, token);
             }
 
             return memberAccess;
