@@ -292,6 +292,33 @@ namespace Typeck
         // ---- Helper methods ----
         private INode? CheckTypeReference(INode node)
         {
+            if (node is not TypeReferenceNode typeNode)
+            {
+                return null;
+            }
+
+#if IONA_BOOTSTRAP
+            switch (typeNode.Name)
+            {
+                case "bool":
+                case "byte":
+                case "decimal":
+                case "double":
+                case "float":
+                case "int":
+                case "long":
+                case "nint":
+                case "nuint":
+                case "sbyte":
+                case "short":
+                case "string":
+                case "uint":
+                case "ulong":
+                case "ushort":
+                    return typeNode;
+            }
+#endif
+
             // We first need to find the scope this type reference is in(to find nested types, or the module)
             List<INode> nodeOrder = node.Hierarchy();
 
@@ -314,78 +341,14 @@ namespace Typeck
                 return null;
             }
 
-            // Traverse the scopes
-            for (int x = 0; x < nodeOrder.Count; x++)
+            var type = currentSymbol.Symbols.OfType<TypeSymbol>().FirstOrDefault(symbol => symbol.Name == typeNode.Name);
+
+            if (type != null)
             {
-                // If the node is an member access, we need to check if the left side is a type in the current module, or a different module
-                // If it is a different module, we need to find the module in the symbol table and check if the right side is a type in that module
-                if (nodeOrder[x] is MemberAccessNode member)
-                {
-                    var left = currentSymbol.Symbols.Find(sym => sym is TypeSymbol && sym.Name == ((IdentifierNode)member.Root).Name);
-
-                    if (left != null)
-                    {
-                        Console.WriteLine(left);
-                    }
-                }
-                else if (nodeOrder[x] is TypeReferenceNode type)
-                {
-                    var symbol = currentSymbol.Symbols.Find(sym => sym is TypeSymbol && sym.Name == type.Name);
-
-                    if (symbol != null)
-                    {
-                        return type;
-                    }
-
-                    // If the type is not found in the current module, we need to check if we find it in an imported module
-                    foreach (var import in ((FileNode)module.Root).Children.OfType<ImportNode>().Select(import => import.Name))
-                    {
-                        var importedModule = _symbolTable.Modules.Find(mod => mod.Name == import);
-
-                        if (importedModule != null)
-                        {
-                            var importedSymbol = importedModule.Symbols.Find(sym => sym is TypeSymbol && sym.Name == type.Name);
-
-                            if (importedSymbol == null)
-                            {
-                                // Add an error to the node
-                                var errorNode = new ErrorNode($"Type {type.Name} not found. Are you missing an import?", type);
-                                errorNode.Parent = type.Parent;
-
-                                return errorNode;
-                            }
-
-                            return node;
-                        }
-                    }
-                }
+                typeNode.Module = type.Parent.Name;
+                return typeNode;
             }
 
-#if IONA_BOOTSTRAP
-            // Edge case for Bootstrap mode: CIL primitive types don't need to be in the symbol table
-            if (node is TypeReferenceNode typeNode)
-            {
-                switch (typeNode.Name)
-                {
-                    case "bool":
-                    case "byte":
-                    case "decimal":
-                    case "double":
-                    case "float":
-                    case "int":
-                    case "long":
-                    case "nint":
-                    case "nuint":
-                    case "sbyte":
-                    case "short":
-                    case "string":
-                    case "uint":
-                    case "ulong":
-                    case "ushort":
-                        return typeNode;
-                }
-            }
-#endif
             return null;
         }
     }

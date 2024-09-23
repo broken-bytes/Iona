@@ -8,10 +8,11 @@
         public ISymbol? Parent { get; set; }
         public List<ISymbol> Symbols { get; set; } = new List<ISymbol>();
 
-        public ParameterSymbol(string name, TypeSymbol type)
+        public ParameterSymbol(string name, TypeSymbol type, ISymbol? parent)
         {
             Name = name;
             Type = type;
+            Parent = parent;
         }
     }
 }

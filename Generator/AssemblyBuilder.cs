@@ -48,6 +48,12 @@ namespace Generator
 
             var il = currentMethod.Body.GetILProcessor();
 
+            if (!currentMethod.IsStatic && !currentMethod.IsConstructor)
+            {
+                // Load the 'this' reference (the instance the method is called on)
+                il.Emit(OpCodes.Ldarg_0);
+            }
+
             if (node.Target is IdentifierNode left)
             {
 
@@ -77,7 +83,43 @@ namespace Generator
                             foundSymbol = currentSymbol?.LookupSymbol(right.Name);
                         }
 
-                        Console.WriteLine(foundSymbol);
+                        // There are three cases:
+                        // 1. The symbol is a parameter
+                        // 2. The symbol is a local variable
+                        // 3. The symbol is a property
+
+                        if (foundSymbol is ParameterSymbol parameter)
+                        {
+                            var index = parameter.Parent.Symbols.OfType<ParameterSymbol>().ToList().FindIndex(symbol => symbol.Name == parameter.Name);
+                            
+                            // Increase the index by 1 if we are inside a method not a free function
+                            if (!currentMethod.IsStatic)
+                            {
+                                index += 1;
+                            }
+
+                            il.Emit(OpCodes.Ldarg, index);
+
+                            il.Emit(OpCodes.Call, property.SetMethod);
+
+                        }
+                        else if (foundSymbol is VariableSymbol local)
+                        {
+                            il.Emit(OpCodes.Ldloc, local.Parent.Symbols.OfType<VariableSymbol>().ToList().FindIndex(symbol => symbol.Name == local.Name));
+                        }
+                        else if (foundSymbol is PropertySymbol propertySymbol)
+                        {
+                            // Load the property
+                            il.Emit(OpCodes.Call, property.GetMethod);
+
+                            var index = propertySymbol.Parent.Symbols.OfType<PropertySymbol>().ToList().FindIndex(symbol => symbol.Name == propertySymbol.Name);
+
+                            // Load the value
+                            il.Emit(OpCodes.Ldloc, index);
+
+                            // Set the value
+                            il.Emit(OpCodes.Callvirt, property.SetMethod);
+                        }
                     }
                 }
             }
@@ -152,7 +194,22 @@ namespace Generator
 
             var il = method.Body.GetILProcessor();
 
-            il.Append(il.Create(OpCodes.Ret));
+            // Add the parameters to the method
+            foreach (var parameter in node.Parameters)
+            {
+                var type = (TypeReferenceNode)parameter.Type;
+                TypeReference? reference = null;
+
+                if (type == null)
+                {
+                    return;
+                }
+
+                reference = new TypeReference(type.Module, type.Name, assembly.MainModule, assembly.MainModule.TypeSystem.CoreLibrary);
+
+                var def = new ParameterDefinition(parameter.Name, ParameterAttributes.None, reference);
+                method.Parameters.Add(def);
+            }
 
             currentMethod = method;
 
@@ -160,6 +217,8 @@ namespace Generator
             {
                 node.Body.Accept(this);
             }
+
+            il.Emit(OpCodes.Ret);
 
             currentType.Methods.Add(method);
         }
@@ -250,6 +309,57 @@ namespace Generator
             // Add the property to the current type
             var property = new PropertyDefinition(node.Name, PropertyAttributes.None, reference);
             currentType?.Properties.Add(property);
+
+            // Add a backing field for the property
+            var field = new FieldDefinition($"__{node.Name}__", FieldAttributes.Private, reference);
+            currentType.Fields.Add(field);
+
+            // Add the getter
+            var getter = new MethodDefinition($"get_{node.Name}",
+                MethodAttributes.Public | MethodAttributes.SpecialName | MethodAttributes.HideBySig,
+                reference);
+
+            currentType.Methods.Add(getter);
+
+            getter.HasThis = true;
+
+            var il = getter.Body.GetILProcessor();
+
+            il.Emit(OpCodes.Ldarg_0);
+
+            il.Emit(OpCodes.Ldfld, field);
+
+            // Return the loaded value
+            il.Emit(OpCodes.Ret);
+
+            property.GetMethod = getter;
+
+            // Add the setter
+            var setter = new MethodDefinition($"set_{node.Name}",
+                MethodAttributes.Public | MethodAttributes.SpecialName | MethodAttributes.HideBySig,
+                assembly.MainModule.TypeSystem.Void);
+
+            setter.HasThis = true;
+
+            setter.Parameters.Add(new ParameterDefinition("value", ParameterAttributes.None, reference));
+
+            il = setter.Body.GetILProcessor();
+
+            // Load the instance ('this' or 'self') onto the stack
+            il.Emit(OpCodes.Ldarg_0);
+
+            // Load the new value (the first argument to the setter) onto the stack
+            il.Emit(OpCodes.Ldarg_1);
+
+            // Store the new value into the backing field
+            il.Emit(OpCodes.Stfld, field);
+
+            // Return from the setter
+            il.Emit(OpCodes.Ret);
+
+            property.SetMethod = setter;
+
+            currentType.Methods.Add(setter);
         }
 
         public void Visit(StructNode node)

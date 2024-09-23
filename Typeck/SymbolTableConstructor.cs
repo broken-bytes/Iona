@@ -191,7 +191,7 @@ namespace Typeck
                 }
 
                 var paramType = new TypeSymbol(typeRef.Name, TypeKind.Unknown);
-                var parameter = new ParameterSymbol(param.Name, paramType);
+                var parameter = new ParameterSymbol(param.Name, paramType, symbol);
                 symbol.Symbols.Add(parameter);
             }
 
@@ -238,7 +238,7 @@ namespace Typeck
                 }
 
                 var paramType = new TypeSymbol(typeRef.Name, TypeKind.Unknown);
-                var parameter = new ParameterSymbol(param.Name, paramType);
+                var parameter = new ParameterSymbol(param.Name, paramType, symbol);
                 symbol.Symbols.Add(parameter);
             }
 
