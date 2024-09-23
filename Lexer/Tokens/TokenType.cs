@@ -47,6 +47,7 @@
         Init,
         Mutating,
         Of,
+        Op,
         Return,
         Throw,
         Throws,

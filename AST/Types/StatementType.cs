@@ -9,6 +9,7 @@
         FunctionDeclaration,
         InitDeclaration,
         ModuleDeclaration,
+        OperatorDeclaration,
         PropertyDeclaration,
         ReturnStatement,
         StructDeclaration,

@@ -12,6 +12,7 @@ namespace Parser.Parsers
         private readonly FuncParser funcParser;
         private readonly InitParser initParser;
         private readonly ModuleParser moduleParser;
+        private readonly OperatorParser operatorParser;
         private readonly PropertyParser propertyParser;
         private readonly StructParser structParser;
         private readonly VariableParser variableParser;
@@ -23,6 +24,7 @@ namespace Parser.Parsers
             FuncParser funcParser,
             InitParser initParser,
             ModuleParser moduleParser,
+            OperatorParser operatorParser,
             PropertyParser propertyParser,
             StructParser structParser,
             VariableParser variableParser
@@ -34,6 +36,7 @@ namespace Parser.Parsers
             this.funcParser = funcParser;
             this.initParser = initParser;
             this.moduleParser = moduleParser;
+            this.operatorParser = operatorParser;
             this.propertyParser = propertyParser;
             this.structParser = structParser;
             this.variableParser = variableParser;
@@ -77,6 +80,11 @@ namespace Parser.Parsers
             if (moduleParser.IsModule(stream))
             {
                 return moduleParser.Parse(stream, parent);
+            }
+
+            if (operatorParser.IsOperator(stream))
+            {
+                return operatorParser.Parse(stream, parent);
             }
 
             if (structParser.IsStruct(stream))

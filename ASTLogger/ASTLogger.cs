@@ -21,6 +21,7 @@ namespace ASTLogger
         IMemberAccessVisitor,
         IModuleVisitor,
         IObjectLiteralVisitor,
+        IOperatorVisitor,
         IPropertyVisitor,
         IStructVisitor,
         ITypeReferenceVisitor,
@@ -337,6 +338,27 @@ namespace ASTLogger
             Spacer();
         }
 
+        public void Visit(OperatorNode node)
+        {
+            Log("> OPERATOR:");
+            LogMeta(node);
+
+            Log($"- Operator: {node.Op}");
+            Log($"- Access Level: {node.AccessLevel}");
+            Log($"- Static: {node.IsStatic}");
+
+            _indentLevel++;
+
+            if (node.Body != null)
+            {
+                GetAndLogNode(node.Body);
+            }
+
+            _indentLevel--;
+
+            Spacer();
+        }
+
         public void Visit(PropertyNode node)
         {
             Log("> PROPERTY:");
@@ -479,6 +501,9 @@ namespace ASTLogger
                     break;
                 case ObjectLiteralNode objectLiteralNode:
                     objectLiteralNode.Accept(this);
+                    break;
+                case OperatorNode operatorNode:
+                    operatorNode.Accept(this);
                     break;
                 case PropertyNode propertyNode:
                     propertyNode.Accept(this);

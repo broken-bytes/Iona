@@ -2,6 +2,7 @@
 using AST.Visitors;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
+using Mono.Cecil.Rocks;
 using Symbols;
 
 namespace Generator
@@ -18,9 +19,14 @@ namespace Generator
             Name = name;
             this.table = table;
 
+            var mp = new ModuleParameters
+            {
+                Kind = ModuleKind.Dll
+            };
+
             // Create the assembly
             var assemblyName = new AssemblyNameDefinition(name, new Version(1, 0, 0, 0));
-            assembly = AssemblyDefinition.CreateAssembly(assemblyName, name, ModuleKind.Dll);
+            assembly = AssemblyDefinition.CreateAssembly(assemblyName, name, mp);
 
             builder = new AssemblyBuilder(assembly, table);
         }

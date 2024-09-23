@@ -1,9 +1,19 @@
 ﻿using AST.Nodes;
+using AST.Types;
 using AST.Visitors;
-using Mono.Cecil.Cil;
+using System;
 using Mono.Cecil;
+using Mono.Cecil.Cil;
 using Symbols;
 using Symbols.Symbols;
+using System.Reflection;
+using MethodAttributes = Mono.Cecil.MethodAttributes;
+using ParameterAttributes = Mono.Cecil.ParameterAttributes;
+using PropertyAttributes = Mono.Cecil.PropertyAttributes;
+using FieldAttributes = Mono.Cecil.FieldAttributes;
+using TypeAttributes = Mono.Cecil.TypeAttributes;
+using System.Runtime.InteropServices;
+using MethodBody = Mono.Cecil.Cil.MethodBody;
 
 namespace Generator
 {
@@ -14,6 +24,7 @@ namespace Generator
         IInitVisitor,
         IFileVisitor,
         IModuleVisitor,
+        IOperatorVisitor,
         IPropertyVisitor,
         IStructVisitor,
         ITypeReferenceVisitor
@@ -148,6 +159,11 @@ namespace Generator
                 {
                     assignment.Accept(this);
                 }
+
+                if (child is OperatorNode op)
+                {
+                    op.Accept(this);
+                } 
             }
         }
 
@@ -205,7 +221,7 @@ namespace Generator
                     return;
                 }
 
-                reference = new TypeReference(type.Module, type.Name, assembly.MainModule, assembly.MainModule.TypeSystem.CoreLibrary);
+                reference = new TypeReference(type.Module, type.Name, assembly.MainModule, assembly.MainModule);
 
                 var def = new ParameterDefinition(parameter.Name, ParameterAttributes.None, reference);
                 method.Parameters.Add(def);
@@ -232,6 +248,108 @@ namespace Generator
                 {
                     str.Accept(this);
                 }
+            }
+        }
+
+        public void Visit(OperatorNode node)
+        {
+            // Get the type of the operator and generate the CIL operator overload
+            var opType = node.Op;
+
+            if (opType == OperatorType.Add)
+            {
+                // Get the return type of the operator
+                var returnType = (TypeReferenceNode)node.ReturnType;
+
+                // Get the reference to the return type
+                TypeReference? reference = null;
+                if (returnType == null)
+                {
+                    return;
+                }
+
+                reference = new TypeReference(returnType.Module, returnType.Name, assembly.MainModule, assembly.MainModule);
+
+                MethodAttributes methodAttributes = MethodAttributes.Public | MethodAttributes.Static;
+
+                var addMethod = new MethodDefinition("op_Addition", methodAttributes, reference);
+
+                // Add the parameters to the method
+                foreach (var param in node.Parameters)
+                {
+                    var type = (TypeReferenceNode)param.Type;
+                    TypeReference? paramReference = null;
+
+                    if (type == null)
+                    {
+                        return;
+                    }
+
+                    paramReference = new TypeReference(type.Module, type.Name, assembly.MainModule, assembly.MainModule);
+
+                    var def = new ParameterDefinition(param.Name, ParameterAttributes.None, paramReference);
+                    addMethod.Parameters.Add(def);
+                }
+
+                // Add a body to the method
+                addMethod.Body = new MethodBody(addMethod);
+
+                // Get the IL processor for the method
+                var il = addMethod.Body.GetILProcessor();
+                il.Emit(OpCodes.Ldarg_0);
+                il.Emit(OpCodes.Ldarg_1);
+
+                // Create the add operator overload
+                currentType?.Methods.Add(addMethod);
+            }
+            else if (opType == OperatorType.Subtract)
+            {
+                // Subtract the two values on the stack
+                currentMethod?.Body.GetILProcessor().Emit(OpCodes.Sub);
+            }
+            else if (opType == OperatorType.Multiply)
+            {
+                // Multiply the two values on the stack
+                currentMethod?.Body.GetILProcessor().Emit(OpCodes.Mul);
+            }
+            else if (opType == OperatorType.Divide)
+            {
+                // Divide the two values on the stack
+                currentMethod?.Body.GetILProcessor().Emit(OpCodes.Div);
+            }
+            else if (opType == OperatorType.Modulo)
+            {
+                // Modulo the two values on the stack
+                currentMethod?.Body.GetILProcessor().Emit(OpCodes.Rem);
+            }
+            else if (opType == OperatorType.Equal)
+            {
+                // Check if the two values are equal
+                currentMethod?.Body.GetILProcessor().Emit(OpCodes.Ceq);
+            }
+            else if (opType == OperatorType.NotEqual)
+            {
+                // Check if the two values are not equal
+                currentMethod?.Body.GetILProcessor().Emit(OpCodes.Ceq);
+                currentMethod?.Body.GetILProcessor().Emit(OpCodes.Ldc_I4_0);
+                currentMethod?.Body.GetILProcessor().Emit(OpCodes.Ceq);
+            }
+            else if (opType == OperatorType.GreaterThan)
+            {
+                // Check if the first value is greater than the second
+                currentMethod?.Body.GetILProcessor().Emit(OpCodes.Cgt);
+            }
+            else if (opType == OperatorType.GreaterThanOrEqual)
+            {
+                // Check if the first value is greater than or equal to the second
+                currentMethod?.Body.GetILProcessor().Emit(OpCodes.Clt);
+                currentMethod?.Body.GetILProcessor().Emit(OpCodes.Ldc_I4_0);
+                currentMethod?.Body.GetILProcessor().Emit(OpCodes.Ceq);
+            }
+            else if (opType == OperatorType.LessThan)
+            {
+                // Check if the first value is less than the second
+                currentMethod?.Body.GetILProcessor().Emit(OpCodes.Clt);
             }
         }
 
@@ -299,12 +417,12 @@ namespace Generator
                     reference = assembly.MainModule.TypeSystem.UInt16;
                     break;
                 default:
-                    reference = new TypeReference(type.Module, type.Name, assembly.MainModule, assembly.MainModule.TypeSystem.CoreLibrary);
+                    reference = new TypeReference(type.Module, type.Name, assembly.MainModule, assembly.MainModule);
                     break;
             }
             // Check if the name of the type of the node is CIL type
 #else
-            reference = new TypeReference(type.Module, type.Name, assembly.MainModule, assembly.MainModule.TypeSystem.CoreLibrary);
+            reference = new TypeReference(type.Module, type.Name, assembly.MainModule, assembly.MainModule);
 #endif
             // Add the property to the current type
             var property = new PropertyDefinition(node.Name, PropertyAttributes.None, reference);
@@ -313,6 +431,12 @@ namespace Generator
             // Add a backing field for the property
             var field = new FieldDefinition($"__{node.Name}__", FieldAttributes.Private, reference);
             currentType.Fields.Add(field);
+
+            // WORKAROUND: Until Iona supports attributes, we hardcode the FieldOffset attribute if the type is (Int, Float etc.)
+            if (currentType.Name is "Int" or "Int8" or "Int16" or "Int32" or "Int64")
+            {
+                AddFieldOffset(field, 0);
+            }
 
             // Add the getter
             var getter = new MethodDefinition($"get_{node.Name}",
@@ -364,7 +488,7 @@ namespace Generator
 
         public void Visit(StructNode node)
         {
-            TypeAttributes typeAttributes = TypeAttributes.SequentialLayout | TypeAttributes.Sealed | TypeAttributes.BeforeFieldInit;
+            TypeAttributes typeAttributes = TypeAttributes.SequentialLayout;
 
             switch (node.AccessLevel)
             {
@@ -379,15 +503,19 @@ namespace Generator
                     break;
             }
 
-            var strct = new TypeDefinition(currentNamespace, node.Name, typeAttributes, assembly.MainModule.ImportReference(typeof(System.ValueType)));
+            // Load the system namespace
+            // Manually construct the TypeReference for System.ValueType
+            TypeReference valueTypeReference = new TypeReference(
+                "System", 
+                "ValueType",
+                assembly.MainModule, 
+                assembly.MainModule.TypeSystem.CoreLibrary
+            );
+
+            var strct = new TypeDefinition(currentNamespace, node.Name, typeAttributes, valueTypeReference);
             currentType = strct;
 
-            if (node.AccessLevel == AST.Types.AccessLevel.Public)
-            {
-                var exported = new CustomAttribute(assembly?.MainModule.ImportReference(typeof(System.Runtime.InteropServices.ComVisibleAttribute).GetConstructor(new[] { typeof(bool) })));
-                exported.ConstructorArguments.Add(new CustomAttributeArgument(assembly?.MainModule.TypeSystem.Boolean, true));
-                strct.CustomAttributes.Add(exported);
-            }
+            SetTypeLayout(strct, 1);
 
             // If the struct has a body, visit it
             if (node.Body != null)
@@ -401,6 +529,75 @@ namespace Generator
         public void Visit(TypeReferenceNode node)
         {
 
+        }
+
+        private void SetTypeLayout(TypeDefinition type, int size)
+        {
+            var structLayoutTypeReference = new TypeReference(
+                "System.Runtime.InteropServices",
+                "StructLayoutAttribute",
+                assembly.MainModule,
+                assembly.MainModule.TypeSystem.CoreLibrary
+            );
+
+            var layoutKindTypeReference = new TypeReference(
+                "System.Runtime.InteropServices",
+                "LayoutKind",
+                assembly.MainModule,
+                assembly.MainModule.TypeSystem.CoreLibrary
+            );
+
+            // Create a MethodReference for the constructor taking a LayoutKind argument
+            var structLayoutConstructor = new MethodReference(".ctor", assembly.MainModule.TypeSystem.Void, structLayoutTypeReference);
+            structLayoutConstructor.HasThis = true; // It's an instance method on the attribute
+            structLayoutConstructor.Parameters.Add(new ParameterDefinition(layoutKindTypeReference)); // Parameter type is LayoutKind
+
+            // Import the constructor reference
+            var importedStructLayoutConstructor = assembly.MainModule.ImportReference(structLayoutConstructor);
+
+            // Create the custom attribute
+            var structLayoutAttribute = new CustomAttribute(importedStructLayoutConstructor);
+
+            // Add the LayoutKind.Sequential value as a constructor argument
+            structLayoutAttribute.ConstructorArguments.Add(
+                new CustomAttributeArgument(layoutKindTypeReference, (int)LayoutKind.Sequential)
+            );
+
+            // Add the Size property (named value)
+            var sizeProperty = new Mono.Cecil.CustomAttributeNamedArgument(
+                "Size", 
+                new CustomAttributeArgument(assembly.MainModule.TypeSystem.Int32, size)
+            );
+            structLayoutAttribute.Properties.Add(sizeProperty);
+
+            // Add the custom attribute to the struct
+            type.CustomAttributes.Add(structLayoutAttribute);
+        }
+
+        private void AddFieldOffset(FieldDefinition field, int size)
+        {
+            var fieldOffsetTypeReference = new TypeReference(
+                "System.Runtime.InteropServices", 
+                "FieldOffsetAttribute",
+                assembly.MainModule, 
+                assembly.MainModule.TypeSystem.CoreLibrary
+            );
+
+            // Create a MethodReference for the constructor taking an int argument
+            var fieldOffsetConstructor = new MethodReference(".ctor", assembly.MainModule.TypeSystem.Void, fieldOffsetTypeReference);
+            fieldOffsetConstructor.HasThis = true; // It's an instance method on the attribute
+            fieldOffsetConstructor.Parameters.Add(new ParameterDefinition(assembly.MainModule.TypeSystem.Int32)); // Parameter type is int
+
+            // Import the constructor reference
+            var importedFieldOffsetConstructor = assembly.MainModule.ImportReference(fieldOffsetConstructor);
+
+            // Create the custom attribute
+            var fieldOffsetAttribute = new CustomAttribute(importedFieldOffsetConstructor);
+
+            // Add the offset value (0) as a constructor argument
+            fieldOffsetAttribute.ConstructorArguments.Add(new CustomAttributeArgument(assembly.MainModule.TypeSystem.Int32, size));
+
+            field.CustomAttributes.Add(fieldOffsetAttribute);
         }
     }
 }

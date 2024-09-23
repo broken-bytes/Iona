@@ -6,4 +6,12 @@ public struct Int {
     public init(value: Int) {
         self.value = value
     }
+
+    public init() {
+        self.value = 0
+    }
+
+    public op +(left: Int, right: Int) -> Int {
+        //return self.value += other.value
+    }
 }

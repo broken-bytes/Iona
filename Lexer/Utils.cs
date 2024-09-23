@@ -211,6 +211,7 @@ namespace Lexer
                 case Keyword.Module: return "module";
                 case Keyword.Mut: return "mut";
                 case Keyword.Null: return "null";
+                case Keyword.Op: return "op";
                 case Keyword.Open: return "open";
                 case Keyword.Private: return "private";
                 case Keyword.Public: return "public";

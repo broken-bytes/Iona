@@ -22,6 +22,7 @@ namespace Parser
             var contractParser = new ContractParser(accessLevelParser, genericArgsParser, typeParser);
             var structParser = new StructParser(accessLevelParser, genericArgsParser, typeParser);
             var moduleParser = new ModuleParser();
+            var operatorParser = new OperatorParser(accessLevelParser, blockParser, typeParser);
             var statementParser = new StatementParser(
                 classParser,
                 contractParser,
@@ -29,6 +30,7 @@ namespace Parser
                 funcParser,
                 initParser,
                 moduleParser,
+                operatorParser,
                 propertyParser,
                 structParser,
                 variableParser
@@ -42,6 +44,7 @@ namespace Parser
             initParser.Setup(statementParser);
             memberAccessParser.Setup(expressionParser, statementParser);
             moduleParser.Setup(statementParser);
+            operatorParser.Setup(expressionParser, statementParser);
             propertyParser.Setup(statementParser);
             structParser.Setup(statementParser);
 
