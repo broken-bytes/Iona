@@ -29,6 +29,7 @@ namespace Parser
                 expressionParser,
                 funcParser,
                 initParser,
+                memberAccessParser,
                 moduleParser,
                 operatorParser,
                 propertyParser,

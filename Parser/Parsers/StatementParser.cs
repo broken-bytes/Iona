@@ -11,6 +11,7 @@ namespace Parser.Parsers
         private readonly ExpressionParser expressionParser;
         private readonly FuncParser funcParser;
         private readonly InitParser initParser;
+        private readonly MemberAccessParser memberAccessParser;
         private readonly ModuleParser moduleParser;
         private readonly OperatorParser operatorParser;
         private readonly PropertyParser propertyParser;
@@ -23,6 +24,7 @@ namespace Parser.Parsers
             ExpressionParser expressionParser,
             FuncParser funcParser,
             InitParser initParser,
+            MemberAccessParser memberAccessParser,
             ModuleParser moduleParser,
             OperatorParser operatorParser,
             PropertyParser propertyParser,
@@ -35,6 +37,7 @@ namespace Parser.Parsers
             this.expressionParser = expressionParser;
             this.funcParser = funcParser;
             this.initParser = initParser;
+            this.memberAccessParser = memberAccessParser;
             this.moduleParser = moduleParser;
             this.operatorParser = operatorParser;
             this.propertyParser = propertyParser;
@@ -128,9 +131,7 @@ namespace Parser.Parsers
 
         private INode ParseBasicAssignment(TokenStream stream, INode? parent)
         {
-            var target = stream.Consume(TokenFamily.Identifier, TokenFamily.Keyword);
-            var identifierNode = new IdentifierNode(target.Value);
-            Utils.SetMeta(identifierNode, target);
+            var target = expressionParser.Parse(stream, parent);
 
             // Consume the assign operator
             var token = stream.Consume(TokenFamily.Operator, TokenFamily.Keyword);
@@ -145,8 +146,10 @@ namespace Parser.Parsers
 
             var value = expressionParser.Parse(stream, parent);
 
-            var assign = new AssignmentNode(AST.Types.AssignmentType.Assign, identifierNode, value, parent);
-            Utils.SetMeta(assign, target);
+            var assign = new AssignmentNode(AssignmentType.Assign, target, value, parent);
+            
+            // The meta for assign ranges from the start of the target to the end of the value, so we just combine them
+            Utils.SetMeta(assign, target, value);
 
             return assign;
         }
@@ -203,6 +206,18 @@ namespace Parser.Parsers
             )
             {
                 return true;
+            }
+
+            // An assigment may also start with a member access, so we need to check for that
+            if (memberAccessParser.IsMemberAccess(stream))
+            {
+                // Check if the next token is an assign operator (=)
+                var op = memberAccessParser.PeekTokenAfterMemberAccess(stream);
+
+                if (op.Type == TokenType.Assign)
+                {
+                    return true;
+                }
             }
 
             return false;

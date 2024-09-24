@@ -706,12 +706,22 @@ namespace Generator
 
             if (symbol is VariableSymbol variable)
             {
+                if (variable.Parent == null)
+                {
+                    return;
+                }
+
                 var index = variable.Parent.Symbols.OfType<VariableSymbol>().ToList().FindIndex(symbol => symbol.Name == variable.Name);
 
                 il.Emit(OpCodes.Ldloc, index);
             }
             else if (symbol is ParameterSymbol parameter)
             {
+                if (parameter.Parent == null)
+                {
+                    return;
+                }
+
                 var index = parameter.Parent.Symbols.OfType<ParameterSymbol>().ToList().FindIndex(symbol => symbol.Name == parameter.Name);
 
                 il.Emit(OpCodes.Ldarg, index);

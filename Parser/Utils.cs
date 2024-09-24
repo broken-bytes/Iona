@@ -35,6 +35,19 @@ namespace Parser
             node.Meta = meta;
         }
 
+        internal static void SetMeta(INode node, INode startNode, INode endNode)
+        {
+            var meta = new INode.Metadata
+            {
+                File = startNode.Meta.File,
+                LineStart = startNode.Meta.LineStart,
+                LineEnd = endNode.Meta.LineEnd,
+                ColumnStart = startNode.Meta.ColumnStart,
+                ColumnEnd = endNode.Meta.ColumnEnd
+            };
+            node.Meta = meta;
+        }
+
         internal static void IncreaseColumn(INode node, int amount)
         {
             var meta = new INode.Metadata

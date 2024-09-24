@@ -20,6 +20,9 @@
 		<ProjectReference Include="..\ASTLogger\ASTLogger.csproj" />
 	</ItemGroup>
 	<ItemGroup>
+		<ProjectReference Include="..\ASTVisualizer\ASTVisualizer.csproj" />
+	</ItemGroup>
+	<ItemGroup>
 		<ProjectReference Include="..\Typeck\Typeck.csproj" />
 	</ItemGroup>
 

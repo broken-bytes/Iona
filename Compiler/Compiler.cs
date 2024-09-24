@@ -1,4 +1,5 @@
 ﻿using ASTLogger;
+using ASTVisualizer;
 using Lexer;
 using Parser;
 using Typeck;
@@ -33,6 +34,7 @@ namespace Compiler
             ConcurrentBag<SymbolTable> symbols = new ConcurrentBag<SymbolTable>();
 
             var logger = ASTLoggerFactory.Create();
+            var visualizer = ASTVisualizerFactory.Create();
 
             Parallel.ForEach(files, file =>
             {
@@ -49,6 +51,10 @@ namespace Compiler
             Parallel.ForEach(asts, ast => typeck.TypeCheck(ast, globalTable));
 
             Parallel.ForEach(asts, ast => logger.Log(ast));
+
+            Parallel.ForEach(asts, ast => {
+                File.WriteAllText(((FileNode)ast.Root).Name + ".ast", visualizer.Visualize(ast));
+            });
 
             var assembly = generator.CreateAssembly(assemblyName, globalTable);
 

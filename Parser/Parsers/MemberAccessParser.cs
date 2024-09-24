@@ -60,24 +60,18 @@ namespace Parser.Parsers
             var target = new IdentifierNode(token.Value);
             Utils.SetMeta(target, token);
 
-            if (statementParser.IsStatement(stream))
-            {
-                var statement = statementParser.Parse(stream, parent);
-
-                return ReorderStatement(target, statement);
-            }
-
             var memberIdentifier = stream.Consume(TokenType.Identifier, TokenFamily.Keyword);
 
             var member = new IdentifierNode(memberIdentifier.Value, null);
+            Utils.SetMeta(member, memberIdentifier);
 
             var memberAccess = new MemberAccessNode(target, member, parent);
+            Utils.SetMeta(memberAccess, token);
 
             target.Parent = memberAccess;
             member.Parent = memberAccess;
 
-            Utils.SetStart(memberAccess, token);
-            Utils.SetEnd(memberAccess, dot);
+            Utils.SetEnd(memberAccess, memberIdentifier);
 
             token = stream.Peek();
 
@@ -85,23 +79,31 @@ namespace Parser.Parsers
             {
                 stream.Consume(TokenType.Dot, TokenFamily.Keyword);
 
-                if (statementParser.IsStatement(stream))
-                {
-                    var statement = statementParser.Parse(stream, parent);
-
-                    return ReorderStatement(target, statement);
-                }
-
                 var nextIdentifier = stream.Consume(TokenType.Identifier, TokenFamily.Keyword);
                 var next = new IdentifierNode(nextIdentifier.Value, null);
 
                 memberAccess.Target = new MemberAccessNode(memberAccess.Target, next, parent);
                 memberAccess.Target.Parent = memberAccess;
                 memberAccess.Member.Parent = memberAccess;
-                Utils.SetStart(memberAccess, token);
+                Utils.SetEnd(memberAccess, nextIdentifier);
             }
 
             return memberAccess;
+        }
+
+        public Token PeekTokenAfterMemberAccess(TokenStream stream)
+        {
+            var tokens = stream.Peek(2);
+
+            var lastToken = tokens[1];
+
+            while (lastToken.Type is TokenType.Dot or TokenType.Identifier)
+            {
+                lastToken = tokens[tokens.Count - 1];
+                tokens = stream.Peek(tokens.Count + 1);
+            }
+
+            return lastToken;
         }
 
         private INode ReorderStatement(INode target, INode member)
