@@ -18,7 +18,7 @@ using System.Linq.Expressions;
 
 namespace Generator
 {
-    public class AssemblyBuilder :
+    internal class AssemblyBuilder :
         IAssignmentVisitor,
         IBinaryExpressionVisitor,
         IBlockVisitor,
@@ -35,17 +35,19 @@ namespace Generator
 
         private readonly AssemblyDefinition assembly;
         private readonly SymbolTable table;
+        private readonly ILEmitter emitter;
         private string currentNamespace = "";
         private TypeDefinition? currentType;
         private MethodDefinition? currentMethod;
 
-        public AssemblyBuilder(AssemblyDefinition assembly, SymbolTable table)
+        internal AssemblyBuilder(AssemblyDefinition assembly, SymbolTable table, ILEmitter emitter)
         {
             this.assembly = assembly;
             this.table = table;
+            this.emitter = emitter;
         }
 
-        public void Build(INode node)
+        internal void Build(INode node)
         {
             if (node is FileNode file)
             {
@@ -60,81 +62,38 @@ namespace Generator
                 return;
             }
 
-            var il = currentMethod.Body.GetILProcessor();
-
             if (!currentMethod.IsStatic && !currentMethod.IsConstructor)
             {
-                // Load the 'this' reference (the instance the method is called on)
-                il.Emit(OpCodes.Ldarg_0);
+                emitter.GetThis();
             }
 
-            if (node.Target is IdentifierNode left)
+            if (node.Value is MemberAccessNode memberAccess)
             {
-
+                EmitGetMemberAccess(memberAccess);
             }
-            else if (node.Target is MemberAccessNode memberAccess)
+            else if (node.Value is IdentifierNode identifier)
             {
-                if (node.Value is IdentifierNode right)
+                EmitGetIdentifier(identifier);
+            }
+            else if (node.Value is BinaryExpressionNode bin)
+            {
+                bin.Accept(this);
+            }
+
+            if (node.Target is IdentifierNode target)
+            {
+                var symbol = table.FindBy(target);
+
+                if (symbol is VariableSymbol variable)
                 {
-                    // Check if the target is `self`(this)
-                    if (memberAccess.Target is IdentifierNode target && target.Name == "self" && memberAccess.Member is IdentifierNode member)
+                    if (variable.Parent == null)
                     {
-                        var property = currentType.Properties.FirstOrDefault(p => p.Name == member.Name);
-
-                        // load the current instance (this)
-                        il.Emit(OpCodes.Ldarg_0);
-
-                        // We need to check if the right hand side is a parameter or a local variable or a property
-                        var symbol = table.FindBy(right);
-
-                        // We traverse the hierarchy of the symbols in reverse order so we go one level up every time we don't find the symbol
-                        ISymbol? currentSymbol = symbol;
-                        ISymbol? foundSymbol = currentSymbol.LookupSymbol(right.Name);
-
-                        while (foundSymbol == null)
-                        {
-                            currentSymbol = currentSymbol?.Parent;
-                            foundSymbol = currentSymbol?.LookupSymbol(right.Name);
-                        }
-
-                        // There are three cases:
-                        // 1. The symbol is a parameter
-                        // 2. The symbol is a local variable
-                        // 3. The symbol is a property
-
-                        if (foundSymbol is ParameterSymbol parameter)
-                        {
-                            var index = parameter.Parent.Symbols.OfType<ParameterSymbol>().ToList().FindIndex(symbol => symbol.Name == parameter.Name);
-
-                            // Increase the index by 1 if we are inside a method not a free function
-                            if (!currentMethod.IsStatic)
-                            {
-                                index += 1;
-                            }
-
-                            il.Emit(OpCodes.Ldarg, index);
-
-                            il.Emit(OpCodes.Call, property.SetMethod);
-
-                        }
-                        else if (foundSymbol is VariableSymbol local)
-                        {
-                            il.Emit(OpCodes.Ldloc, local.Parent.Symbols.OfType<VariableSymbol>().ToList().FindIndex(symbol => symbol.Name == local.Name));
-                        }
-                        else if (foundSymbol is PropertySymbol propertySymbol)
-                        {
-                            // Load the property
-                            il.Emit(OpCodes.Call, property.GetMethod);
-
-                            var index = propertySymbol.Parent.Symbols.OfType<PropertySymbol>().ToList().FindIndex(symbol => symbol.Name == propertySymbol.Name);
-
-                            // Load the value
-                            il.Emit(OpCodes.Ldloc, index);
-
-                            // Set the value
-                            il.Emit(OpCodes.Callvirt, property.SetMethod);
-                        }
+                        return;
                     }
+
+                    var index = variable.Parent.Symbols.OfType<VariableSymbol>().ToList().FindIndex(symbol => symbol.Name == variable.Name);
+
+                    emitter.SetVariable(index);
                 }
             }
         }
@@ -150,47 +109,26 @@ namespace Generator
 
             if (node.Left is IdentifierNode left)
             {
-                EmitIdentifierReference(left);
+                EmitGetIdentifier(left);
             }
             else if (node.Left is MemberAccessNode memberAccess)
             {
-                EmitMemberAccess(memberAccess);
+                EmitGetMemberAccess(memberAccess);
             }
             else 
             {
                 return;
             }
 
-            switch (node.Operation)
-            {
-                case BinaryOperation.Add:
-                    il.Emit(OpCodes.Add);
-                    break;
-                case BinaryOperation.Subtract:
-                    il.Emit(OpCodes.Sub);
-                    break;
-                case BinaryOperation.Multiply:
-                    il.Emit(OpCodes.Mul);
-                    break;
-                case BinaryOperation.Divide:
-                    il.Emit(OpCodes.Div);
-                    break;
-                case BinaryOperation.Mod:
-                    il.Emit(OpCodes.Rem);
-                    break;
-            }
+            emitter.BinaryOperation(node.Operation);
 
             if (node.Right is IdentifierNode right)
             {
-                EmitIdentifierReference(right);
+                EmitGetIdentifier(right);
             }
             else if (node.Right is MemberAccessNode memberAccess)
             {
-                EmitMemberAccess(memberAccess);
-            }
-            else
-            {
-                return;
+                EmitGetMemberAccess(memberAccess);
             }
         }
 
@@ -409,6 +347,8 @@ namespace Generator
             currentType.Methods.Add(method);
             currentMethod = method;
 
+            emitter.SetILProcessor(method.Body.GetILProcessor());
+
             if (node.Body != null)
             {
                 node.Body.Accept(this);
@@ -509,14 +449,12 @@ namespace Generator
 
             getter.HasThis = true;
 
-            var il = getter.Body.GetILProcessor();
+            emitter.SetILProcessor(getter.Body.GetILProcessor());
 
-            il.Emit(OpCodes.Ldarg_0);
+            emitter.GetThis();
+            emitter.GetField(field);
 
-            il.Emit(OpCodes.Ldfld, field);
-
-            // Return the loaded value
-            il.Emit(OpCodes.Ret);
+            emitter.Return();
 
             property.GetMethod = getter;
 
@@ -528,20 +466,13 @@ namespace Generator
             setter.HasThis = true;
 
             setter.Parameters.Add(new ParameterDefinition("value", ParameterAttributes.None, reference));
+            
+            emitter.SetILProcessor(setter.Body.GetILProcessor());
 
-            il = setter.Body.GetILProcessor();
-
-            // Load the instance ('this' or 'self') onto the stack
-            il.Emit(OpCodes.Ldarg_0);
-
-            // Load the new value (the first argument to the setter) onto the stack
-            il.Emit(OpCodes.Ldarg_1);
-
-            // Store the new value into the backing field
-            il.Emit(OpCodes.Stfld, field);
-
-            // Return from the setter
-            il.Emit(OpCodes.Ret);
+            emitter.GetThis();
+            emitter.GetArg(1);
+            emitter.SetField(field);
+            emitter.Return();
 
             property.SetMethod = setter;
 
@@ -555,15 +486,13 @@ namespace Generator
                 return;
             }
 
-            var il = currentMethod.Body.GetILProcessor();
-
             if (node.Value is IdentifierNode identifier)
             {
-                EmitIdentifierReference(identifier);
+                EmitGetIdentifier(identifier);
             }
             else if (node.Value is MemberAccessNode memberAccess)
             {
-                EmitMemberAccess(memberAccess);
+                EmitGetMemberAccess(memberAccess);
             }
             else if (node.Value is BinaryExpressionNode bin)
             {
@@ -574,7 +503,7 @@ namespace Generator
                 return;
             }
 
-            il.Emit(OpCodes.Ret);
+            emitter.Return();
         }
 
         public void Visit(StructNode node)
@@ -693,7 +622,7 @@ namespace Generator
             field.CustomAttributes.Add(fieldOffsetAttribute);
         }
 
-        private void EmitIdentifierReference(IdentifierNode node)
+        private void EmitGetIdentifier(IdentifierNode node)
         {
             if (currentMethod == null)
             {
@@ -713,7 +642,7 @@ namespace Generator
 
                 var index = variable.Parent.Symbols.OfType<VariableSymbol>().ToList().FindIndex(symbol => symbol.Name == variable.Name);
 
-                il.Emit(OpCodes.Ldloc, index);
+                emitter.GetVariable(index);
             }
             else if (symbol is ParameterSymbol parameter)
             {
@@ -724,11 +653,60 @@ namespace Generator
 
                 var index = parameter.Parent.Symbols.OfType<ParameterSymbol>().ToList().FindIndex(symbol => symbol.Name == parameter.Name);
 
-                il.Emit(OpCodes.Ldarg, index);
+                emitter.GetArg(index);
             }
         }
 
-        private void EmitMemberAccess(MemberAccessNode node)
+        private void EmitSetIdentifier(IdentifierNode node)
+        {
+            if (currentMethod == null)
+            {
+                return;
+            }
+
+            var il = currentMethod.Body.GetILProcessor();
+
+            var symbol = table.FindBy(node);
+
+            if (symbol is VariableSymbol variable)
+            {
+                if (variable.Parent == null)
+                {
+                    return;
+                }
+
+                var index = variable.Parent.Symbols.OfType<VariableSymbol>().ToList().FindIndex(symbol => symbol.Name == variable.Name);
+
+                emitter.GetVariable(index);
+            }
+            else if (symbol is PropertyNode prop)
+            {
+                EmitSetProperty(prop);
+            }
+            else if (symbol is MemberAccessNode member)
+            {
+
+            }
+        }
+
+        void EmitSetProperty(PropertyNode prop)
+        {
+            if (currentMethod == null) 
+            { 
+                return;
+            }
+
+            // Load the this pointer
+            emitter.GetThis();
+
+            // Load the value
+            Console.WriteLine(prop);
+
+
+            // Get the property from the current type
+        } 
+
+        private void EmitGetMemberAccess(MemberAccessNode node)
         {
             if (currentMethod == null)
             {
@@ -743,11 +721,11 @@ namespace Generator
                 {
                     var symbol = table.FindBy(target);
 
-                    if (symbol is TypeSymbol structSymbol)
+                    if (symbol is TypeSymbol typeSymbol)
                     {
                         var memberIdentifier = ((IdentifierNode)node.Member).Name;
 
-                        var prop = structSymbol.Symbols.OfType<PropertySymbol>().FirstOrDefault(f => f.Name == memberIdentifier);
+                        var prop = typeSymbol.Symbols.OfType<PropertySymbol>().FirstOrDefault(f => f.Name == memberIdentifier);
 
                         if (prop != null)
                         {

@@ -6,6 +6,7 @@ namespace AST.Nodes
 {
     public class TypeReferenceNode : INode
     {
+        public string FullyQualifiedName = "";
         public string Name { get; set; }
         public INode? Parent { get; set; }
         public NodeType Type { get; set; }

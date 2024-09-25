@@ -2,6 +2,7 @@
 using AST.Visitors;
 using Symbols;
 using Symbols.Symbols;
+using System.Net.Http.Headers;
 
 namespace Typeck
 {
@@ -22,7 +23,9 @@ namespace Typeck
         IMemberAccessVisitor,
         IModuleVisitor,
         IObjectLiteralVisitor,
+        IOperatorVisitor,
         IPropertyVisitor,
+        IReturnVisitor,
         IStructVisitor,
         ITypeReferenceVisitor,
         IUnaryExpressionVisitor,
@@ -45,7 +48,24 @@ namespace Typeck
 
         public void Visit(AssignmentNode node)
         {
-            throw new NotImplementedException();
+            // Two things to check:
+            // - Check the types of the target and the value
+            // - Check that the target and value have the same type (else add an error node)
+            CheckNode(node.Target);
+            CheckNode(node.Value);
+
+            // Both must be expressions, so cast them to get the expression result
+            if (node.Target is not IExpressionNode target || node.Value is not IExpressionNode value)
+            {
+                return;
+            }
+
+            // Check if the types are the same
+            if (target.ResultType != value.ResultType)
+            {
+                // Add an error node
+                return;
+            }
         }
 
         public void Visit(BlockNode node)
@@ -199,7 +219,7 @@ namespace Typeck
                     }
                     else
                     {
-                        param.Type = new TypeReferenceNode("None", node);
+                        param.Type = new ErrorNode("Unknown type");
                     }
                 }
             }
@@ -213,7 +233,7 @@ namespace Typeck
 
         public void Visit(LiteralNode node)
         {
-            throw new NotImplementedException();
+
         }
 
         public void Visit(MemberAccessNode node)
@@ -253,6 +273,11 @@ namespace Typeck
             throw new NotImplementedException();
         }
 
+        public void Visit(OperatorNode node)
+        {
+            throw new NotImplementedException();
+        }
+
         public void Visit(PropertyNode node)
         {
             if (node.TypeNode is TypeReferenceNode type)
@@ -260,6 +285,11 @@ namespace Typeck
                 var actualType = CheckTypeReference(type);
                 node.TypeNode = actualType;
             }
+        }
+
+        public void Visit(ReturnNode node)
+        {
+            throw new NotImplementedException();
         }
 
         public void Visit(StructNode node)
@@ -286,6 +316,11 @@ namespace Typeck
             {
                 var actualType = CheckTypeReference(type);
                 node.TypeNode = actualType;
+            } 
+            else if (node.TypeNode is MemberAccessNode memberAccess)
+            {
+                var actualType = CheckTypeReference(memberAccess);
+                node.TypeNode = actualType;
             }
         }
 
@@ -298,6 +333,7 @@ namespace Typeck
             }
 
 #if IONA_BOOTSTRAP
+            TypeReferenceNode typeRef;
             switch (typeNode.Name)
             {
                 case "bool":
@@ -315,7 +351,10 @@ namespace Typeck
                 case "uint":
                 case "ulong":
                 case "ushort":
-                    return typeNode;
+                    typeRef = new TypeReferenceNode(typeNode.Name, typeNode.Parent);
+                    typeRef.FullyQualifiedName = typeNode.Name;
+
+                    return typeRef;
             }
 #endif
 
@@ -324,6 +363,7 @@ namespace Typeck
 
             // Now get the first module in the list (each file can only have one module)
             var file = (FileNode)nodeOrder[0];
+
             var module = file.Children.OfType<ModuleNode>().FirstOrDefault();
 
             if (module == null)
@@ -346,10 +386,87 @@ namespace Typeck
             if (type != null)
             {
                 typeNode.Module = type.Parent.Name;
+                typeNode.FullyQualifiedName = type.Parent.Name + "." + type.Name;
                 return typeNode;
             }
 
             return null;
+        }
+
+        private void CheckNode(INode node)
+        {
+            switch (node)
+            {
+                case AssignmentNode assignmentNode:
+                    assignmentNode.Accept(this);
+                    break;
+                case BinaryExpressionNode binaryExpressionNode:
+                    binaryExpressionNode.Accept(this);
+                    break;
+                case BlockNode blockNode:
+                    blockNode.Accept(this);
+                    break;
+                case ClassNode classNode:
+                    classNode.Accept(this);
+                    break;
+                case ContractNode contractNode:
+                    contractNode.Accept(this);
+                    break;
+                case ErrorNode errorNode:
+                    errorNode.Accept(this);
+                    break;
+                case FileNode fileNode:
+                    fileNode.Accept(this);
+                    break;
+                case FuncCallNode funcCallNode:
+                    funcCallNode.Accept(this);
+                    break;
+                case FuncNode funcNode:
+                    funcNode.Accept(this);
+                    break;
+                case IdentifierNode identifierNode:
+                    identifierNode.Accept(this);
+                    break;
+                case ImportNode importNode:
+                    importNode.Accept(this);
+                    break;
+                case InitNode initNode:
+                    initNode.Accept(this);
+                    break;
+                case LiteralNode literalNode:
+                    literalNode.Accept(this);
+                    break;
+                case MemberAccessNode memberAccessNode:
+                    memberAccessNode.Accept(this);
+                    break;
+                case ModuleNode moduleNode:
+                    moduleNode.Accept(this);
+                    break;
+                case ObjectLiteralNode objectLiteralNode:
+                    objectLiteralNode.Accept(this);
+                    break;
+                case OperatorNode operatorNode:
+                    operatorNode.Accept(this);
+                    break;
+                case PropertyNode propertyNode:
+                    propertyNode.Accept(this);
+                    break;
+                case ReturnNode returnNode:
+                    returnNode.Accept(this);
+                    break;
+                case StructNode structNode:
+                    structNode.Accept(this);
+                    break;
+                case TypeReferenceNode typeReferenceNode:
+                    typeReferenceNode.Accept(this);
+                    break;
+                case UnaryExpressionNode unaryExpressionNode:
+                    unaryExpressionNode.Accept(this);
+                    break;
+                case VariableNode variableNode:
+                    variableNode.Accept(this);
+                    break;
+            }
         }
     }
 }

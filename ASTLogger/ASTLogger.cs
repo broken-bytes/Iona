@@ -232,12 +232,12 @@ namespace ASTLogger
             Spacer();
         }
 
-        public void Visit(ImportNode node)
+        public void Visit(ImportNode import)
         {
             Log("> IMPORT:");
-            LogMeta(node);
+            LogMeta(import);
 
-            Log($"- Name: {node.Name}");
+            Log($"- Name: {import.Name}");
             Spacer();
         }
 

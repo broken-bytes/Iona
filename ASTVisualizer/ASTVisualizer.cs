@@ -32,7 +32,6 @@ namespace ASTVisualizer
     {
         private string _output = "";
         private string _lastNodeId = "";
-        private int _indentLevel = 0;
 
         public string Visualize(INode node)
         {
@@ -139,7 +138,7 @@ namespace ASTVisualizer
             _output += $"{_lastNodeId} --> {GetNodeId(node)}\n";
         }
 
-        public void Visit(ImportNode node)
+        public void Visit(ImportNode import)
         {
 
         }
@@ -217,6 +216,7 @@ namespace ASTVisualizer
 
             if (node.TypeNode != null)
             {
+                MakeConnection(node, "Type");
                 GetAndLogNode(node.TypeNode);
                 _lastNodeId = GetNodeId(node);
             }
@@ -252,7 +252,8 @@ namespace ASTVisualizer
 
         public void Visit(TypeReferenceNode node)
         {
-
+            _output += GetNodeRepresentation(node);
+            _output += $"{_lastNodeId} --> {GetNodeId(node)}\n";
         }
 
         public void Visit(UnaryExpressionNode node)
@@ -397,6 +398,9 @@ namespace ASTVisualizer
                 case StructNode:
                     id = "struct_";
                     break;
+                case TypeReferenceNode:
+                    id = "type_reference_";
+                    break;
                 case VariableNode:
                     id = "variable_";
                     break;
@@ -484,6 +488,10 @@ namespace ASTVisualizer
                 case StructNode:
                     name = ((StructNode)node).Name;
                     type = "struct";
+                    break;
+                case TypeReferenceNode:
+                    name = ((TypeReferenceNode)node).FullyQualifiedName;
+                    type = "type reference";
                     break;
                 case VariableNode:
                     name = ((VariableNode)node).Name;
