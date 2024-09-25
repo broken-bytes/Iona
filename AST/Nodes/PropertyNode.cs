@@ -15,6 +15,7 @@ namespace AST.Nodes
         public StatementType StatementType { get; set; }
         public INode? TypeNode { get; set; }
         public IExpressionNode? Value { get; set; }
+        bool IsAssigned { get; set; }
         public Metadata Meta { get; set; }
 
         public PropertyNode(
@@ -34,6 +35,7 @@ namespace AST.Nodes
             Type = NodeType.Declaration;
             TypeNode = type;
             StatementType = StatementType.PropertyDeclaration;
+            IsAssigned = value != null;
         }
 
         public void Accept(IPropertyVisitor visitor)

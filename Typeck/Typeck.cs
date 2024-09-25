@@ -7,11 +7,17 @@ namespace Typeck
     internal class Typeck : ITypeck
     {
         private readonly SymbolTableConstructor _tableConstructor;
+        private readonly ScopeChecker _scopeChecker;
         private readonly TypeChecker _typeChecker;
 
-        internal Typeck(SymbolTableConstructor tableConstructor, TypeChecker typeChecker)
+        internal Typeck(
+            SymbolTableConstructor tableConstructor, 
+            ScopeChecker scopeChecker,
+            TypeChecker typeChecker
+        )
         {
             _tableConstructor = tableConstructor;
+            _scopeChecker = scopeChecker;
             _typeChecker = typeChecker;
         }
 
@@ -36,11 +42,19 @@ namespace Typeck
             return table;
         }
 
+        public void ScopeCheck(INode node, SymbolTable table)
+        {
+            if (node is FileNode fileNode)
+            {
+                _scopeChecker.CheckScopes(fileNode, table);
+            }
+        }
+
         public void TypeCheck(INode node, SymbolTable table)
         {
             if (node is FileNode fileNode)
             {
-                _typeChecker.TypeCheckAST(ref fileNode, table);
+                _typeChecker.TypeCheckAST(fileNode, table);
             }
         }
 

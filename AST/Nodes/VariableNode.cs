@@ -15,16 +15,18 @@ namespace AST.Nodes
         public StatementType StatementType { get; set; }
         public INode? TypeNode { get; set; }
         public INode? Value { get; set; }
+        bool IsAssigned { get; set; }
         public Metadata Meta { get; set; }
 
-        public VariableNode(string name, INode? parent = null)
+        public VariableNode(string name, INode? value, INode? parent = null)
         {
             Name = name;
             Module = "";
-            Value = null;
+            Value = value;
             Parent = parent;
             Type = NodeType.Declaration;
             StatementType = StatementType.VariableDeclaration;
+            IsAssigned = value != null;
         }
 
         public void Accept(IVariableVisitor visitor)

@@ -5,6 +5,7 @@
         Enum,
         Function,
         Module,
+        Operator,
         Parameter,
         Property,
         Scope,

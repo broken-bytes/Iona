@@ -39,7 +39,7 @@ namespace Typeck
             _symbolTable = new SymbolTable();
         }
 
-        internal void TypeCheckAST(ref FileNode file, SymbolTable table)
+        internal void TypeCheckAST(FileNode file, SymbolTable table)
         {
             _symbolTable = table;
 
@@ -158,7 +158,7 @@ namespace Typeck
             {
                 if (param.Type is TypeReferenceNode type)
                 {
-                    var actualType = CheckTypeReference(type);
+                    var actualType = CheckNodeType(type);
 
                     if (actualType != null)
                     {
@@ -167,7 +167,7 @@ namespace Typeck
                 }
                 else if (param.Type is MemberAccessNode memberAccess)
                 {
-                    var actualType = CheckTypeReference(memberAccess);
+                    var actualType = CheckNodeType(memberAccess);
 
                     if (actualType != null)
                     {
@@ -179,7 +179,7 @@ namespace Typeck
             // Check the return type
             if (node.ReturnType is TypeReferenceNode returnType)
             {
-                var actualType = CheckTypeReference(returnType);
+                var actualType = CheckNodeType(returnType);
 
                 if (actualType != null)
                 {
@@ -211,7 +211,7 @@ namespace Typeck
             {
                 if (param.Type is TypeReferenceNode type)
                 {
-                    var actualType = CheckTypeReference(type);
+                    var actualType = CheckNodeType(type);
 
                     if (actualType != null)
                     {
@@ -282,7 +282,7 @@ namespace Typeck
         {
             if (node.TypeNode is TypeReferenceNode type)
             {
-                var actualType = CheckTypeReference(type);
+                var actualType = CheckNodeType(type);
                 node.TypeNode = actualType;
             }
         }
@@ -314,24 +314,33 @@ namespace Typeck
         {
             if (node.TypeNode is TypeReferenceNode type)
             {
-                var actualType = CheckTypeReference(type);
+                var actualType = CheckNodeType(type);
                 node.TypeNode = actualType;
             } 
             else if (node.TypeNode is MemberAccessNode memberAccess)
             {
-                var actualType = CheckTypeReference(memberAccess);
+                var actualType = CheckNodeType(memberAccess);
                 node.TypeNode = actualType;
             }
         }
 
-        // ---- Helper methods ----
-        private INode? CheckTypeReference(INode node)
+        private INode? CheckNodeType(INode node)
         {
-            if (node is not TypeReferenceNode typeNode)
+            if (node is TypeReferenceNode typeNode)
             {
-                return null;
+                return CheckTypeReferenceNode(typeNode);
+            }
+            else if (node is MemberAccessNode memberAccessNode)
+            {
+                return CheckMemberAccessNode(memberAccessNode);
             }
 
+            return null;
+        }
+
+        // ---- Helper methods ----
+        private INode? CheckTypeReferenceNode(TypeReferenceNode typeNode)
+        {
 #if IONA_BOOTSTRAP
             TypeReferenceNode typeRef;
             switch (typeNode.Name)
@@ -359,7 +368,7 @@ namespace Typeck
 #endif
 
             // We first need to find the scope this type reference is in(to find nested types, or the module)
-            List<INode> nodeOrder = node.Hierarchy();
+            List<INode> nodeOrder = ((INode)typeNode).Hierarchy();
 
             // Now get the first module in the list (each file can only have one module)
             var file = (FileNode)nodeOrder[0];
@@ -388,6 +397,33 @@ namespace Typeck
                 typeNode.Module = type.Parent.Name;
                 typeNode.FullyQualifiedName = type.Parent.Name + "." + type.Name;
                 return typeNode;
+            }
+
+            return null;
+        }
+
+        private INode CheckMemberAccessNode(MemberAccessNode memberAccessNode)
+        {
+            // We first need to find the scope this type reference is in(to find nested types, or the module)
+            // Step 1: Check if the leftmost node is a module
+            if (memberAccessNode.Target is not IdentifierNode target)
+            {
+                return new ErrorNode("Invalid member access in type reference");
+            }
+
+            // Step 2: Find the module
+            var isModule = _symbolTable.Modules.Any(mod => mod.Name == target.Name);
+
+            // Edge case: If the target is indeed a module, we still need to check if the module has a type with the same name
+            // To do so we need to do the following:
+            // - Check if the the member node is an identifier (if not we cannot mean the type within the module but rather the module)
+            // - If it does, we need to further check that the next node is not the type of that very same name
+            if (isModule)
+            {
+                if (memberAccessNode.Member is not IdentifierNode member)
+                {
+                    // Not an identifier, so we cannot mean the type within the module
+                }
             }
 
             return null;

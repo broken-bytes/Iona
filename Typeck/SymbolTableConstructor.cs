@@ -24,6 +24,7 @@ namespace Typeck
         IMemberAccessVisitor,
         IModuleVisitor,
         IObjectLiteralVisitor,
+        IOperatorVisitor,
         IPropertyVisitor,
         IStructVisitor,
         ITypeReferenceVisitor,
@@ -91,6 +92,9 @@ namespace Typeck
                         break;
                     case InitNode init:
                         init.Accept(this);
+                        break;
+                    case OperatorNode op:
+                        op.Accept(this);
                         break;
                     case PropertyNode property:
                         property.Accept(this);
@@ -298,6 +302,43 @@ namespace Typeck
         public void Visit(ObjectLiteralNode node)
         {
             throw new NotImplementedException();
+        }
+
+        public void Visit(OperatorNode node)
+        {
+            if (_currentSymbol == null)
+            {
+                return;
+            }
+
+            var symbol = new OperatorSymbol(node.Op);
+            foreach (var param in node.Parameters)
+            {
+                var typeRef = param.Type as TypeReferenceNode;
+
+                if (typeRef == null)
+                {
+                    continue;
+                }
+
+                var paramType = new TypeSymbol(typeRef.Name, TypeKind.Unknown);
+                var parameter = new ParameterSymbol(param.Name, paramType, symbol);
+                symbol.Symbols.Add(parameter);
+            }
+
+            if (node.ReturnType is TypeReferenceNode returnType)
+            {
+                symbol.ReturnType = new TypeSymbol(returnType.Name, TypeKind.Unknown);
+            }
+
+            AddSymbol(symbol);
+
+            _currentSymbol = symbol;
+
+            if (node.Body != null)
+            {
+                node.Body.Accept(this);
+            }
         }
 
         public void Visit(PropertyNode node)
