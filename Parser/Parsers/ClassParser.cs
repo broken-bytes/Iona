@@ -140,7 +140,9 @@ namespace Parser.Parsers
                 }
 
                 var errorNode = new ErrorNode(
-                    exception.ErrorToken.Value
+                    exception.ErrorToken.Value,
+                    classNode,
+                    classNode
                 );
 
                 Utils.SetMeta(errorNode, new List<Token> { exception.ErrorToken });

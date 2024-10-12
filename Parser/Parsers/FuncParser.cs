@@ -152,7 +152,9 @@ namespace Parser.Parsers
                 }
 
                 func.Body.AddChild(new ErrorNode(
-                    exception.ErrorToken.Value
+                    exception.ErrorToken.Value,
+                    func,
+                    func
                 ));
 
                 // TODO: Proper error metadata

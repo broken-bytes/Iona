@@ -78,7 +78,9 @@ namespace Parser.Parsers
                 }
 
                 block.AddChild(new ErrorNode(
-                    exception.ErrorToken.Value
+                    exception.ErrorToken.Value,
+                    block,
+                    block
                 ));
 
                 // TODO: Proper error metadata

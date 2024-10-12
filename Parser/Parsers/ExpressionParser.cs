@@ -86,7 +86,9 @@ namespace Parser.Parsers
             catch (ParserException exception)
             {
                 var error = new ErrorNode(
-                    exception.Message
+                    exception.Message,
+                    parent,
+                    null
                 );
 
                 // TODO: Proper error metadata
@@ -111,7 +113,9 @@ namespace Parser.Parsers
             catch (ParserException exception)
             {
                 return new ErrorNode(
-                    exception.Message
+                    exception.Message,
+                    parent,
+                    null
                 );
 
                 // TODO: Proper error metadata
@@ -185,7 +189,9 @@ namespace Parser.Parsers
             catch (ParserException exception)
             {
                 return new ErrorNode(
-                    exception.Message
+                    exception.Message,
+                    parent,
+                    null
                 );
 
                 // TODO: Proper error metadata

@@ -44,13 +44,43 @@ namespace Typeck
             if (node.Target is IdentifierNode target)
             {
                 var symbol = table.FindBy(target);
-                Console.WriteLine($"Found symbol: {symbol}");
+
+                if (symbol == null)
+                {
+                    node.Target = new ErrorNode(
+                        $"`{target.Name}` is not defined",
+                        target,
+                        node
+                    );
+                    return;
+                }
+
             }
             else if(node.Target is MemberAccessNode member)
             {
                 var symbol = LookupMemberAccessSymbol(member);
 
-                Console.WriteLine($"Found symbol: {symbol}");
+                // If the symbol is null, it means the member access is invalid
+                if (symbol == null)
+                {
+                    node.Target = new ErrorNode(
+                        $"Invalid member access. `{member.Member}` does not exist on `{member.Target}`",
+                        node.Target,
+                        node
+                    );
+                    return;
+                }
+
+                // If the symbol is not a prop something is wrong, as we can only assign to props
+                if (symbol is not PropertySymbol prop)
+                {
+                    node.Target = new ErrorNode(
+                        $"Invalid member access. {member.Member} is not a property",
+                        node.Target,
+                        node
+                    );
+                    return;
+                }
             }
         }
 
@@ -96,7 +126,6 @@ namespace Typeck
         {
             // Check if the identifier is in the current (or parent) scope
             var symbol = table.FindBy(node);
-            Console.WriteLine(symbol);
         }
 
         public void Visit(InitNode node)
@@ -227,6 +256,10 @@ namespace Typeck
                             return memberSymbol;
                         }
                     }
+                } 
+                else
+                {
+
                 }
             }
 

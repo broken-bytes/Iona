@@ -136,7 +136,9 @@ namespace Parser.Parsers
                 }
 
                 structNode.Body.AddChild(new ErrorNode(
-                    exception.ErrorToken.Value
+                    exception.ErrorToken.Value,
+                    structNode,
+                    structNode
                 ));
 
                 // TODO: Proper error metadata

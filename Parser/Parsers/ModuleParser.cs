@@ -85,7 +85,9 @@ namespace Parser.Parsers
             catch (TokenStreamException exception)
             {
                 var error = new ErrorNode(
-                    exception.Message
+                    exception.Message,
+                    module,
+                    module
                 );
 
                 // TODO: Proper error metadata

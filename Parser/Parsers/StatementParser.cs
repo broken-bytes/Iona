@@ -138,7 +138,11 @@ namespace Parser.Parsers
 
             if (token.Type != TokenType.Assign)
             {
-                var error = new ErrorNode("Invalid operator after identifier");
+                var error = new ErrorNode(
+                    "Invalid operator after identifier",
+                    target,
+                    parent
+                );
                 Utils.SetMeta(error, token);
 
                 return error;
@@ -168,7 +172,11 @@ namespace Parser.Parsers
 
             if(compoundOperation == null)
             {
-                var error = new ErrorNode("Invalid operator after identifier");
+                var error = new ErrorNode(
+                    "Invalid operator after identifier",
+                    identifierNode,
+                    parent
+                );
                 Utils.SetMeta(error, token);
 
                 return error;

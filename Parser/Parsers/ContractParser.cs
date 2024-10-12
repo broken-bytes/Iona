@@ -137,7 +137,9 @@ namespace Parser.Parsers
                 }
 
                 contract.Body.AddChild(new ErrorNode(
-                    exception.ErrorToken.Value
+                    exception.ErrorToken.Value,
+                    contract.Body,
+                    contract.Body
                 ));
 
                 // TODO: Proper error metadata

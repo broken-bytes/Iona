@@ -219,7 +219,11 @@ namespace Typeck
                     }
                     else
                     {
-                        param.Type = new ErrorNode("Unknown type");
+                        param.Type = new ErrorNode(
+                            "Unknown type",
+                            param.Type,
+                            node
+                        );
                     }
                 }
             }
@@ -408,7 +412,11 @@ namespace Typeck
             // Step 1: Check if the leftmost node is a module
             if (memberAccessNode.Target is not IdentifierNode target)
             {
-                return new ErrorNode("Invalid member access in type reference");
+                return new ErrorNode(
+                    "Invalid member access in type reference",
+                    memberAccessNode,
+                    memberAccessNode.Parent
+                );
             }
 
             // Step 2: Find the module
