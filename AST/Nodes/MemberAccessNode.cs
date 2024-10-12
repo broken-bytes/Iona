@@ -13,6 +13,7 @@ namespace AST.Nodes
         public INode Member { get; set; }
         public ExpressionType ExpressionType => ExpressionType.MemberAccess;
         public INode? ResultType => null;
+        public ResolutionStatus Status { get; set; } = ResolutionStatus.Unresolved;
         public Metadata Meta { get; set; }
 
         public MemberAccessNode(INode target, INode member, INode? parent)

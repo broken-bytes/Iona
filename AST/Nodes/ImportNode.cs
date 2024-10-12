@@ -16,6 +16,7 @@ namespace AST.Nodes
         public NodeType Type { get; set; }
         public INode Root => Utils.GetRoot(this);
         public StatementType StatementType { get; set; }
+        public ResolutionStatus Status { get; set; } = ResolutionStatus.Unresolved;
         public Metadata Meta { get; set; }
 
         public ImportNode(string name, INode? parent)

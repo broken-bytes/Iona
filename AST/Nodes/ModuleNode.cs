@@ -12,6 +12,7 @@ namespace AST.Nodes
         public INode Root => Utils.GetRoot(this);
         public StatementType StatementType { get; set; }
         public List<INode> Children { get; private set; } = new List<INode>();
+        public ResolutionStatus Status { get; set; } = ResolutionStatus.Unresolved;
         public Metadata Meta { get; set; }
 
         public ModuleNode(string name, INode? parent)

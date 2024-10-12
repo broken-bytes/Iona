@@ -16,6 +16,7 @@ namespace AST.Nodes
         public INode? TypeNode { get; set; }
         public IExpressionNode? Value { get; set; }
         bool IsAssigned { get; set; }
+        public ResolutionStatus Status { get; set; } = ResolutionStatus.Unresolved;
         public Metadata Meta { get; set; }
 
         public PropertyNode(

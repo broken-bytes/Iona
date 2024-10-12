@@ -11,6 +11,7 @@ namespace AST.Nodes
         public INode Root => Utils.GetRoot(this);
         public IExpressionNode Target { get; set; }
         public List<FuncCallArg> Args { get; set; } = new List<FuncCallArg>();
+        public ResolutionStatus Status { get; set; } = ResolutionStatus.Unresolved;
         public Metadata Meta { get; set; }
 
         public FuncCallNode(IExpressionNode target, INode? parent = null)

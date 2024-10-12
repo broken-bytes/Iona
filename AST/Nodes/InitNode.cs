@@ -14,6 +14,7 @@ namespace AST.Nodes
         public StatementType StatementType { get; set; }
         public List<Parameter> Parameters { get; set; } = new List<Parameter>();
         public BlockNode? Body { get; set; }
+        public ResolutionStatus Status { get; set; } = ResolutionStatus.Unresolved;
         public Metadata Meta { get; set; }
 
         public InitNode(

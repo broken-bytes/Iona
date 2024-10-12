@@ -14,6 +14,7 @@ namespace AST.Nodes
         public UnaryOperation Operation { get; set; }
         public ExpressionType ExpressionType { get; set; }
         public INode? ResultType { get; set; }
+        public ResolutionStatus Status { get; set; } = ResolutionStatus.Unresolved;
         public Metadata Meta { get; set; }
 
         public UnaryExpressionNode(

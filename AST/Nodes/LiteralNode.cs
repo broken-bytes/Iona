@@ -13,6 +13,7 @@ namespace AST.Nodes
         public ExpressionType ExpressionType => ExpressionType.Literal;
         public INode? ResultType { get; set; }
         public LiteralType LiteralType { get; set; }
+        public ResolutionStatus Status { get; set; } = ResolutionStatus.Unresolved;
         public Metadata Meta { get; set; }
 
         public LiteralNode(string value, LiteralType literalType, INode? parent = null)

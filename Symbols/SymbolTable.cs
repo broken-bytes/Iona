@@ -93,6 +93,34 @@ namespace Symbols
                         return false;
                     });
                 }
+
+                if (child is OperatorNode op)
+                {
+                    var ops = currentSymbol?.Symbols.OfType<OperatorSymbol>();
+
+                    if (!ops.Any())
+                    {
+                        return null;
+                    }
+
+                    currentSymbol = ops.FirstOrDefault(symbol => {
+                        var parameters = symbol.Symbols.OfType<ParameterSymbol>().ToList();
+
+                        for (int x = 0; x < parameters.Count; x++)
+                        {
+                            if (
+                                parameters[x].Name == op.Parameters[x].Name ||
+                                parameters[x].Type.Name == ((TypeReferenceNode)op.Parameters[x].Type).Name
+                            )
+                            {
+                                return true;
+                            }
+
+                        }
+
+                        return false;
+                    });
+                }
             }
 
             return currentSymbol;

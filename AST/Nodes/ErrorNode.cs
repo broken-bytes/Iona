@@ -10,8 +10,8 @@ namespace AST.Nodes
         public NodeType Type { get; set; }
         public INode Root => Utils.GetRoot(this);
         public string Message { get; set; }
+        public ResolutionStatus Status { get; set; } = ResolutionStatus.Unresolved;
         public Metadata Meta { get; set; }
-
 
         public ErrorNode(string message, INode replacing, INode? parent = null)
         {

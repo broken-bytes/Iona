@@ -470,6 +470,17 @@ namespace ASTLogger
                 GetAndLogNode(node.Value);
                 _indentLevel--;
             }
+            Log($"- Type:");
+            _indentLevel++;
+            if (node.TypeNode != null)
+            {
+                GetAndLogNode(node.TypeNode);
+            }
+            else
+            {
+                Log("Unknown");
+            }
+            _indentLevel--;
             Spacer();
         }
 

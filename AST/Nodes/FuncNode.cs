@@ -17,6 +17,7 @@ namespace AST.Nodes
         public bool IsMutable { get; set; }
         public bool IsStatic { get; set; }
         public BlockNode? Body { get; set; }
+        public ResolutionStatus Status { get; set; } = ResolutionStatus.Unresolved;
         public Metadata Meta { get; set; }
 
         public FuncNode(

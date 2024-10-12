@@ -4,6 +4,14 @@ namespace AST.Nodes
 {
     public interface INode
     {
+        public enum ResolutionStatus
+        {
+            Unresolved,
+            Resolving,
+            Resolved,
+            Failed
+        }
+
         public struct Metadata
         {
             public string File { get; set; }
@@ -16,6 +24,7 @@ namespace AST.Nodes
         INode? Parent { get; set; }
         NodeType Type { get; set; }
         INode Root { get; }
+        ResolutionStatus Status { get; set; }
         Metadata Meta { get; set; }
 
         public List<INode> Hierarchy()

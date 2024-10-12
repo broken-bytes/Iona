@@ -17,6 +17,7 @@ namespace AST.Nodes
         public INode Root => Utils.GetRoot(this);
         public INode ObjectType { get; set; }
         public List<Argument> Arguments { get; set; } = new List<Argument>();
+        public ResolutionStatus Status { get; set; } = ResolutionStatus.Unresolved;
         public Metadata Meta { get; set; }
         public ExpressionType ExpressionType => ExpressionType.ObjectLiteral;
         public INode? ResultType => ObjectType;

@@ -1,4 +1,5 @@
 ﻿using AST.Nodes;
+using static AST.Nodes.INode;
 
 namespace AST.Types
 {
@@ -8,7 +9,8 @@ namespace AST.Types
         public INode? Parent { get; set; }
         public NodeType Type { get; set; }
         public INode Root => Utils.GetRoot(this);
-        public INode.Metadata Meta { get; set; }
+        public ResolutionStatus Status { get; set; } = ResolutionStatus.Unresolved;
+        public Metadata Meta { get; set; }
 
         public GenericArgument(string name, INode? parent = null)
         {

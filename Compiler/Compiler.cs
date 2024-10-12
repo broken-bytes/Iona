@@ -8,6 +8,7 @@ using Symbols.Symbols;
 using AST.Nodes;
 using Generator;
 using System.Collections.Concurrent;
+using System.Reflection;
 
 namespace Compiler
 {
@@ -28,6 +29,16 @@ namespace Compiler
 
         public void Compile(string assemblyName, List<CompilationUnit> files)
         {
+            // The compiler is made up of several passes:
+            // - Lexing
+            // - Parsing
+            // - AST construction
+            // - Symbol table construction
+            // - Scope checking (will be done twice, before and after type checking)
+            // - Type checking
+            // - Code generation
+            // - Assembly building
+
             SymbolTable globalTable = new SymbolTable();
 
             ConcurrentBag<INode> asts = new ConcurrentBag<INode>();
@@ -50,18 +61,21 @@ namespace Compiler
 
             Parallel.ForEach(asts, ast => typeck.ScopeCheck(ast, globalTable));
             Parallel.ForEach(asts, ast => typeck.TypeCheck(ast, globalTable));
+            Parallel.ForEach(asts, ast => typeck.ScopeCheck(ast, globalTable));
             Parallel.ForEach(asts, ast => logger.Log(ast));
             Parallel.ForEach(asts, ast => {
                 File.WriteAllText(((FileNode)ast.Root).Name + ".ast", visualizer.Visualize(ast));
             });
 
+
+            //GenerateCode(assemblyName, asts.ToList(), globalTable);
+        }
+
+        private void GenerateCode(string assemblyName, List<INode> asts, SymbolTable globalTable)
+        {
             var assembly = generator.CreateAssembly(assemblyName, globalTable);
-
             Parallel.ForEach(asts, ast => assembly.Generate(ast));
-
             assembly.Build();
-
-            // Generate code via the final AST
         }
     }
 }

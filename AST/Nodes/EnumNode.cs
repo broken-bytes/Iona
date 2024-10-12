@@ -14,6 +14,7 @@ namespace AST.Nodes
         public StatementType StatementType { get; set; }
         public List<IdentifierNode> Contracts { get; set; }
         public BlockNode? Body { get; set; }
+        public ResolutionStatus Status { get; set; } = ResolutionStatus.Unresolved;
         public Metadata Meta { get; set; }
 
         public EnumNode(string name, AccessLevel accessLevel, List<IdentifierNode> contracts, INode? parent)

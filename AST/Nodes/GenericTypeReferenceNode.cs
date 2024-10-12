@@ -11,8 +11,8 @@ namespace AST.Nodes
         public List<INode> GenericArguments { get; set; } = new List<INode>();
         public INode? Parent { get; set; }
         public NodeType Type { get; set; }
+        public ResolutionStatus Status { get; set; } = ResolutionStatus.Unresolved;
         public Metadata Meta { get; set; }
-
         public INode Root => throw new NotImplementedException();
 
         public GenericTypeReferenceNode(string name)

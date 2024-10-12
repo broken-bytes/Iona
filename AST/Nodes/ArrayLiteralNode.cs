@@ -12,6 +12,7 @@ namespace AST.Nodes
         public INode Root => Utils.GetRoot(this);
         public ExpressionType ExpressionType => ExpressionType.Literal;
         public INode? ResultType { get; set; }
+        public ResolutionStatus Status { get; set; } = ResolutionStatus.Unresolved;
         public Metadata Meta { get; set; }
 
         public ArrayLiteralNode(INode? parent = null)

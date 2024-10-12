@@ -15,6 +15,7 @@ namespace AST.Nodes
         public List<INode> Contracts { get; set; } = new List<INode>();
         public List<GenericArgument> GenericArguments { get; set; } = new List<GenericArgument>();
         public BlockNode? Body { get; set; }
+        public ResolutionStatus Status { get; set; } = ResolutionStatus.Unresolved;
         public Metadata Meta { get; set; }
 
         public StructNode(string name, AccessLevel accessLevel, INode? parent = null)

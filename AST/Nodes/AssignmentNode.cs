@@ -13,6 +13,7 @@ namespace AST.Nodes
         public INode Root { get => Utils.GetRoot(this); }
         public INode Target { get; set; }
         public INode Value { get; set; }
+        public ResolutionStatus Status { get; set; } = ResolutionStatus.Unresolved;
         public Metadata Meta { get; set; }
 
         public AssignmentNode(
