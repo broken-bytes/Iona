@@ -14,5 +14,8 @@
             TypeKind = kind;
             Symbols = new List<ISymbol>();
         }
+
+        public ISymbol? FindMember(string name) => 
+            Symbols.First(child => child is BlockSymbol).Symbols.Find(symbol => symbol.Name == name);
     }
 }

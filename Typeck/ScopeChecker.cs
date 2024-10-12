@@ -2,6 +2,7 @@
 using AST.Types;
 using AST.Visitors;
 using Symbols;
+using Symbols.Symbols;
 
 namespace Typeck
 {
@@ -43,6 +44,12 @@ namespace Typeck
             if (node.Target is IdentifierNode target)
             {
                 var symbol = table.FindBy(target);
+                Console.WriteLine($"Found symbol: {symbol}");
+            }
+            else if(node.Target is MemberAccessNode member)
+            {
+                var symbol = LookupMemberAccessSymbol(member);
+
                 Console.WriteLine($"Found symbol: {symbol}");
             }
         }
@@ -180,6 +187,50 @@ namespace Typeck
                     structNode.Accept(this);
                     break;
             }
+        }
+
+        private ISymbol? LookupMemberAccessSymbol(MemberAccessNode node)
+        {
+            // We distinguish between `self` as the target and identifiers
+            if (node.Target is IdentifierNode identifier)
+            {
+                if (identifier.Name == "self")
+                {
+                    // Find out what `self` refers to.
+                    // Steps:
+                    // - Self can only be found in methods and inits -> We must be in a block
+                    // - Get the parent of the Block -> A function or prop
+                    // - Get the parent of the func or prop -> A Block
+                    // - Get the parent of the block -> The type
+                    var type = (INode)identifier;
+
+                    while (type is not ITypeNode && type.Parent != null)
+                    {
+                        type = type.Parent;
+                    }
+
+                    if (type is ITypeNode typeNode)
+                    {
+                        var symbol = table.FindBy(typeNode) as TypeSymbol;
+
+                        if (symbol == null)
+                        {
+                            return null;
+                        }
+
+                        // Make sure the member is an identifier
+                        if (node.Member is IdentifierNode member)
+                        {
+                            // Now get the member symbol
+                            var memberSymbol = symbol.FindMember(member.Name);
+
+                            return memberSymbol;
+                        }
+                    }
+                }
+            }
+
+            return null;
         }
     }
 }
