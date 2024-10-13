@@ -3,6 +3,7 @@ using AST.Types;
 using AST.Visitors;
 using Symbols;
 using Symbols.Symbols;
+using System.Xml.Linq;
 
 namespace Typeck
 {
@@ -14,6 +15,8 @@ namespace Typeck
         IFuncVisitor, 
         IIdentifierVisitor,
         IInitVisitor,
+        ILiteralVisitor,
+        IMemberAccessVisitor,
         IModuleVisitor,
         IOperatorVisitor,
         IPropertyVisitor, 
@@ -42,24 +45,24 @@ namespace Typeck
         public void Visit(AssignmentNode node)
         {
             node.Status = INode.ResolutionStatus.Resolving;
-            if (node.Target is IdentifierNode target)
+            
+            HandleNode(node.Target);
+            HandleNode(node.Value);
+
+            if (node.Value.Status == INode.ResolutionStatus.Failed)
             {
-                var symbol = table.FindBy(target);
+                node.Value = new ErrorNode(
+                    $"`{node.Value}` is not defined",
+                    node.Value,
+                    node
+                );
 
-                if (symbol == null)
-                {
-                    node.Target = new ErrorNode(
-                        $"`{target.Name}` is not defined",
-                        target,
-                        node
-                    );
-                    return;
-                }
-
+                return;
             }
-            else if(node.Target is MemberAccessNode member)
+
+            if (node.Target.Status == INode.ResolutionStatus.Resolved && node.Value.Status == INode.ResolutionStatus.Resolved)
             {
-                LookupMemberAccessSymbol(member);
+                node.Status = INode.ResolutionStatus.Resolved;
             }
         }
 
@@ -114,6 +117,11 @@ namespace Typeck
 
             // Check if the identifier is in the current (or parent) scope
             var symbol = table.FindBy(node);
+
+            if (symbol == null)
+            {
+                node.Status = INode.ResolutionStatus.Failed;
+            }
         }
 
         public void Visit(InitNode node)
@@ -123,6 +131,107 @@ namespace Typeck
             if (node.Body != null)
             {
                 node.Body.Accept(this);
+            }
+        }
+
+        public void Visit(LiteralNode node)
+        {
+            node.Status = INode.ResolutionStatus.Resolved;
+        }
+
+        public void Visit(MemberAccessNode node)
+        {
+            node.Status = INode.ResolutionStatus.Resolving;
+
+            ISymbol? targetSymbol = null;
+
+            // We distinguish between `self` as the target and identifiers
+            if (node.Target is IdentifierNode identifier)
+            {
+                if (identifier.Name == "self")
+                {
+                    // Find out what `self` refers to.
+                    // Steps:
+                    // - Self can only be found in methods and inits -> We must be in a block
+                    // - Get the parent of the Block -> A function or prop
+                    // - Get the parent of the func or prop -> A Block
+                    // - Get the parent of the block -> The type
+                    var type = (INode)identifier;
+
+                    while (type is not ITypeNode && type.Parent != null)
+                    {
+                        type = type.Parent;
+                    }
+
+                    if (type is ITypeNode typeNode)
+                    {
+                        var symbol = table.FindBy(typeNode) as TypeSymbol;
+
+                        if (symbol == null)
+                        {
+                            node.Target = new ErrorNode(
+                                $"`{node.Target}` is not defined",
+                                node.Target,
+                                node
+                            );
+                        }
+
+                        targetSymbol = symbol;
+                    }
+                }
+                else
+                {
+                    var symbol = table.FindBy(identifier);
+
+                    if (symbol == null)
+                    {
+                        node.Target = new ErrorNode(
+                            $"`{node.Target}` is not defined",
+                            node.Target,
+                            node.Parent
+                        );
+
+                        return;
+                    }
+
+                    targetSymbol = symbol;
+                }
+            }
+
+            if (targetSymbol == null)
+            {
+                node.Target = new ErrorNode(
+                    $"`{node.Target}` is not defined",
+                    node.Target,
+                    node
+                );
+
+                return;
+            }
+
+            if (node.Member is IdentifierNode member)
+            {
+                // Now get the member symbol
+                var memberSymbol = ((TypeSymbol)targetSymbol).FindMember(member.Name);
+
+                if (memberSymbol == null)
+                {
+                    node.Target = new ErrorNode(
+                        $"Invalid member access. `{node.Member}` does not exist on `{node.Target}`",
+                        node.Target,
+                        node
+                    );
+
+                    node.Status = INode.ResolutionStatus.Failed;
+
+                    return;
+                }
+
+                if (memberSymbol is PropertySymbol)
+                {
+                    // Replace the identifier node with a property access node
+                    node.Member = new PropAccessNode(member, node);
+                }
             }
         }
 
@@ -140,16 +249,29 @@ namespace Typeck
         {
             node.Status = INode.ResolutionStatus.Resolving;
 
+            // Check if the types of the parameters are in scope
+            foreach (var param in node.Parameters)
+            {
+                ResolveParameter(node, param);
+            }
+
+            var isResolved = node.Parameters.TrueForAll(p => p.Type.Status == INode.ResolutionStatus.Resolved);
+
             if (node.Body != null)
             {
                 node.Body.Accept(this);
+                isResolved &= node.Body.Status == INode.ResolutionStatus.Resolved;
+            }
+
+            if (isResolved)
+            {
+                node.Status = INode.ResolutionStatus.Resolved;
             }
         }
 
         public void Visit(PropertyNode node)
         {
             node.Status = INode.ResolutionStatus.Resolving;
-
         }
 
         public void Visit(ReturnNode node)
@@ -200,6 +322,12 @@ namespace Typeck
                 case InitNode init:
                     init.Accept(this);
                     break;
+                case LiteralNode literal:
+                    literal.Accept(this);
+                    break;
+                case MemberAccessNode member:
+                    member.Accept(this);
+                    break;
                 case ModuleNode module:
                     module.Accept(this);
                     break;
@@ -218,92 +346,52 @@ namespace Typeck
             }
         }
 
-        private void LookupMemberAccessSymbol(MemberAccessNode node)
+        private void ResolveParameter(INode node, Parameter param)
         {
-            // We distinguish between `self` as the target and identifiers
-            if (node.Target is IdentifierNode identifier)
+            var type = param.Type;
+
+            if (type is TypeReferenceNode typeNode)
             {
-                if (identifier.Name == "self")
+                var module = node.Hierarchy().ToList().Find(item => item is ModuleNode);
+
+                // First check if the type is within the module
+                var moduleSymbol = table.FindBy(module);
+
+                if (moduleSymbol == null)
                 {
-                    // Find out what `self` refers to.
-                    // Steps:
-                    // - Self can only be found in methods and inits -> We must be in a block
-                    // - Get the parent of the Block -> A function or prop
-                    // - Get the parent of the func or prop -> A Block
-                    // - Get the parent of the block -> The type
-                    var type = (INode)identifier;
+                    param.Type = new ErrorNode(
+                        $"`{typeNode.Name}` is not defined",
+                    typeNode,
+                        node
+                    );
 
-                    while (type is not ITypeNode && type.Parent != null)
-                    {
-                        type = type.Parent;
-                    }
+                    return;
+                }
 
-                    if (type is ITypeNode typeNode)
-                    {
-                        var symbol = table.FindBy(typeNode) as TypeSymbol;
+                var typeSymbol = moduleSymbol.Symbols.Find(s => s.Name == typeNode.Name);
 
-                        if (symbol == null)
-                        {
-                            node.Target = new ErrorNode(
-                                $"`{node.Target}` is not defined",
-                                node.Target,
-                                node
-                            );
-                        }
-
-                        // Make sure the member is an identifier
-                        if (node.Member is IdentifierNode member)
-                        {
-                            // Now get the member symbol
-                            var memberSymbol = symbol.FindMember(member.Name);
-
-                            if (memberSymbol == null)
-                            {
-                                node.Target = new ErrorNode(
-                                    $"Invalid member access. `{node.Member}` does not exist on `{node.Target}`",
-                                    node.Target,
-                                    node
-                                );
-
-                                return;
-                            }
-
-                            node.Status = INode.ResolutionStatus.Resolved;
-                        }
-                    }
-                } 
-                else
+                if (typeSymbol != null)
                 {
-                    var symbol = table.FindBy(identifier);
+                    param.Type.Status = INode.ResolutionStatus.Resolved;
+                    return;
+                }
 
-                    if (symbol == null)
-                    {
-                        node.Target = new ErrorNode(
-                            $"`{node.Target}` is not defined",
-                            node.Target,
-                            node.Parent
-                        );
+                var currentType = (INode)node;
 
-                        return;
-                    }
+                while (currentType is not ITypeNode && currentType.Parent != null)
+                {
+                    currentType = currentType.Parent;
+                }
 
-                    // If the symbol is a prop or variable, we need to know its type, if not skip
-                    // We do this because the next pass is the type checker and this pass will be called again after the type checker
+                var symbol = table.FindBy(currentType);
 
-                    if (symbol is PropertySymbol prop)
-                    {
-                        if (prop.Type.TypeKind == TypeKind.Unknown)
-                        {
-                            return;
-                        }
-                    }
-                    else if (symbol is VariableSymbol variable)
-                    {
-                        if (variable.Type.TypeKind == TypeKind.Unknown)
-                        {
-                            return;
-                        }
-                    }
+                if (symbol == null)
+                {
+                    param.Type = new ErrorNode(
+                        $"`{typeNode.Name}` is not defined",
+                    typeNode,
+                        node
+                    );
                 }
             }
         }

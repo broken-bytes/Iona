@@ -21,6 +21,7 @@
         Identifier,
         ObjectLiteral,
         Operator,
+        PropAccess,
         IfStatement,
         ElseStatement,
         ForLoop,

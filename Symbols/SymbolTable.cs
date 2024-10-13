@@ -92,6 +92,19 @@ namespace Symbols
 
                         return false;
                     });
+
+                    if (currentSymbol == null)
+                    {
+                        continue;
+                    }
+
+                    // Check if the init contains the symbol in its parameters
+                    if (node is IdentifierNode id)
+                    {
+                        currentSymbol = currentSymbol.Symbols.Find(s => s.Name == id.Name);
+
+                        return currentSymbol;
+                    }
                 }
 
                 if (child is OperatorNode op)

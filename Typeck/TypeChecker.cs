@@ -53,57 +53,13 @@ namespace Typeck
             // - Check that the target and value have the same type (else add an error node)
             CheckNode(node.Target);
             CheckNode(node.Value);
-
-            // Both must be expressions, so cast them to get the expression result
-            if (node.Target is not IExpressionNode target || node.Value is not IExpressionNode value)
-            {
-                return;
-            }
-
-            // Check if the types are the same
-            if (target.ResultType != value.ResultType)
-            {
-                // Add an error node
-                return;
-            }
         }
 
         public void Visit(BlockNode node)
         {
             foreach (var child in node.Children)
             {
-                switch (child)
-                {
-                    case BlockNode block:
-                        block.Accept(this);
-                        break;
-                    case ClassNode classNode:
-                        classNode.Accept(this);
-                        break;
-                    case ContractNode contract:
-                        contract.Accept(this);
-                        break;
-                    case FuncCallNode funcCall:
-                        funcCall.Accept(this);
-                        break;
-                    case FuncNode func:
-                        func.Accept(this);
-                        break;
-                    case InitNode init:
-                        init.Accept(this);
-                        break;
-                    case PropertyNode property:
-                        property.Accept(this);
-                        break;
-                    case StructNode structNode:
-                        structNode.Accept(this);
-                        break;
-                    case VariableNode variable:
-                        variable.Accept(this);
-                        break;
-                    default:
-                        break;
-                }
+                CheckNode(child);
             }
         }
 
@@ -242,7 +198,18 @@ namespace Typeck
 
         public void Visit(MemberAccessNode node)
         {
-            throw new NotImplementedException();
+            if (node.Status is INode.ResolutionStatus.Failed or INode.ResolutionStatus.Resolved)
+            {
+                return;
+            }
+
+            if (node.Target is IdentifierNode target)
+            {
+                if (target.Name == "self")
+                {
+
+                }
+            }
         }
 
         public void Visit(ModuleNode node)
