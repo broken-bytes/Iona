@@ -2,6 +2,7 @@
 {
     public class TypeSymbol : ISymbol
     {
+        public string FullyQualifiedName => Parent != null ? $"{Parent.Name}.{Name}" : Name;
         public string Name { get; set; }
         public TypeKind TypeKind { get; }
         public List<ISymbol> Symbols { get; set; }

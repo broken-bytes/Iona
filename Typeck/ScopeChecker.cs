@@ -12,6 +12,7 @@ namespace Typeck
         IBlockVisitor, 
         IClassVisitor, 
         IFileVisitor, 
+        IFuncCallVisitor,
         IFuncVisitor, 
         IIdentifierVisitor,
         IInitVisitor,
@@ -105,10 +106,29 @@ namespace Typeck
         {
             node.Status = INode.ResolutionStatus.Resolving;
 
+            // Check if the types of the parameters are in scope and assign the actual type symbol to them
+            foreach (var param in node.Parameters)
+            {
+                ResolveParameter(node, param);
+            }
+
+            var isResolved = node.Parameters.TrueForAll(p => p.Type.Status == INode.ResolutionStatus.Resolved);
+
             if (node.Body != null)
             {
                 node.Body.Accept(this);
+                isResolved &= node.Body.Status == INode.ResolutionStatus.Resolved;
             }
+
+            if (isResolved)
+            {
+                node.Status = INode.ResolutionStatus.Resolved;
+            }
+        }
+
+        public void Visit(FuncCallNode node)
+        {
+            node.Status = INode.ResolutionStatus.Resolving;
         }
 
         public void Visit(IdentifierNode node)
@@ -128,9 +148,23 @@ namespace Typeck
         {
             node.Status = INode.ResolutionStatus.Resolving;
 
+            // Check if the types of the parameters are in scope and assign the actual type symbol to them
+            foreach (var param in node.Parameters)
+            {
+                ResolveParameter(node, param);
+            }
+
+            var isResolved = node.Parameters.TrueForAll(p => p.Type.Status == INode.ResolutionStatus.Resolved);
+
             if (node.Body != null)
             {
                 node.Body.Accept(this);
+                isResolved &= node.Body.Status == INode.ResolutionStatus.Resolved;
+            }
+
+            if (isResolved)
+            {
+                node.Status = INode.ResolutionStatus.Resolved;
             }
         }
 
@@ -211,8 +245,23 @@ namespace Typeck
 
             if (node.Member is IdentifierNode member)
             {
-                // Now get the member symbol
-                var memberSymbol = ((TypeSymbol)targetSymbol).FindMember(member.Name);
+                ISymbol? memberSymbol = null;
+
+                if (targetSymbol is TypeSymbol typeSymbol)
+                {
+                    memberSymbol = typeSymbol.FindMember(member.Name);
+                }
+                else if (targetSymbol is VariableSymbol variableSymbol)
+                {
+                    if (variableSymbol.Type.TypeKind is not TypeKind.Unknown)
+                    {
+                        memberSymbol = variableSymbol.Type.FindMember(member.Name);
+                    }
+                    else
+                    {
+                        return;
+                    }
+                }
 
                 if (memberSymbol == null)
                 {
@@ -313,6 +362,9 @@ namespace Typeck
                 case ClassNode classNode:
                     classNode.Accept(this);
                     break;
+                case FuncCallNode funcCall:
+                    funcCall.Accept(this);
+                    break;
                 case FuncNode func:
                     func.Accept(this);
                     break;
@@ -368,11 +420,27 @@ namespace Typeck
                     return;
                 }
 
-                var typeSymbol = moduleSymbol.Symbols.Find(s => s.Name == typeNode.Name);
+                var typeSymbol = moduleSymbol.Symbols.OfType<TypeSymbol>().ToList().Find(s => s.Name == typeNode.Name);
 
                 if (typeSymbol != null)
                 {
-                    param.Type.Status = INode.ResolutionStatus.Resolved;
+                    var reference = new TypeReferenceNode(typeSymbol.Name, node);
+                    param.Type = reference;
+                    reference.Module = moduleSymbol.Name;
+                    reference.Status = INode.ResolutionStatus.Resolved;
+                    reference.TypeKind = Utils.SymbolKindToASTKind(typeSymbol.TypeKind);
+
+                    // Also set the type symbol of the parameter to the resolved symbol
+                    // For this we need to find the parameter symbol in the current block
+                    var parentSymbol = table.FindBy(node);
+
+                    var parameterSymbol = parentSymbol?.Symbols.OfType<ParameterSymbol>().ToList().Find(s => s.Name == param.Name);
+
+                    if (parameterSymbol is not null)
+                    {
+                        parameterSymbol.Type = typeSymbol;
+                    }
+
                     return;
                 }
 

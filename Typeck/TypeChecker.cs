@@ -1,8 +1,11 @@
 ﻿using AST.Nodes;
+using AST.Types;
 using AST.Visitors;
 using Symbols;
 using Symbols.Symbols;
+using System;
 using System.Net.Http.Headers;
+using static AST.Nodes.INode;
 
 namespace Typeck
 {
@@ -53,6 +56,25 @@ namespace Typeck
             // - Check that the target and value have the same type (else add an error node)
             CheckNode(node.Target);
             CheckNode(node.Value);
+
+            TypeReferenceNode? leftType = GetTypeOf(node.Target);
+            TypeReferenceNode? rightType = GetTypeOf(node.Value);
+
+            if (leftType == null || rightType == null)
+            {
+                node.Status = ResolutionStatus.Failed;
+                return;
+            }
+
+            // Ensure that the target and value have the same type
+            if (leftType.FullyQualifiedName != rightType.FullyQualifiedName)
+            {
+                node.Target = new ErrorNode(
+                    $"Type mismatch. No conversion from {rightType} to {leftType} possible.",
+                    node.Target,
+                    node
+                );
+            }
         }
 
         public void Visit(BlockNode node)
@@ -152,7 +174,48 @@ namespace Typeck
 
         public void Visit(IdentifierNode node)
         {
-            throw new NotImplementedException();
+            node.Status = ResolutionStatus.Resolving;
+            var symbol = _symbolTable.FindBy(node);
+
+            if (symbol == null)
+            {
+                node.Status = ResolutionStatus.Failed;
+                return;
+            }
+
+            TypeSymbol? typeSymbol = null;
+            if (symbol is TypeSymbol type)
+            {
+                typeSymbol = type;
+            }
+            else if (symbol is VariableSymbol variable)
+            {
+                typeSymbol = variable.Type;
+            }
+            else if (symbol is PropertySymbol property)
+            {
+                typeSymbol = property.Type;
+            }
+            else if (symbol is ParameterSymbol parameter)
+            {
+                typeSymbol = parameter.Type;
+            }
+
+            if (typeSymbol != null)
+            {
+                node.Status = ResolutionStatus.Resolved;
+                var typeRef = new TypeReferenceNode(typeSymbol.Name, node);
+                node.ResultType = typeRef;
+                typeRef.Module = typeSymbol.Parent.Name;
+                typeRef.TypeKind = Utils.SymbolKindToASTKind(typeSymbol.TypeKind);
+                typeRef.Status = ResolutionStatus.Resolved;
+            }
+            else
+            {
+                node.Status = ResolutionStatus.Failed;
+            }
+
+            Console.WriteLine(symbol);
         }
 
         public void Visit(ImportNode import)
@@ -287,7 +350,7 @@ namespace Typeck
             {
                 var actualType = CheckNodeType(type);
                 node.TypeNode = actualType;
-            } 
+            }
             else if (node.TypeNode is MemberAccessNode memberAccess)
             {
                 var actualType = CheckNodeType(memberAccess);
@@ -332,7 +395,9 @@ namespace Typeck
                 case "ulong":
                 case "ushort":
                     typeRef = new TypeReferenceNode(typeNode.Name, typeNode.Parent);
-                    typeRef.FullyQualifiedName = typeNode.Name;
+                    typeRef.Module = "Primitives";
+                    typeRef.Status = ResolutionStatus.Resolved;
+                    typeRef.TypeKind = AST.Types.Kind.Struct;
 
                     return typeRef;
             }
@@ -366,7 +431,9 @@ namespace Typeck
             if (type != null)
             {
                 typeNode.Module = type.Parent.Name;
-                typeNode.FullyQualifiedName = type.Parent.Name + "." + type.Name;
+                typeNode.Status = ResolutionStatus.Resolved;
+                typeNode.TypeKind = Utils.SymbolKindToASTKind(type.TypeKind);
+
                 return typeNode;
             }
 
@@ -478,6 +545,24 @@ namespace Typeck
                     variableNode.Accept(this);
                     break;
             }
+        }
+
+        private TypeReferenceNode? GetTypeOf(INode node)
+        {
+            if (node is IdentifierNode identifier)
+            {
+                return identifier.ResultType as TypeReferenceNode;
+            }
+            else if (node is MemberAccessNode memberAccess)
+            {
+                return memberAccess.ResultType as TypeReferenceNode;
+            }
+            else if (node is LiteralNode literal)
+            {
+                return literal.ResultType as TypeReferenceNode;
+            }
+
+            return null;
         }
     }
 }
