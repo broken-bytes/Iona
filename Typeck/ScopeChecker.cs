@@ -177,111 +177,7 @@ namespace Typeck
         {
             node.Status = INode.ResolutionStatus.Resolving;
 
-            ISymbol? targetSymbol = null;
-
-            // We distinguish between `self` as the target and identifiers
-            if (node.Target is IdentifierNode identifier)
-            {
-                if (identifier.Name == "self")
-                {
-                    // Find out what `self` refers to.
-                    // Steps:
-                    // - Self can only be found in methods and inits -> We must be in a block
-                    // - Get the parent of the Block -> A function or prop
-                    // - Get the parent of the func or prop -> A Block
-                    // - Get the parent of the block -> The type
-                    var type = (INode)identifier;
-
-                    while (type is not ITypeNode && type.Parent != null)
-                    {
-                        type = type.Parent;
-                    }
-
-                    if (type is ITypeNode typeNode)
-                    {
-                        var symbol = table.FindBy(typeNode) as TypeSymbol;
-
-                        if (symbol == null)
-                        {
-                            node.Target = new ErrorNode(
-                                $"`{node.Target}` is not defined",
-                                node.Target,
-                                node
-                            );
-                        }
-
-                        targetSymbol = symbol;
-                    }
-                }
-                else
-                {
-                    var symbol = table.FindBy(identifier);
-
-                    if (symbol == null)
-                    {
-                        node.Target = new ErrorNode(
-                            $"`{node.Target}` is not defined",
-                            node.Target,
-                            node.Parent
-                        );
-
-                        return;
-                    }
-
-                    targetSymbol = symbol;
-                }
-            }
-
-            if (targetSymbol == null)
-            {
-                node.Target = new ErrorNode(
-                    $"`{node.Target}` is not defined",
-                    node.Target,
-                    node
-                );
-
-                return;
-            }
-
-            if (node.Member is IdentifierNode member)
-            {
-                ISymbol? memberSymbol = null;
-
-                if (targetSymbol is TypeSymbol typeSymbol)
-                {
-                    memberSymbol = typeSymbol.FindMember(member.Name);
-                }
-                else if (targetSymbol is VariableSymbol variableSymbol)
-                {
-                    if (variableSymbol.Type.TypeKind is not TypeKind.Unknown)
-                    {
-                        memberSymbol = variableSymbol.Type.FindMember(member.Name);
-                    }
-                    else
-                    {
-                        return;
-                    }
-                }
-
-                if (memberSymbol == null)
-                {
-                    node.Target = new ErrorNode(
-                        $"Invalid member access. `{node.Member}` does not exist on `{node.Target}`",
-                        node.Target,
-                        node
-                    );
-
-                    node.Status = INode.ResolutionStatus.Failed;
-
-                    return;
-                }
-
-                if (memberSymbol is PropertySymbol)
-                {
-                    // Replace the identifier node with a property access node
-                    node.Member = new PropAccessNode(member, node);
-                }
-            }
+            ResolveMemberAccessNode(node);
         }
 
         public void Visit(ModuleNode node)
@@ -461,6 +357,158 @@ namespace Typeck
                         node
                     );
                 }
+            }
+        }
+
+        /// <summary>
+        /// Takes a member access node and resolves a more concrete type for the node
+        /// The type can be one of:
+        /// - PropAccessNode
+        /// - NestedTypeNode
+        /// </summary>
+        /// <param name="memberAccess"></param>
+        private void ResolveMemberAccessNode(MemberAccessNode node)
+        {
+            ISymbol? targetSymbol = null;
+
+            // We distinguish between `self` as the target and identifiers
+            if (node.Left is IdentifierNode identifier)
+            {
+                if (identifier.Name == "self")
+                {
+                    // Find out what `self` refers to.
+                    // Steps:
+                    // - Self can only be found in methods and inits -> We must be in a block
+                    // - Get the parent of the Block -> A function or prop
+                    // - Get the parent of the func or prop -> A Block
+                    // - Get the parent of the block -> The type
+                    var type = (INode)identifier;
+
+                    while (type is not ITypeNode && type.Parent != null)
+                    {
+                        type = type.Parent;
+                    }
+
+                    if (type is ITypeNode typeNode)
+                    {
+                        var symbol = table.FindBy(typeNode) as TypeSymbol;
+
+                        if (symbol == null)
+                        {
+                            node.Left = new ErrorNode(
+                                $"`{node.Left}` is not defined",
+                                node.Left,
+                                node
+                            );
+                        }
+
+                        targetSymbol = symbol;
+                    }
+                }
+                else
+                {
+                    var symbol = table.FindBy(identifier);
+
+                    if (symbol == null)
+                    {
+                        node.Left = new ErrorNode(
+                            $"`{node.Left}` is not defined",
+                            node.Left,
+                            node.Parent
+                        );
+
+                        return;
+                    }
+
+                    targetSymbol = symbol;
+                }
+            }
+
+            if (targetSymbol == null)
+            {
+                node.Left = new ErrorNode(
+                    $"`{node.Left}` is not defined",
+                    node.Left,
+                    node
+                );
+
+                return;
+            }
+
+            if (node.Right is IdentifierNode member)
+            {
+                ISymbol? memberSymbol = null;
+
+                if (targetSymbol is TypeSymbol typeSymbol)
+                {
+                    memberSymbol = typeSymbol.FindMember(member.Name);
+                }
+                else if (targetSymbol is VariableSymbol variableSymbol)
+                {
+                    if (variableSymbol.Type.TypeKind is not TypeKind.Unknown)
+                    {
+                        memberSymbol = variableSymbol.Type.FindMember(member.Name);
+                    }
+                    else
+                    {
+                        return;
+                    }
+                }
+
+                if (memberSymbol == null)
+                {
+                    node.Left = new ErrorNode(
+                        $"Invalid member access. `{node.Right}` does not exist on `{node.Left}`",
+                        node.Left,
+                        node
+                    );
+
+                    node.Status = INode.ResolutionStatus.Failed;
+
+                    return;
+                }
+
+                if (memberSymbol is PropertySymbol)
+                {
+                    // Replace the member access node with a property access node
+                    var propAccess = new PropAccessNode(node.Left, member, node.Parent);
+
+                    // Replace the member access node with the property access node
+                    ReplaceMemberAccessWithPropAccess(node, propAccess);
+                }
+            }
+        }
+
+        private void ReplaceMemberAccessWithPropAccess(MemberAccessNode memberAccess, PropAccessNode propAccess)
+        {
+            if (memberAccess.Parent is AssignmentNode assignment)
+            {
+                if (ReferenceEquals(assignment.Target, memberAccess))
+                {
+                    assignment.Target = propAccess;
+                }
+                else if (ReferenceEquals(assignment.Value, memberAccess))
+                {
+                    assignment.Value = propAccess;
+                }
+            }
+            else if (memberAccess.Parent is BinaryExpressionNode binary)
+            {
+                if (ReferenceEquals(binary.Left, memberAccess))
+                {
+                    binary.Left = propAccess;
+                }
+                else if (ReferenceEquals(binary.Right, memberAccess))
+                {
+                    binary.Right = propAccess;
+                }
+            }
+            else if (memberAccess.Parent is BlockNode block)
+            {
+                // Add the prop access node before the member access node and remove the memebr access node afterwards
+                var index = block.Children.IndexOf(memberAccess);
+                block.Children.Insert(index, propAccess);
+                block.Children.Remove(memberAccess);
             }
         }
     }

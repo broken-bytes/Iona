@@ -170,9 +170,9 @@ namespace ASTVisualizer
             _lastNodeId = GetNodeId(node);
 
             MakeConnection(node, "Target");
-            GetAndLogNode(node.Target);
+            GetAndLogNode(node.Left);
             MakeConnection(node, "Member");
-            GetAndLogNode(node.Member);
+            GetAndLogNode(node.Right);
             _lastNodeId = GetNodeId(node);
         }
 

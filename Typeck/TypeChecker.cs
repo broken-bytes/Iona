@@ -27,6 +27,7 @@ namespace Typeck
         IModuleVisitor,
         IObjectLiteralVisitor,
         IOperatorVisitor,
+        IPropAccessVisitor,
         IPropertyVisitor,
         IReturnVisitor,
         IStructVisitor,
@@ -87,7 +88,26 @@ namespace Typeck
 
         public void Visit(BinaryExpressionNode node)
         {
-            throw new NotImplementedException();
+            CheckNode(node.Left);
+            CheckNode(node.Right);
+
+            var leftType = GetTypeOf(node.Left);
+            var rightType = GetTypeOf(node.Right);
+
+            if (leftType == null || rightType == null)
+            {
+                node.Status = ResolutionStatus.Failed;
+                return;
+            }
+
+            if (leftType.FullyQualifiedName != rightType.FullyQualifiedName)
+            {
+                node.Left = new ErrorNode(
+                    $"Type mismatch. No conversion from {rightType} to {leftType} possible.",
+                    node.Left,
+                    node
+                );
+            }
         }
 
         public void Visit(ClassNode node)
@@ -266,7 +286,7 @@ namespace Typeck
                 return;
             }
 
-            if (node.Target is IdentifierNode target)
+            if (node.Left is IdentifierNode target)
             {
                 if (target.Name == "self")
                 {
@@ -309,7 +329,56 @@ namespace Typeck
 
         public void Visit(OperatorNode node)
         {
-            throw new NotImplementedException();
+            // Check the parameters if they have a (known) type
+            foreach (var param in node.Parameters)
+            {
+                if (param.Type is TypeReferenceNode type)
+                {
+                    var actualType = CheckNodeType(type);
+
+                    if (actualType != null)
+                    {
+                        param.Type = actualType;
+                    }
+                    else
+                    {
+                        param.Type = new ErrorNode(
+                            "Unknown type",
+                            param.Type,
+                            node
+                        );
+                    }
+                }
+            }
+
+            // Check the body
+            if (node.Body != null)
+            {
+                node.Body.Accept(this);
+            }
+        }
+
+        public void Visit(PropAccessNode node)
+        {
+            if (node.Status is INode.ResolutionStatus.Failed or INode.ResolutionStatus.Resolved)
+            {
+                return;
+            }
+
+            if (node.Object is IdentifierNode target)
+            {
+                if (target.Name == "self")
+                {
+                    var type = GetTypeOfSelf(target);
+
+                    if (type != null)
+                    {
+                        type.Status = ResolutionStatus.Resolved;
+                    }
+
+                    Console.WriteLine(type);
+                }
+            }
         }
 
         public void Visit(PropertyNode node)
@@ -364,9 +433,9 @@ namespace Typeck
             {
                 return CheckTypeReferenceNode(typeNode);
             }
-            else if (node is MemberAccessNode memberAccessNode)
+            else if (node is PropAccessNode propAccess)
             {
-                return CheckMemberAccessNode(memberAccessNode);
+                return CheckPropAccessNode(propAccess);
             }
 
             return null;
@@ -440,16 +509,16 @@ namespace Typeck
             return null;
         }
 
-        private INode CheckMemberAccessNode(MemberAccessNode memberAccessNode)
+        private INode CheckPropAccessNode(PropAccessNode propAccess)
         {
             // We first need to find the scope this type reference is in(to find nested types, or the module)
             // Step 1: Check if the leftmost node is a module
-            if (memberAccessNode.Target is not IdentifierNode target)
+            if (propAccess.Object is not IdentifierNode target)
             {
                 return new ErrorNode(
                     "Invalid member access in type reference",
-                    memberAccessNode,
-                    memberAccessNode.Parent
+                    propAccess,
+                    propAccess.Parent
                 );
             }
 
@@ -462,7 +531,7 @@ namespace Typeck
             // - If it does, we need to further check that the next node is not the type of that very same name
             if (isModule)
             {
-                if (memberAccessNode.Member is not IdentifierNode member)
+                if (propAccess.Property is not IdentifierNode member)
                 {
                     // Not an identifier, so we cannot mean the type within the module
                 }
@@ -526,6 +595,9 @@ namespace Typeck
                 case OperatorNode operatorNode:
                     operatorNode.Accept(this);
                     break;
+                case PropAccessNode propAccessNode:
+                    propAccessNode.Accept(this);
+                    break;
                 case PropertyNode propertyNode:
                     propertyNode.Accept(this);
                     break;
@@ -553,13 +625,61 @@ namespace Typeck
             {
                 return identifier.ResultType as TypeReferenceNode;
             }
-            else if (node is MemberAccessNode memberAccess)
+            else if (node is PropAccessNode propAccess)
             {
-                return memberAccess.ResultType as TypeReferenceNode;
+                return propAccess.ResultType as TypeReferenceNode;
             }
             else if (node is LiteralNode literal)
             {
                 return literal.ResultType as TypeReferenceNode;
+            }
+
+            return null;
+        }
+
+        private TypeReferenceNode? GetTypeOfSelf(IdentifierNode self)
+        {
+            // Self means we must be within a TypeNode. Find it by going up the parents until one was found, or we hit a module node (invalid self then)
+            INode? current = self;
+
+            while (current != null)
+            {
+                if (current is ITypeNode type)
+                {
+                    var typeRef = new TypeReferenceNode(type.Name, self);
+
+                    var module = type.Parent;
+
+                    if (module is ModuleNode moduleNode)
+                    {
+                        typeRef.Module = moduleNode.Name;
+
+                        if (type is ClassNode)
+                        {
+                            typeRef.TypeKind = AST.Types.Kind.Class;
+                        }
+                        else if (type is StructNode)
+                        {
+                            typeRef.TypeKind = AST.Types.Kind.Struct;
+                        }
+                        else if (type is ContractNode)
+                        {
+                            typeRef.TypeKind = AST.Types.Kind.Contract;
+                        }
+                        else
+                        {
+                            return null;
+                        }
+                    }
+                    else
+                    {
+                        return null;
+                    }
+
+                    return typeRef;
+                }
+
+                current = current.Parent;
             }
 
             return null;

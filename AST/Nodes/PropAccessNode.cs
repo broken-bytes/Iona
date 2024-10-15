@@ -4,21 +4,25 @@ using static AST.Nodes.INode;
 
 namespace AST.Nodes
 {
-    public class PropAccessNode : INode
+    public class PropAccessNode : IExpressionNode
     {
         public INode? Parent { get; set; }
         public NodeType Type { get; set; }
-        public string Name { get; set; }
+        public INode Object { get; set; }
+        public INode Property { get; set; }
+        public INode? ResultType { get; set; }
+        public ExpressionType ExpressionType => ExpressionType.PropAccess;
         public INode Root => Utils.GetRoot(this);
         public ResolutionStatus Status { get; set; } = ResolutionStatus.Unresolved;
         public Metadata Meta { get; set; }
 
-        public PropAccessNode(IdentifierNode identifier, INode? parent = null)
+        public PropAccessNode(INode obj, INode property, INode? parent = null)
         {
-            Name = identifier.Name;
+            Object = obj;
+            Property = property;
             Parent = parent;
             Type = NodeType.PropAccess;
-            Meta = identifier.Meta;
+            Meta = property.Meta;
         }
 
         public void Accept(IPropAccessVisitor visitor)

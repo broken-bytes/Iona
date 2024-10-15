@@ -9,8 +9,8 @@ namespace AST.Nodes
         public INode? Parent { get; set; }
         public NodeType Type { get; set; }
         public INode Root => Utils.GetRoot(this);
-        public INode Target { get; set; }
-        public INode Member { get; set; }
+        public INode Left { get; set; }
+        public INode Right { get; set; }
         public ExpressionType ExpressionType => ExpressionType.MemberAccess;
         public INode? ResultType => null;
         public ResolutionStatus Status { get; set; } = ResolutionStatus.Unresolved;
@@ -20,8 +20,8 @@ namespace AST.Nodes
         {
             Parent = parent;
             Type = NodeType.MemberAccess;
-            Target = target;
-            Member = member;
+            Left = target;
+            Right = member;
         }
 
         public void Accept(IMemberAccessVisitor visitor)

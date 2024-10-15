@@ -82,9 +82,9 @@ namespace Parser.Parsers
                 var nextIdentifier = stream.Consume(TokenType.Identifier, TokenFamily.Keyword);
                 var next = new IdentifierNode(nextIdentifier.Value, null);
 
-                memberAccess.Target = new MemberAccessNode(memberAccess.Target, next, parent);
-                memberAccess.Target.Parent = memberAccess;
-                memberAccess.Member.Parent = memberAccess;
+                memberAccess.Left = new MemberAccessNode(memberAccess.Left, next, parent);
+                memberAccess.Left.Parent = memberAccess;
+                memberAccess.Right.Parent = memberAccess;
                 Utils.SetEnd(memberAccess, nextIdentifier);
             }
 

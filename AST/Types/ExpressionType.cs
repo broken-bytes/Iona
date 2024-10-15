@@ -16,6 +16,7 @@
         ObjectLiteral,
         PointerAccess,
         PointerDereference,
+        PropAccess,
         AddressOf,
         New,
         Delete,

@@ -715,7 +715,7 @@ namespace Generator
 
             var il = currentMethod.Body.GetILProcessor();
 
-            if (node.Target is IdentifierNode target)
+            if (node.Left is IdentifierNode target)
             {
                 if (target.Name == "self")
                 {
@@ -723,7 +723,7 @@ namespace Generator
 
                     if (symbol is TypeSymbol typeSymbol)
                     {
-                        var memberIdentifier = ((IdentifierNode)node.Member).Name;
+                        var memberIdentifier = ((IdentifierNode)node.Right).Name;
 
                         var prop = typeSymbol.Symbols.OfType<PropertySymbol>().FirstOrDefault(f => f.Name == memberIdentifier);
 

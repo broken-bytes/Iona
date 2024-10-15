@@ -131,7 +131,7 @@ namespace Parser.Parsers
 
         private INode ParseBasicAssignment(TokenStream stream, INode? parent)
         {
-            var target = expressionParser.Parse(stream, parent);
+            var target = expressionParser.Parse(stream, null);
 
             // Consume the assign operator
             var token = stream.Consume(TokenFamily.Operator, TokenFamily.Keyword);
@@ -148,10 +148,12 @@ namespace Parser.Parsers
                 return error;
             }
 
-            var value = expressionParser.Parse(stream, parent);
+            var value = expressionParser.Parse(stream, null);
 
             var assign = new AssignmentNode(AssignmentType.Assign, target, value, parent);
-            
+            target.Parent = assign;
+            value.Parent = assign;
+
             // The meta for assign ranges from the start of the target to the end of the value, so we just combine them
             Utils.SetMeta(assign, target, value);
 

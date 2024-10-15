@@ -292,13 +292,13 @@ namespace ASTLogger
             Log("- Target:");
 
             _indentLevel++;
-            GetAndLogNode(node.Target);
+            GetAndLogNode(node.Left);
             _indentLevel--;
 
             Log("- Member:");
 
             _indentLevel++;
-            GetAndLogNode(node.Member);
+            GetAndLogNode(node.Right);
             _indentLevel--;
 
             Spacer();
