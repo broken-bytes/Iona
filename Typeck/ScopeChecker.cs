@@ -129,6 +129,10 @@ namespace Typeck
         public void Visit(FuncCallNode node)
         {
             node.Status = INode.ResolutionStatus.Resolving;
+            // Check if the function is in scope
+            var symbol = table.FindBy(node);
+
+            Console.WriteLine($"FuncCallNode: {node}");
         }
 
         public void Visit(IdentifierNode node)
@@ -217,6 +221,11 @@ namespace Typeck
         public void Visit(PropertyNode node)
         {
             node.Status = INode.ResolutionStatus.Resolving;
+
+            if (node.Value != null)
+            {
+                HandleNode(node.Value);
+            }
         }
 
         public void Visit(ReturnNode node)
@@ -243,6 +252,10 @@ namespace Typeck
         {
             node.Status = INode.ResolutionStatus.Resolving;
 
+            if (node.Value != null)
+            {
+                HandleNode(node.Value);
+            }
         }
 
         private void HandleNode(INode node)
@@ -290,6 +303,9 @@ namespace Typeck
                     break;
                 case StructNode structNode:
                     structNode.Accept(this);
+                    break;
+                case VariableNode variableNode:
+                    variableNode.Accept(this);
                     break;
             }
         }

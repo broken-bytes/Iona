@@ -61,6 +61,31 @@ namespace Symbols
                     currentSymbol = currentSymbol?.Symbols.OfType<BlockSymbol>().FirstOrDefault();
                 }
 
+                if (child is FuncCallNode funcCallNode)
+                {
+                    if (currentSymbol == null)
+                    {
+                        return null;
+                    }
+
+                    var funcName = ((IdentifierNode)funcCallNode.Target).Name;
+
+                    currentSymbol = currentSymbol.Symbols.Find(s => s.Name == funcName);
+
+                    Console.WriteLine(currentSymbol);
+
+                    // Edge case: if the function is a constructor, the name of the function is the same as the type, e.g. `Int()`
+                    if (currentSymbol == null)
+                    {
+                        var typeNode = hierarchy.OfType<ModuleNode>().First().Children.OfType<ITypeNode>().First(node => node.Name == funcName);
+
+                        Console.WriteLine(typeNode);
+                    }
+
+                    return currentSymbol;
+                }
+
+
                 if (child is IdentifierNode identifier)
                 {
                     currentSymbol = currentSymbol.Symbols.Find(s => s.Name == identifier.Name);
@@ -133,6 +158,11 @@ namespace Symbols
 
                         return false;
                     });
+                }
+
+                if (child is VariableNode varNode)
+                {
+                    currentSymbol = currentSymbol.Symbols.Find(s => s.Name == varNode.Name);
                 }
             }
 

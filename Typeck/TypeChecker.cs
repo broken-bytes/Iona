@@ -378,6 +378,13 @@ namespace Typeck
 
                     Console.WriteLine(type);
                 }
+                else
+                {
+                    // Find the symbol `Object` in the current scope
+                    var symbol = _symbolTable.FindBy(target);
+
+                    Console.WriteLine(symbol);
+                }
             }
         }
 
@@ -627,7 +634,7 @@ namespace Typeck
             }
             else if (node is PropAccessNode propAccess)
             {
-                return propAccess.ResultType as TypeReferenceNode;
+                return GetTypeOfPropAccess(propAccess);
             }
             else if (node is LiteralNode literal)
             {
@@ -680,6 +687,46 @@ namespace Typeck
                 }
 
                 current = current.Parent;
+            }
+
+            return null;
+        }
+
+        private TypeReferenceNode? GetTypeOfPropAccess(PropAccessNode propAccess)
+        {
+            if (propAccess.Object is IdentifierNode target)
+            {
+                if (target.Name == "self")
+                {
+                    var type = GetTypeOfSelf(target);
+
+                    if (type != null)
+                    {
+                        type.Status = ResolutionStatus.Resolved;
+                    }
+
+                    return type;
+                }
+                else
+                {
+                    // Find the symbol `Object` in the current scope
+                    var symbol = _symbolTable.FindBy(target);
+
+                    Console.WriteLine(symbol);
+                }
+            }
+            else
+            {
+                return null;
+            }
+
+            if(propAccess.Property is PropAccessNode nestedPropAccess)
+            {
+                return GetTypeOfPropAccess(nestedPropAccess);
+            }
+            else if (propAccess.Property is IdentifierNode identifier)
+            {
+                return identifier.ResultType as TypeReferenceNode;
             }
 
             return null;
