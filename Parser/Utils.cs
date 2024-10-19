@@ -1,5 +1,6 @@
 ﻿using AST.Nodes;
 using Lexer.Tokens;
+using System.Text;
 
 namespace Parser
 {
@@ -130,6 +131,54 @@ namespace Parser
             };
 
             node.Meta = meta;
+        }
+
+        internal static string ResolveFullyQualifiedName(ITypeNode node)
+        {
+            var current = node.Parent;
+
+            var nodes = new List<ITypeNode>();
+            ModuleNode? module = null;
+
+            while (current != null)
+            {
+                if (current is ITypeNode typeNode)
+                {
+                    nodes.Add(typeNode);
+                }
+
+                if (current is ModuleNode modNode)
+                {
+                    module = modNode;
+                    break;
+                }
+
+                current = current.Parent;
+            }
+
+            // This should never happen
+            if (module == null)
+            {
+                return node.Name;
+            }
+
+            nodes.Reverse();
+
+            var strBuilder = new StringBuilder();
+
+            strBuilder.Append(module?.Name);
+
+            foreach (var n in nodes)
+            {
+                strBuilder.Append(n.Name);
+                strBuilder.Append(".");
+            }
+
+            strBuilder.Append($".{node.Name}");
+
+            var name = strBuilder.ToString();
+
+            return name;
         }
     }
 }

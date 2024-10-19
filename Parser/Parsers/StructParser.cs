@@ -65,6 +65,9 @@ namespace Parser.Parsers
                 var name = stream.Consume(TokenType.Identifier, TokenFamily.Keyword);
 
                 structNode = new StructNode(name.Value, accessLevel, parent);
+
+                structNode.FullyQualifiedName = Utils.ResolveFullyQualifiedName(structNode);
+
                 Utils.SetStart(structNode, token);
                 Utils.SetEnd(structNode, name);
                 structNode.GenericArguments = genericArgsParser.Parse(stream, structNode);

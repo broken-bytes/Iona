@@ -27,7 +27,9 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Typeck", "Typeck\Typeck.csp
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Symbols", "Symbols\Symbols.csproj", "{67675345-4319-4429-AD93-DFA7D103C066}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ASTVisualizer", "ASTVisualizer\ASTVisualizer.csproj", "{3DCCCE8A-20E0-455A-84D4-BD8F46802AFE}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ASTVisualizer", "ASTVisualizer\ASTVisualizer.csproj", "{3DCCCE8A-20E0-455A-84D4-BD8F46802AFE}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Shared", "Shared\Shared.csproj", "{B4D768DF-A660-4A99-95D2-3115900AC2D6}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -75,6 +77,10 @@ Global
 		{3DCCCE8A-20E0-455A-84D4-BD8F46802AFE}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{3DCCCE8A-20E0-455A-84D4-BD8F46802AFE}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{3DCCCE8A-20E0-455A-84D4-BD8F46802AFE}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B4D768DF-A660-4A99-95D2-3115900AC2D6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B4D768DF-A660-4A99-95D2-3115900AC2D6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B4D768DF-A660-4A99-95D2-3115900AC2D6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B4D768DF-A660-4A99-95D2-3115900AC2D6}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -221,7 +221,12 @@ namespace Generator
                     return;
                 }
 
-                reference = new TypeReference(type.Module, type.Name, assembly.MainModule, assembly.MainModule);
+                reference = new TypeReference(
+                    NamespaceOf(type.FullyQualifiedName), 
+                    type.Name,
+                    assembly.MainModule, 
+                    assembly.MainModule
+                );
 
                 var def = new ParameterDefinition(parameter.Name, ParameterAttributes.None, reference);
                 method.Parameters.Add(def);
@@ -271,7 +276,12 @@ namespace Generator
                 return;
             }
 
-            reference = new TypeReference(returnType.Module, returnType.Name, assembly.MainModule, assembly.MainModule);
+            reference = new TypeReference(
+                NamespaceOf(returnType.FullyQualifiedName), 
+                returnType.Name, 
+                assembly.MainModule, 
+                assembly.MainModule
+            );
 
             MethodAttributes methodAttributes = MethodAttributes.Public | MethodAttributes.Static;
 
@@ -338,7 +348,12 @@ namespace Generator
                     return;
                 }
 
-                paramReference = new TypeReference(type.Module, type.Name, assembly.MainModule, assembly.MainModule);
+                paramReference = new TypeReference(
+                    NamespaceOf(type.FullyQualifiedName), 
+                    type.Name, 
+                    assembly.MainModule, 
+                    assembly.MainModule
+                );
 
                 var def = new ParameterDefinition(param.Name, ParameterAttributes.None, paramReference);
                 method.Parameters.Add(def);
@@ -419,12 +434,22 @@ namespace Generator
                     reference = assembly.MainModule.TypeSystem.UInt16;
                     break;
                 default:
-                    reference = new TypeReference(type.Module, type.Name, assembly.MainModule, assembly.MainModule);
+                    reference = new TypeReference(
+                        NamespaceOf(type.FullyQualifiedName), 
+                        type.Name, 
+                        assembly.MainModule, 
+                        assembly.MainModule
+                    );
                     break;
             }
             // Check if the name of the type of the node is CIL type
 #else
-            reference = new TypeReference(type.Module, type.Name, assembly.MainModule, assembly.MainModule);
+            reference = new TypeReference(
+                NamespaceOf(type.FullyQualifiedName), 
+                type.Name, 
+                assembly.MainModule, 
+                assembly.MainModule
+            );
 #endif
             // Add the property to the current type
             var property = new PropertyDefinition(node.Name, PropertyAttributes.None, reference);
@@ -734,6 +759,11 @@ namespace Generator
                     }
                 }
             }
+        }
+
+        private string NamespaceOf(string name)
+        {
+            return name.Substring(0, name.LastIndexOf('.'));
         }
     }
 }

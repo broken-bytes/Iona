@@ -6,6 +6,7 @@ namespace AST.Nodes
 {
     public class ContractNode : IAccessLevelNode, IStatementNode, ITypeNode
     {
+        public string FullyQualifiedName { get; set; }
         public string Name { get; set; }
         public INode? Parent { get; set; }
         public NodeType Type { get; set; }

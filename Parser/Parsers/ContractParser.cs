@@ -65,6 +65,8 @@ namespace Parser.Parsers
                 var name = stream.Consume(TokenType.Identifier, TokenFamily.Keyword);
 
                 contract = new ContractNode(name.Value, accessLevel, parent);
+                contract.FullyQualifiedName = Utils.ResolveFullyQualifiedName(contract);
+
                 Utils.SetMeta(contract, token);
                 contract.GenericArguments = genericArgsParser.Parse(stream, contract);
 

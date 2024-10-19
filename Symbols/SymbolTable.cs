@@ -68,7 +68,19 @@ namespace Symbols
                         return null;
                     }
 
+                    var containedType = GetContainedType(currentSymbol);
+
                     var funcName = ((IdentifierNode)funcCallNode.Target).Name;
+
+                    if (containedType != null)
+                    {
+                        // Check if the function is a method of the type (or a constructor of it `init`)
+                        if(containedType.Name == funcName)
+                        {
+                            // TODO: Check each overload of the inits
+                            return containedType;
+                        }
+                    }
 
                     currentSymbol = currentSymbol.Symbols.Find(s => s.Name == funcName);
 
@@ -167,6 +179,29 @@ namespace Symbols
             }
 
             return currentSymbol;
+        }
+
+        /// <summary>
+        /// Gets the type symbol this symbol is contained in.
+        /// </summary>
+        /// <param name="symbol"></param>
+        /// <note>Free functions and types themselves do return null</note>
+        /// <returns></returns>
+        private ISymbol? GetContainedType(ISymbol symbol)
+        {
+            var currentSymbol = symbol;
+
+            while (currentSymbol.Parent != null)
+            {
+                if (currentSymbol.Parent.Kind == SymbolKind.Type)
+                {
+                    return currentSymbol.Parent;
+                }
+
+                currentSymbol = currentSymbol.Parent;
+            }
+
+            return null;
         }
     }
 }

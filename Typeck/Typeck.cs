@@ -7,18 +7,24 @@ namespace Typeck
     internal class Typeck : ITypeck
     {
         private readonly SymbolTableConstructor _tableConstructor;
-        private readonly ScopeChecker _scopeChecker;
-        private readonly TypeChecker _typeChecker;
+        private readonly TopLevelScopeResolver _topLevelScopeResolver;
+        private readonly TypeResolver _typeResolver;
+        private readonly ExpressionScopeResolver _expressionScopeResolver;
+        private readonly MutabilityResolver _mutabilityResolver;
 
         internal Typeck(
-            SymbolTableConstructor tableConstructor, 
-            ScopeChecker scopeChecker,
-            TypeChecker typeChecker
+            SymbolTableConstructor tableConstructor,
+            TopLevelScopeResolver topLevelScopeResolver,
+            TypeResolver typeResolver,
+            ExpressionScopeResolver expressionScopeResolver,
+            MutabilityResolver mutabilityResolver
         )
         {
             _tableConstructor = tableConstructor;
-            _scopeChecker = scopeChecker;
-            _typeChecker = typeChecker;
+            _topLevelScopeResolver = topLevelScopeResolver;
+            _typeResolver = typeResolver;
+            _expressionScopeResolver = expressionScopeResolver;
+            _mutabilityResolver = mutabilityResolver;
         }
 
         public SymbolTable BuildSymbolTable(INode node)
@@ -42,11 +48,26 @@ namespace Typeck
             return table;
         }
 
-        public void ScopeCheck(INode node, SymbolTable table)
+        public void DoSemanticAnalysis(INode node, SymbolTable table)
+        {
+            CheckTopLevelScopes(node, table);
+            TypeCheck(node, table);
+            CheckExpressionScopes(node, table);
+        }
+
+        public void CheckTopLevelScopes(INode node, SymbolTable table)
         {
             if (node is FileNode fileNode)
             {
-                _scopeChecker.CheckScopes(fileNode, table);
+                _topLevelScopeResolver.CheckScopes(fileNode, table);
+            }
+        }
+
+        public void CheckExpressionScopes(INode node, SymbolTable table)
+        {
+            if (node is FileNode fileNode)
+            {
+                _expressionScopeResolver.CheckScopes(fileNode, table);
             }
         }
 
@@ -54,7 +75,7 @@ namespace Typeck
         {
             if (node is FileNode fileNode)
             {
-                _typeChecker.TypeCheckAST(fileNode, table);
+                _typeResolver.TypeCheckAST(fileNode, table);
             }
         }
 

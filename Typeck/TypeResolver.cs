@@ -9,7 +9,7 @@ using static AST.Nodes.INode;
 
 namespace Typeck
 {
-    internal class TypeChecker :
+    internal class TypeResolver :
         IAssignmentVisitor,
         IBlockVisitor,
         IBinaryExpressionVisitor,
@@ -37,7 +37,7 @@ namespace Typeck
     {
         private SymbolTable _symbolTable;
 
-        internal TypeChecker()
+        internal TypeResolver()
         {
             // Dummy symbol table so it doesn't need to be nullable
             _symbolTable = new SymbolTable();
@@ -226,7 +226,7 @@ namespace Typeck
                 node.Status = ResolutionStatus.Resolved;
                 var typeRef = new TypeReferenceNode(typeSymbol.Name, node);
                 node.ResultType = typeRef;
-                typeRef.Module = typeSymbol.Parent.Name;
+                typeRef.FullyQualifiedName = typeSymbol.FullyQualifiedName;
                 typeRef.TypeKind = Utils.SymbolKindToASTKind(typeSymbol.TypeKind);
                 typeRef.Status = ResolutionStatus.Resolved;
             }
@@ -471,7 +471,7 @@ namespace Typeck
                 case "ulong":
                 case "ushort":
                     typeRef = new TypeReferenceNode(typeNode.Name, typeNode.Parent);
-                    typeRef.Module = "Primitives";
+                    typeRef.FullyQualifiedName = $"Primitives.${typeNode.Name}";
                     typeRef.Status = ResolutionStatus.Resolved;
                     typeRef.TypeKind = AST.Types.Kind.Struct;
 
@@ -506,7 +506,7 @@ namespace Typeck
 
             if (type != null)
             {
-                typeNode.Module = type.Parent.Name;
+                typeNode.FullyQualifiedName = type.FullyQualifiedName;
                 typeNode.Status = ResolutionStatus.Resolved;
                 typeNode.TypeKind = Utils.SymbolKindToASTKind(type.TypeKind);
 
@@ -659,7 +659,7 @@ namespace Typeck
 
                     if (module is ModuleNode moduleNode)
                     {
-                        typeRef.Module = moduleNode.Name;
+                        typeRef.FullyQualifiedName = type.FullyQualifiedName;
 
                         if (type is ClassNode)
                         {

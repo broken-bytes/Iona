@@ -1,36 +1,35 @@
 ﻿using AST.Nodes;
-using AST.Types;
-using AST.Visitors;
-using Symbols;
 using Symbols.Symbols;
-using System.Xml.Linq;
+using Symbols;
+using AST.Visitors;
+using AST.Types;
+using Shared;
 
 namespace Typeck
 {
-    internal class ScopeChecker : 
+    internal class TopLevelScopeResolver :
         IAssignmentVisitor,
-        IBlockVisitor, 
-        IClassVisitor, 
-        IFileVisitor, 
+        IBlockVisitor,
+        IClassVisitor,
+        IFileVisitor,
         IFuncCallVisitor,
-        IFuncVisitor, 
+        IFuncVisitor,
         IIdentifierVisitor,
         IInitVisitor,
         ILiteralVisitor,
         IMemberAccessVisitor,
         IModuleVisitor,
         IOperatorVisitor,
-        IPropertyVisitor, 
+        IPropertyVisitor,
         IReturnVisitor,
         IStructVisitor,
         IVariableVisitor
     {
         private SymbolTable table;
-        private BlockNode? currentBlock;
 
-        internal ScopeChecker()
+        internal TopLevelScopeResolver()
         {
-            table = new SymbolTable();
+            this.table = new SymbolTable();
         }
 
         internal void CheckScopes(INode ast, SymbolTable table)
@@ -46,7 +45,7 @@ namespace Typeck
         public void Visit(AssignmentNode node)
         {
             node.Status = INode.ResolutionStatus.Resolving;
-            
+
             HandleNode(node.Target);
             HandleNode(node.Value);
 
@@ -70,12 +69,10 @@ namespace Typeck
         public void Visit(BlockNode node)
         {
             node.Status = INode.ResolutionStatus.Resolving;
-            currentBlock = node;
 
             foreach (var child in node.Children)
             {
                 HandleNode(child);
-                currentBlock = node;
             }
         }
 
@@ -100,6 +97,8 @@ namespace Typeck
                     module.Accept(this);
                 }
             }
+
+            node.Status = INode.ResolutionStatus.Resolved;
         }
 
         public void Visit(FuncNode node)
@@ -316,29 +315,16 @@ namespace Typeck
 
             if (type is TypeReferenceNode typeNode)
             {
-                var module = node.Hierarchy().ToList().Find(item => item is ModuleNode);
+                var modules = table.Modules;
 
-                // First check if the type is within the module
-                var moduleSymbol = table.FindBy(module);
+                var typeResult = FindTypeSymbol(typeNode.Name);
 
-                if (moduleSymbol == null)
+                if (typeResult.IsSuccess)
                 {
-                    param.Type = new ErrorNode(
-                        $"`{typeNode.Name}` is not defined",
-                    typeNode,
-                        node
-                    );
-
-                    return;
-                }
-
-                var typeSymbol = moduleSymbol.Symbols.OfType<TypeSymbol>().ToList().Find(s => s.Name == typeNode.Name);
-
-                if (typeSymbol != null)
-                {
-                    var reference = new TypeReferenceNode(typeSymbol.Name, node);
+                    var typeSymbol = typeResult.Success;
+                    var reference = new TypeReferenceNode(typeSymbol!.Name, node);
                     param.Type = reference;
-                    reference.Module = moduleSymbol.Name;
+                    reference.FullyQualifiedName = typeSymbol.FullyQualifiedName;
                     reference.Status = INode.ResolutionStatus.Resolved;
                     reference.TypeKind = Utils.SymbolKindToASTKind(typeSymbol.TypeKind);
 
@@ -526,6 +512,46 @@ namespace Typeck
                 block.Children.Insert(index, propAccess);
                 block.Children.Remove(memberAccess);
             }
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="name"></param>
+        /// <returns></returns>
+        private Result<TypeSymbol, TypeError> FindTypeSymbol(string name)
+        {
+            List<TypeSymbol> types = new List<TypeSymbol>();
+
+            // Check in each module for the type
+            foreach (var module in table.Modules)
+            {
+                var found = FindTypeSymbolIn(name, module);
+
+                if (found != null)
+                {
+                    types.Add(found);
+                }
+            }
+
+            // If we found more than one type with the same name, we have an ambiguity error
+            if (types.Count > 1)
+            {
+                return Result<TypeSymbol, TypeError>.Err(new TypeError($"Ambiguous type name `{name}`"));
+            }
+            else if (types.Count == 0)
+            {
+                return Result<TypeSymbol, TypeError>.Err(new TypeError($"Type `{name}` not found"));
+            }
+
+            return Result<TypeSymbol, TypeError>.Ok(types[0]);
+        }
+
+        private TypeSymbol? FindTypeSymbolIn(string name, ISymbol symbol)
+        {
+            var found = symbol.Symbols.OfType<TypeSymbol>().FirstOrDefault(s => s.Name == name);
+
+            return found;
         }
     }
 }

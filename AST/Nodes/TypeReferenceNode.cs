@@ -7,7 +7,7 @@ namespace AST.Nodes
 {
     public class TypeReferenceNode : INode
     {
-        public string FullyQualifiedName => $"{Module}.{Name}";
+        public string FullyQualifiedName;
         public string Name { get; set; }
         public Kind TypeKind { get; set; }
         public INode? Parent { get; set; }
@@ -15,7 +15,6 @@ namespace AST.Nodes
         public INode Root => Utils.GetRoot(this);
         public ResolutionStatus Status { get; set; } = ResolutionStatus.Unresolved;
         public Metadata Meta { get; set; }
-        public string Module { get; set; }
 
         public TypeReferenceNode(string name, INode? parent = null)
         {
@@ -23,7 +22,6 @@ namespace AST.Nodes
             TypeKind = Kind.Unknown;
             Parent = parent;
             Type = NodeType.TypeReference;
-            Module = "";
         }
 
         public void Accept(ITypeReferenceVisitor visitor)

@@ -5,10 +5,18 @@
         public static ITypeck Create()
         {
             var tableConstructor = new SymbolTableConstructor();
-            var scopeChecker = new ScopeChecker();
-            var typeChecker = new TypeChecker();
+            var topLevelResolver = new TopLevelScopeResolver();
+            var typeResolver = new TypeResolver();
+            var expressionResolver = new ExpressionScopeResolver();
+            var mutabilityResolver = new MutabilityResolver();
 
-            return new Typeck(tableConstructor, scopeChecker, typeChecker);
+            return new Typeck(
+                tableConstructor, 
+                topLevelResolver, 
+                typeResolver, 
+                expressionResolver,
+                mutabilityResolver
+            );
         }
     }
 }

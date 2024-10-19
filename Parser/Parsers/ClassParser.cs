@@ -65,6 +65,8 @@ namespace Parser.Parsers
                 var name = stream.Consume(TokenType.Identifier, TokenFamily.Keyword);
 
                 classNode = new ClassNode(name.Value, accessLevel, parent);
+                classNode.FullyQualifiedName = Utils.ResolveFullyQualifiedName(classNode);
+
                 classNode.GenericArguments = genericArgsParser.Parse(stream, classNode);
 
                 Utils.SetMeta(classNode, new List<Token> { token, name });

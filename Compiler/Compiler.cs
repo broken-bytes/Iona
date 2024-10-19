@@ -59,9 +59,9 @@ namespace Compiler
 
             globalTable = typeck.MergeTables(symbols.ToList());
 
-            Parallel.ForEach(asts, ast => typeck.ScopeCheck(ast, globalTable));
+            Parallel.ForEach(asts, ast => typeck.CheckTopLevelScopes(ast, globalTable));
             Parallel.ForEach(asts, ast => typeck.TypeCheck(ast, globalTable));
-            Parallel.ForEach(asts, ast => typeck.ScopeCheck(ast, globalTable));
+            Parallel.ForEach(asts, ast => typeck.CheckExpressionScopes(ast, globalTable));
             Parallel.ForEach(asts, ast => logger.Log(ast));
             Parallel.ForEach(asts, ast => {
                 File.WriteAllText(((FileNode)ast.Root).Name + ".ast", visualizer.Visualize(ast));

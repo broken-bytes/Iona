@@ -6,7 +6,10 @@ using System.Threading.Tasks;
 
 namespace Typeck
 {
-    internal class MutabilityChecker
+    internal class TypeError : Exception
     {
+        public TypeError(string message) : base(message)
+        {
+        }
     }
 }
