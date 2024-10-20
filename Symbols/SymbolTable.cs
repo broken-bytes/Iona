@@ -1,5 +1,6 @@
 ﻿using Symbols.Symbols;
 using AST.Nodes;
+using AST.Types;
 
 namespace Symbols
 {
@@ -25,162 +26,44 @@ namespace Symbols
             // First, get the tree hierarchy of the node
             var hierarchy = node.Hierarchy();
 
-            // The root is always a file node, and we know a file always contains only one module
-            var moduleNode = hierarchy.OfType<ModuleNode>().FirstOrDefault();
+            // First, we need to find the name of the symbol to be found
+            var name = "";
 
-            if (moduleNode == null)
+            if (hierarchy.Count == 0)
             {
                 return null;
             }
 
-            // Then, find the module symbol that contains the node
-            var module = Modules.Find(m => m.Name == moduleNode.Name);
+            var target = hierarchy[hierarchy.Count - 1];
 
-            if (module == null)
+            if (target is IdentifierNode id)
             {
-                return null;
+                name = id.Name;
             }
-
-            // Traverse the hierarchy and find the symbol that matches the node(by name)
-            ISymbol? currentSymbol = module;
-
-            foreach (var child in hierarchy.Skip(1))
+            else if (target is FuncCallNode funcCall)
             {
-                if (currentSymbol == null)
+                if (funcCall.Target is IdentifierNode funcId)
+                {
+                    name = funcId.Name;
+                }
+                else
                 {
                     return null;
                 }
-
-                if (child is ITypeNode type)
+            }
+            else if (target is ParameterNode param)
+            {
+                if (param.TypeNode is TypeReferenceNode type)
                 {
-                    currentSymbol = currentSymbol.Symbols.Find(s => s.Name == type.Name);
+                    name = type.Name;
                 }
-
-                if (child is BlockNode block)
+                else
                 {
-                    currentSymbol = currentSymbol?.Symbols.OfType<BlockSymbol>().FirstOrDefault();
-                }
-
-                if (child is FuncCallNode funcCallNode)
-                {
-                    if (currentSymbol == null)
-                    {
-                        return null;
-                    }
-
-                    var containedType = GetContainedType(currentSymbol);
-
-                    var funcName = ((IdentifierNode)funcCallNode.Target).Name;
-
-                    if (containedType != null)
-                    {
-                        // Check if the function is a method of the type (or a constructor of it `init`)
-                        if(containedType.Name == funcName)
-                        {
-                            // TODO: Check each overload of the inits
-                            return containedType;
-                        }
-                    }
-
-                    currentSymbol = currentSymbol.Symbols.Find(s => s.Name == funcName);
-
-                    Console.WriteLine(currentSymbol);
-
-                    // Edge case: if the function is a constructor, the name of the function is the same as the type, e.g. `Int()`
-                    if (currentSymbol == null)
-                    {
-                        var typeNode = hierarchy.OfType<ModuleNode>().First().Children.OfType<ITypeNode>().First(node => node.Name == funcName);
-
-                        Console.WriteLine(typeNode);
-                    }
-
-                    return currentSymbol;
-                }
-
-
-                if (child is IdentifierNode identifier)
-                {
-                    currentSymbol = currentSymbol.Symbols.Find(s => s.Name == identifier.Name);
-                }
-
-                if (child is InitNode init)
-                {
-                    var inits = currentSymbol?.Symbols.OfType<InitSymbol>();
-
-                    if (!inits.Any())
-                    {
-                        return null;
-                    }
-
-                    currentSymbol = inits.FirstOrDefault(symbol => {
-                        var parameters = symbol.Symbols.OfType<ParameterSymbol>().ToList();
-
-                        if (init.Parameters.Count == 0) { return false; }
-
-                        for (int x = 0; x < parameters.Count; x++)
-                        {
-                            if (
-                                parameters[x].Name == init.Parameters[x].Name ||
-                                parameters[x].Type.Name == ((TypeReferenceNode)init.Parameters[x].Type).Name
-                            )
-                            {
-                                return true;
-                            }
-
-                        }
-
-                        return false;
-                    });
-
-                    if (currentSymbol == null)
-                    {
-                        continue;
-                    }
-
-                    // Check if the init contains the symbol in its parameters
-                    if (node is IdentifierNode id)
-                    {
-                        currentSymbol = currentSymbol.Symbols.Find(s => s.Name == id.Name);
-
-                        return currentSymbol;
-                    }
-                }
-
-                if (child is OperatorNode op)
-                {
-                    var ops = currentSymbol?.Symbols.OfType<OperatorSymbol>();
-
-                    if (!ops.Any())
-                    {
-                        return null;
-                    }
-
-                    currentSymbol = ops.FirstOrDefault(symbol => {
-                        var parameters = symbol.Symbols.OfType<ParameterSymbol>().ToList();
-
-                        for (int x = 0; x < parameters.Count; x++)
-                        {
-                            if (
-                                parameters[x].Name == op.Parameters[x].Name ||
-                                parameters[x].Type.Name == ((TypeReferenceNode)op.Parameters[x].Type).Name
-                            )
-                            {
-                                return true;
-                            }
-
-                        }
-
-                        return false;
-                    });
-                }
-
-                if (child is VariableNode varNode)
-                {
-                    currentSymbol = currentSymbol.Symbols.Find(s => s.Name == varNode.Name);
+                    return null;
                 }
             }
 
-            return currentSymbol;
+            return null;
         }
 
         /// <summary>
@@ -205,5 +88,12 @@ namespace Symbols
 
             return null;
         }
+
+        private List<ISymbol> GetSymbolHierarchy(INode node)
+        {
+            var nodeHierarchy = node.Hierarchy();
+
+            return [];
+        } 
     }
 }

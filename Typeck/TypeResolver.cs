@@ -129,7 +129,7 @@ namespace Typeck
 
         public void Visit(ErrorNode node)
         {
-            throw new NotImplementedException();
+            Console.WriteLine(node.Message);
         }
 
         public void Visit(FileNode node)
@@ -155,22 +155,22 @@ namespace Typeck
             // Check the parameters if they have a (known) type
             foreach (var param in node.Parameters)
             {
-                if (param.Type is TypeReferenceNode type)
+                if (param.TypeNode is TypeReferenceNode type)
                 {
                     var actualType = CheckNodeType(type);
 
                     if (actualType != null)
                     {
-                        param.Type = actualType;
+                        param.TypeNode = actualType;
                     }
                 }
-                else if (param.Type is MemberAccessNode memberAccess)
+                else if (param.TypeNode is MemberAccessNode memberAccess)
                 {
                     var actualType = CheckNodeType(memberAccess);
 
                     if (actualType != null)
                     {
-                        param.Type = actualType;
+                        param.TypeNode = actualType;
                     }
                 }
             }
@@ -249,19 +249,19 @@ namespace Typeck
             // Check the parameters if they have a (known) type
             foreach (var param in node.Parameters)
             {
-                if (param.Type is TypeReferenceNode type)
+                if (param.TypeNode is TypeReferenceNode type)
                 {
                     var actualType = CheckNodeType(type);
 
                     if (actualType != null)
                     {
-                        param.Type = actualType;
+                        param.TypeNode = actualType;
                     }
                     else
                     {
-                        param.Type = new ErrorNode(
+                        param.TypeNode = new ErrorNode(
                             "Unknown type",
-                            param.Type,
+                            param.TypeNode,
                             node
                         );
                     }
@@ -335,19 +335,19 @@ namespace Typeck
             // Check the parameters if they have a (known) type
             foreach (var param in node.Parameters)
             {
-                if (param.Type is TypeReferenceNode type)
+                if (param.TypeNode is TypeReferenceNode type)
                 {
                     var actualType = CheckNodeType(type);
 
                     if (actualType != null)
                     {
-                        param.Type = actualType;
+                        param.TypeNode = actualType;
                     }
                     else
                     {
-                        param.Type = new ErrorNode(
+                        param.TypeNode = new ErrorNode(
                             "Unknown type",
-                            param.Type,
+                            param.TypeNode,
                             node
                         );
                     }
@@ -495,7 +495,7 @@ namespace Typeck
             List<INode> nodeOrder = ((INode)typeNode).Hierarchy();
 
             // Now get the first module in the list (each file can only have one module)
-            var file = (FileNode)nodeOrder[0];
+            var file = nodeOrder.OfType<FileNode>().FirstOrDefault();
 
             var module = file.Children.OfType<ModuleNode>().FirstOrDefault();
 

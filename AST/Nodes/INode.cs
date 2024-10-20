@@ -40,7 +40,6 @@ namespace AST.Nodes
 
             nodeOrder.Reverse();
 
-            // The deepest node is the node itself so it is added last
             nodeOrder.Add(this);
 
             return nodeOrder;

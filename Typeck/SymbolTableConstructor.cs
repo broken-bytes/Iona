@@ -187,7 +187,7 @@ namespace Typeck
             var symbol = new FuncSymbol(node.Name);
             foreach (var param in node.Parameters)
             {
-                var typeRef = param.Type as TypeReferenceNode;
+                var typeRef = param.TypeNode as TypeReferenceNode;
 
                 if (typeRef == null)
                 {
@@ -234,7 +234,7 @@ namespace Typeck
             var symbol = new InitSymbol(node.Name);
             foreach (var param in node.Parameters)
             {
-                var typeRef = param.Type as TypeReferenceNode;
+                var typeRef = param.TypeNode as TypeReferenceNode;
 
                 if (typeRef == null)
                 {
@@ -314,7 +314,7 @@ namespace Typeck
             var symbol = new OperatorSymbol(node.Op);
             foreach (var param in node.Parameters)
             {
-                var typeRef = param.Type as TypeReferenceNode;
+                var typeRef = param.TypeNode as TypeReferenceNode;
 
                 if (typeRef == null)
                 {

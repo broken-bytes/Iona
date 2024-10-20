@@ -111,7 +111,7 @@ namespace Typeck
                 ResolveParameter(node, param);
             }
 
-            var isResolved = node.Parameters.TrueForAll(p => p.Type.Status == INode.ResolutionStatus.Resolved);
+            var isResolved = node.Parameters.TrueForAll(p => p.TypeNode.Status == INode.ResolutionStatus.Resolved);
 
             if (node.Body != null)
             {
@@ -157,7 +157,7 @@ namespace Typeck
                 ResolveParameter(node, param);
             }
 
-            var isResolved = node.Parameters.TrueForAll(p => p.Type.Status == INode.ResolutionStatus.Resolved);
+            var isResolved = node.Parameters.TrueForAll(p => p.TypeNode.Status == INode.ResolutionStatus.Resolved);
 
             if (node.Body != null)
             {
@@ -203,7 +203,7 @@ namespace Typeck
                 ResolveParameter(node, param);
             }
 
-            var isResolved = node.Parameters.TrueForAll(p => p.Type.Status == INode.ResolutionStatus.Resolved);
+            var isResolved = node.Parameters.TrueForAll(p => p.TypeNode.Status == INode.ResolutionStatus.Resolved);
 
             if (node.Body != null)
             {
@@ -309,9 +309,9 @@ namespace Typeck
             }
         }
 
-        private void ResolveParameter(INode node, Parameter param)
+        private void ResolveParameter(INode node, ParameterNode param)
         {
-            var type = param.Type;
+            var type = param.TypeNode;
 
             if (type is TypeReferenceNode typeNode)
             {
@@ -323,14 +323,14 @@ namespace Typeck
                 {
                     var typeSymbol = typeResult.Success;
                     var reference = new TypeReferenceNode(typeSymbol!.Name, node);
-                    param.Type = reference;
+                    param.TypeNode = reference;
                     reference.FullyQualifiedName = typeSymbol.FullyQualifiedName;
                     reference.Status = INode.ResolutionStatus.Resolved;
                     reference.TypeKind = Utils.SymbolKindToASTKind(typeSymbol.TypeKind);
 
                     // Also set the type symbol of the parameter to the resolved symbol
                     // For this we need to find the parameter symbol in the current block
-                    var parentSymbol = table.FindBy(node);
+                    var parentSymbol = table.FindBy(param);
 
                     var parameterSymbol = parentSymbol?.Symbols.OfType<ParameterSymbol>().ToList().Find(s => s.Name == param.Name);
 
@@ -353,7 +353,7 @@ namespace Typeck
 
                 if (symbol == null)
                 {
-                    param.Type = new ErrorNode(
+                    param.TypeNode = new ErrorNode(
                         $"`{typeNode.Name}` is not defined",
                     typeNode,
                         node

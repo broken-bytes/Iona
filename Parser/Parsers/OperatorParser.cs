@@ -101,7 +101,7 @@ namespace Parser.Parsers
                     var paramType = typeParser.Parse(stream, opNode);
 
                     // Add the parameter to the function
-                    opNode.Parameters.Add(new Parameter { Name = paramName, Type = paramType });
+                    opNode.Parameters.Add(new ParameterNode(paramName, paramType, parent));
 
                     // If the next token is a comma, consume it
                     if (stream.Peek().Type == TokenType.Comma)

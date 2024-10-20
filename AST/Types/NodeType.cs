@@ -21,6 +21,7 @@
         Identifier,
         ObjectLiteral,
         Operator,
+        Parameter,
         PropAccess,
         IfStatement,
         ElseStatement,

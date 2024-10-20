@@ -213,7 +213,7 @@ namespace Generator
             // Add the parameters to the method
             foreach (var parameter in node.Parameters)
             {
-                var type = (TypeReferenceNode)parameter.Type;
+                var type = (TypeReferenceNode)parameter.TypeNode;
                 TypeReference? reference = null;
 
                 if (type == null)
@@ -340,7 +340,7 @@ namespace Generator
             // Add the parameters to the method
             foreach (var param in node.Parameters)
             {
-                var type = (TypeReferenceNode)param.Type;
+                var type = (TypeReferenceNode)param.TypeNode;
                 TypeReference? paramReference = null;
 
                 if (type == null)

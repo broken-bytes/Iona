@@ -12,7 +12,7 @@ namespace AST.Nodes
         public INode Root => Utils.GetRoot(this);
         public AccessLevel AccessLevel { get; set; }
         public StatementType StatementType { get; set; }
-        public List<Parameter> Parameters { get; set; } = new List<Parameter>();
+        public List<ParameterNode> Parameters { get; set; } = new List<ParameterNode>();
         public BlockNode? Body { get; set; }
         public ResolutionStatus Status { get; set; } = ResolutionStatus.Unresolved;
         public Metadata Meta { get; set; }

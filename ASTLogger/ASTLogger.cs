@@ -194,7 +194,7 @@ namespace ASTLogger
                     Log($"- Name: {parameter.Name}");
                     Log("- Type:");
                     _indentLevel++;
-                    GetAndLogNode(parameter.Type);
+                    GetAndLogNode(parameter.TypeNode);
                     _indentLevel--;
                 }
                 _indentLevel--;
@@ -259,7 +259,7 @@ namespace ASTLogger
                     Log($"- Name: {parameter.Name}");
                     Log("- Type:");
                     _indentLevel++;
-                    GetAndLogNode(parameter.Type);
+                    GetAndLogNode(parameter.TypeNode);
                     _indentLevel--;
                 }
                 _indentLevel--;
@@ -355,7 +355,21 @@ namespace ASTLogger
 
             Log($"- Operator: {node.Op}");
             Log($"- Access Level: {node.AccessLevel}");
-            Log($"- Static: {node.IsStatic}");
+            if (node.Parameters.Count > 0)
+            {
+                Log("- Parameters:");
+                _indentLevel++;
+                foreach (var parameter in node.Parameters)
+                {
+                    Log($"- Name: {parameter.Name}");
+                    Log("- Type:");
+                    _indentLevel++;
+                    GetAndLogNode(parameter.TypeNode);
+                    _indentLevel--;
+                }
+                _indentLevel--;
+            }
+
 
             _indentLevel++;
 

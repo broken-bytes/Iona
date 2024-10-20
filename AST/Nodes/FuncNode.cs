@@ -12,7 +12,7 @@ namespace AST.Nodes
         public INode Root => Utils.GetRoot(this);
         public AccessLevel AccessLevel { get; set; }
         public StatementType StatementType { get; set; }
-        public List<Parameter> Parameters { get; set; } = new List<Parameter>();
+        public List<ParameterNode> Parameters { get; set; } = new List<ParameterNode>();
         public INode? ReturnType { get; set; }
         public bool IsMutable { get; set; }
         public bool IsStatic { get; set; }
