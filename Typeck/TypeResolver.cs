@@ -5,6 +5,7 @@ using Symbols;
 using Symbols.Symbols;
 using System;
 using System.Net.Http.Headers;
+using System.Reflection.Metadata;
 using static AST.Nodes.INode;
 
 namespace Typeck
@@ -290,7 +291,9 @@ namespace Typeck
             {
                 if (target.Name == "self")
                 {
-
+                    // Must be a property access (fields, props, methods, etc.) as self is only allowed in classes/structs
+                    var propAccess = new PropAccessNode(node.Left, node.Right, node);
+                    ReplaceMemberAccessWithPropAccess(node, propAccess);
                 }
             }
         }
@@ -399,7 +402,16 @@ namespace Typeck
 
         public void Visit(ReturnNode node)
         {
-            throw new NotImplementedException();
+            node.Status = ResolutionStatus.Resolving;
+
+            if (node.Value is null)
+            {
+                node.Status = ResolutionStatus.Resolved;
+            }
+            else
+            {
+                CheckNodeType(node.Value);
+            }
         }
 
         public void Visit(StructNode node)
@@ -730,6 +742,39 @@ namespace Typeck
             }
 
             return null;
+        }
+
+        private void ReplaceMemberAccessWithPropAccess(MemberAccessNode memberAccess, PropAccessNode propAccess)
+        {
+            if (memberAccess.Parent is AssignmentNode assignment)
+            {
+                if (ReferenceEquals(assignment.Target, memberAccess))
+                {
+                    assignment.Target = propAccess;
+                }
+                else if (ReferenceEquals(assignment.Value, memberAccess))
+                {
+                    assignment.Value = propAccess;
+                }
+            }
+            else if (memberAccess.Parent is BinaryExpressionNode binary)
+            {
+                if (ReferenceEquals(binary.Left, memberAccess))
+                {
+                    binary.Left = propAccess;
+                }
+                else if (ReferenceEquals(binary.Right, memberAccess))
+                {
+                    binary.Right = propAccess;
+                }
+            }
+            else if (memberAccess.Parent is BlockNode block)
+            {
+                // Add the prop access node before the member access node and remove the memebr access node afterwards
+                var index = block.Children.IndexOf(memberAccess);
+                block.Children.Insert(index, propAccess);
+                block.Children.Remove(memberAccess);
+            }
         }
     }
 }

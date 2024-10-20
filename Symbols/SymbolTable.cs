@@ -115,6 +115,8 @@ namespace Symbols
                     currentSymbol = inits.FirstOrDefault(symbol => {
                         var parameters = symbol.Symbols.OfType<ParameterSymbol>().ToList();
 
+                        if (init.Parameters.Count == 0) { return false; }
+
                         for (int x = 0; x < parameters.Count; x++)
                         {
                             if (

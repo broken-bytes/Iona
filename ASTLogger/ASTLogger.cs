@@ -22,6 +22,7 @@ namespace ASTLogger
         IModuleVisitor,
         IObjectLiteralVisitor,
         IOperatorVisitor,
+        IPropAccessVisitor,
         IPropertyVisitor,
         IReturnVisitor,
         IStructVisitor,
@@ -92,6 +93,7 @@ namespace ASTLogger
         {
             Log("> CLASS:");
             LogMeta(node);
+            Log($"- Fully Qualified Name: {node.FullyQualifiedName}");
             Log($"- Name: {node.Name}");
             Log($"- Access Level: {node.AccessLevel}");
 
@@ -111,6 +113,7 @@ namespace ASTLogger
         {
             Log("> CONTRACT:");
             LogMeta(node);
+            Log($"- Fully Qualified Name: {node.FullyQualifiedName}");
             Log($"- Name: {node.Name}");
             Log($"- Access Level: {node.AccessLevel}");
 
@@ -366,6 +369,24 @@ namespace ASTLogger
             Spacer();
         }
 
+        public void Visit(PropAccessNode node)
+        {
+            Log("> PROPERTY ACCESS:");
+            LogMeta(node);
+
+            Log($"- Object:");
+            _indentLevel++;
+            GetAndLogNode(node.Object);
+            _indentLevel--;
+
+            Log($"- Property:");
+            _indentLevel++;
+            GetAndLogNode(node.Property);
+            _indentLevel--;
+
+            Spacer();
+        }
+
         public void Visit(PropertyNode node)
         {
             Log("> PROPERTY:");
@@ -413,6 +434,7 @@ namespace ASTLogger
             Log("> STRUCT:");
             LogMeta(node);
 
+            Log($"- Fully Qualified Name: {node.FullyQualifiedName}");
             Log($"- Name: {node.Name}");
             Log($"- Access Level: {node.AccessLevel}");
             if (node.Contracts.Count > 0)
@@ -538,6 +560,9 @@ namespace ASTLogger
                     break;
                 case OperatorNode operatorNode:
                     operatorNode.Accept(this);
+                    break;
+                case PropAccessNode propAccessNode:
+                    propAccessNode.Accept(this);
                     break;
                 case PropertyNode propertyNode:
                     propertyNode.Accept(this);

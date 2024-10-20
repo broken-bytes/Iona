@@ -236,7 +236,17 @@ namespace Parser.Parsers
             else if (token.Family == TokenFamily.Identifier)
             {
                 var identifier = stream.Consume(TokenType.Identifier, TokenFamily.Identifier);
-                var identifierNode = new IdentifierNode(identifier.Value, parent);
+                INode identifierNode;
+
+                if (identifier.Value == "self") 
+                {
+                    identifierNode = new SelfNode(parent);
+                } 
+                else
+                {
+                    identifierNode = new IdentifierNode(identifier.Value, parent);
+                }
+
                 Utils.SetMeta(identifierNode, identifier);
 
                 return identifierNode;

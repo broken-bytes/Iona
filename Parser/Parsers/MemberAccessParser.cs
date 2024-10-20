@@ -26,7 +26,7 @@ namespace Parser.Parsers
         {
             var tokens = stream.Peek(2);
 
-            if (tokens[0].Type == TokenType.Identifier && tokens[1].Type == TokenType.Dot)
+            if ((tokens[0].Type is TokenType.Identifier or TokenType.Self) && tokens[1].Type == TokenType.Dot)
             {
                 return true;
             }
