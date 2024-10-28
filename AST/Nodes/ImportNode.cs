@@ -1,10 +1,6 @@
 ﻿using AST.Types;
 using AST.Visitors;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using Shared;
 using static AST.Nodes.INode;
 
 namespace AST.Nodes

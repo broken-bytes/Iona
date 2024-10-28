@@ -23,6 +23,7 @@
         Operator,
         Parameter,
         PropAccess,
+        Self,
         IfStatement,
         ElseStatement,
         ForLoop,

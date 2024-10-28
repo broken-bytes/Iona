@@ -1,21 +1,28 @@
 ﻿using AST.Types;
+using Shared;
 using static AST.Nodes.INode;
 
 namespace AST.Nodes
 {
-    public class ArrayTypeReferenceNode : INode
+    public class ArrayTypeReferenceNode : ITypeReferenceNode
     {
-        public INode ElementType { get; set; }
+        public ITypeReferenceNode ElementType { get; set; }
         public INode? Parent { get; set; }
         public NodeType Type { get; set; }
         public ResolutionStatus Status { get; set; } = ResolutionStatus.Unresolved;
         public Metadata Meta { get; set; }
+        public INode Root => Utils.GetRoot(this);
+        public TypeReferenceKind ReferenceKind { get; set; }
 
-        public INode Root => throw new NotImplementedException();
-
-        public ArrayTypeReferenceNode(INode element)
+        public ArrayTypeReferenceNode(ITypeReferenceNode element)
         {
             ElementType = element;
+            ReferenceKind = TypeReferenceKind.Array;
+        }
+
+        public override string ToString()
+        {
+            return $"{ElementType}[]";
         }
     }
 }

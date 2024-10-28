@@ -1,6 +1,7 @@
 ﻿using AST.Nodes;
 using AST.Types;
 using AST.Visitors;
+using Shared;
 using Symbols;
 using Symbols.Symbols;
 using System;
@@ -22,9 +23,9 @@ namespace Typeck
         IFuncVisitor,
         IIdentifierVisitor,
         IImportVisitor,
+        IInitCallVisitor,
         IInitVisitor,
         ILiteralVisitor,
-        IMemberAccessVisitor,
         IModuleVisitor,
         IObjectLiteralVisitor,
         IOperatorVisitor,
@@ -37,11 +38,12 @@ namespace Typeck
         IVariableVisitor
     {
         private SymbolTable _symbolTable;
-
-        internal TypeResolver()
+        private readonly IErrorCollector _errorCollector;
+        internal TypeResolver(IErrorCollector errorCollector)
         {
             // Dummy symbol table so it doesn't need to be nullable
             _symbolTable = new SymbolTable();
+            _errorCollector = errorCollector;
         }
 
         internal void TypeCheckAST(FileNode file, SymbolTable table)
@@ -244,6 +246,12 @@ namespace Typeck
             throw new NotImplementedException();
         }
 
+        public void Visit(InitCallNode initCall)
+        {
+            // Find the type for the init call
+            var type = GetTypeOf(initCall.Target);
+        }
+
         public void Visit(InitNode node)
         {
             // Check the parameters if they have a (known) type
@@ -259,11 +267,7 @@ namespace Typeck
                     }
                     else
                     {
-                        param.TypeNode = new ErrorNode(
-                            "Unknown type",
-                            param.TypeNode,
-                            node
-                        );
+                        node.Status = ResolutionStatus.Failed;
                     }
                 }
             }
@@ -278,24 +282,6 @@ namespace Typeck
         public void Visit(LiteralNode node)
         {
 
-        }
-
-        public void Visit(MemberAccessNode node)
-        {
-            if (node.Status is INode.ResolutionStatus.Failed or INode.ResolutionStatus.Resolved)
-            {
-                return;
-            }
-
-            if (node.Left is IdentifierNode target)
-            {
-                if (target.Name == "self")
-                {
-                    // Must be a property access (fields, props, methods, etc.) as self is only allowed in classes/structs
-                    var propAccess = new PropAccessNode(node.Left, node.Right, node);
-                    ReplaceMemberAccessWithPropAccess(node, propAccess);
-                }
-            }
         }
 
         public void Visit(ModuleNode node)
@@ -345,11 +331,14 @@ namespace Typeck
                     }
                     else
                     {
-                        param.TypeNode = new ErrorNode(
-                            "Unknown type",
-                            param.TypeNode,
-                            node
+                        var error = CompilerErrorFactory.TopLevelDefinitionError(
+                            type.Name,
+                            type.Meta
                         );
+
+                        _errorCollector.Collect(error);
+
+                        node.Status = ResolutionStatus.Failed;
                     }
                 }
             }
@@ -370,24 +359,21 @@ namespace Typeck
 
             if (node.Object is IdentifierNode target)
             {
-                if (target.Name == "self")
+
+                // Find the symbol `Object` in the current scope
+                var symbol = _symbolTable.FindBy(target);
+
+                Console.WriteLine(symbol);
+            } else if (node.Object is SelfNode self)
+            {
+                var type = GetTypeOfSelf(self);
+
+                if (type != null)
                 {
-                    var type = GetTypeOfSelf(target);
-
-                    if (type != null)
-                    {
-                        type.Status = ResolutionStatus.Resolved;
-                    }
-
-                    Console.WriteLine(type);
+                    type.Status = ResolutionStatus.Resolved;
                 }
-                else
-                {
-                    // Find the symbol `Object` in the current scope
-                    var symbol = _symbolTable.FindBy(target);
 
-                    Console.WriteLine(symbol);
-                }
+                Console.WriteLine(type);
             }
         }
 
@@ -439,14 +425,9 @@ namespace Typeck
                 var actualType = CheckNodeType(type);
                 node.TypeNode = actualType;
             }
-            else if (node.TypeNode is MemberAccessNode memberAccess)
-            {
-                var actualType = CheckNodeType(memberAccess);
-                node.TypeNode = actualType;
-            }
         }
 
-        private INode? CheckNodeType(INode node)
+        private ITypeReferenceNode? CheckNodeType(INode node)
         {
             if (node is TypeReferenceNode typeNode)
             {
@@ -461,7 +442,7 @@ namespace Typeck
         }
 
         // ---- Helper methods ----
-        private INode? CheckTypeReferenceNode(TypeReferenceNode typeNode)
+        private ITypeReferenceNode? CheckTypeReferenceNode(TypeReferenceNode typeNode)
         {
 #if IONA_BOOTSTRAP
             TypeReferenceNode typeRef;
@@ -483,7 +464,7 @@ namespace Typeck
                 case "ulong":
                 case "ushort":
                     typeRef = new TypeReferenceNode(typeNode.Name, typeNode.Parent);
-                    typeRef.FullyQualifiedName = $"Primitives.${typeNode.Name}";
+                    typeRef.FullyQualifiedName = $"Primitives.{typeNode.Name}";
                     typeRef.Status = ResolutionStatus.Resolved;
                     typeRef.TypeKind = AST.Types.Kind.Struct;
 
@@ -505,16 +486,9 @@ namespace Typeck
             }
 
             // Now we know the model and the scopes in correct order, we can traverse both the ast and the symbol table to find the type
-            INode? currentScope = module;
-            ISymbol? currentSymbol = _symbolTable.Modules.Find(mod => mod.Name == module.Name);
+            var types = _symbolTable.Modules.SelectMany(mod => mod.Symbols.OfType<TypeSymbol>());
 
-            // Ensure the module is in the symbol table
-            if (currentSymbol == null)
-            {
-                return null;
-            }
-
-            var type = currentSymbol.Symbols.OfType<TypeSymbol>().FirstOrDefault(symbol => symbol.Name == typeNode.Name);
+            var type = types.FirstOrDefault(symbol => symbol.FullyQualifiedName == typeNode.FullyQualifiedName);
 
             if (type != null)
             {
@@ -525,20 +499,31 @@ namespace Typeck
                 return typeNode;
             }
 
+            var error = CompilerErrorFactory.TopLevelDefinitionError(
+                typeNode.Name,
+                typeNode.Meta
+            );
+
+            _errorCollector.Collect(error);
+
             return null;
         }
 
-        private INode CheckPropAccessNode(PropAccessNode propAccess)
+        private ITypeReferenceNode? CheckPropAccessNode(PropAccessNode propAccess)
         {
             // We first need to find the scope this type reference is in(to find nested types, or the module)
             // Step 1: Check if the leftmost node is a module
             if (propAccess.Object is not IdentifierNode target)
             {
-                return new ErrorNode(
+
+                var error = CompilerErrorFactory.SyntaxError(
                     "Invalid member access in type reference",
-                    propAccess,
-                    propAccess.Parent
+                    propAccess.Meta
                 );
+
+                _errorCollector.Collect(error);
+
+                return null;
             }
 
             // Step 2: Find the module
@@ -602,9 +587,6 @@ namespace Typeck
                 case LiteralNode literalNode:
                     literalNode.Accept(this);
                     break;
-                case MemberAccessNode memberAccessNode:
-                    memberAccessNode.Accept(this);
-                    break;
                 case ModuleNode moduleNode:
                     moduleNode.Accept(this);
                     break;
@@ -656,7 +638,7 @@ namespace Typeck
             return null;
         }
 
-        private TypeReferenceNode? GetTypeOfSelf(IdentifierNode self)
+        private TypeReferenceNode? GetTypeOfSelf(SelfNode self)
         {
             // Self means we must be within a TypeNode. Find it by going up the parents until one was found, or we hit a module node (invalid self then)
             INode? current = self;
@@ -708,31 +690,29 @@ namespace Typeck
         {
             if (propAccess.Object is IdentifierNode target)
             {
-                if (target.Name == "self")
+                // Find the symbol `Object` in the current scope
+                var symbol = _symbolTable.FindBy(target);
+
+                Console.WriteLine(symbol);
+            }
+            else if (propAccess.Object is SelfNode self)
+            {
+                var type = GetTypeOfSelf(self);
+
+                if (type != null)
                 {
-                    var type = GetTypeOfSelf(target);
-
-                    if (type != null)
-                    {
-                        type.Status = ResolutionStatus.Resolved;
-                    }
-
-                    return type;
+                    type.Status = ResolutionStatus.Resolved;
                 }
-                else
-                {
-                    // Find the symbol `Object` in the current scope
-                    var symbol = _symbolTable.FindBy(target);
 
-                    Console.WriteLine(symbol);
-                }
+                return type;
+
             }
             else
             {
                 return null;
             }
 
-            if(propAccess.Property is PropAccessNode nestedPropAccess)
+            if (propAccess.Property is PropAccessNode nestedPropAccess)
             {
                 return GetTypeOfPropAccess(nestedPropAccess);
             }
@@ -742,39 +722,6 @@ namespace Typeck
             }
 
             return null;
-        }
-
-        private void ReplaceMemberAccessWithPropAccess(MemberAccessNode memberAccess, PropAccessNode propAccess)
-        {
-            if (memberAccess.Parent is AssignmentNode assignment)
-            {
-                if (ReferenceEquals(assignment.Target, memberAccess))
-                {
-                    assignment.Target = propAccess;
-                }
-                else if (ReferenceEquals(assignment.Value, memberAccess))
-                {
-                    assignment.Value = propAccess;
-                }
-            }
-            else if (memberAccess.Parent is BinaryExpressionNode binary)
-            {
-                if (ReferenceEquals(binary.Left, memberAccess))
-                {
-                    binary.Left = propAccess;
-                }
-                else if (ReferenceEquals(binary.Right, memberAccess))
-                {
-                    binary.Right = propAccess;
-                }
-            }
-            else if (memberAccess.Parent is BlockNode block)
-            {
-                // Add the prop access node before the member access node and remove the memebr access node afterwards
-                var index = block.Children.IndexOf(memberAccess);
-                block.Children.Insert(index, propAccess);
-                block.Children.Remove(memberAccess);
-            }
         }
     }
 }

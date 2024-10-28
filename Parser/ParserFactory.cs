@@ -1,5 +1,6 @@
 ﻿using Parser.Parsers;
 using Parser.Parsers.Parser.Parsers;
+using Shared;
 
 namespace Parser
 {
@@ -7,16 +8,17 @@ namespace Parser
     {
         public static IParser Create()
         {
+            var errorCollector = ErrorCollectorFactory.Create();
             var accessLevelParser = new AccessLevelParser();
             var genericArgsParser = new GenericArgsParser();
             var typeParser = new TypeParser();
             var funcCallParser = new FuncCallParser();
             var memberAccessParser = new MemberAccessParser();
-            var expressionParser = new ExpressionParser(funcCallParser, memberAccessParser, typeParser);
+            var expressionParser = new ExpressionParser(funcCallParser, memberAccessParser, typeParser, errorCollector);
             var propertyParser = new PropertyParser(accessLevelParser, expressionParser, typeParser);
             var variableParser = new VariableParser(expressionParser);
             var blockParser = new BlockParser();
-            var funcParser = new FuncParser(accessLevelParser, blockParser, typeParser);
+            var funcParser = new FuncParser(accessLevelParser, blockParser, typeParser, errorCollector);
             var initParser = new InitParser(accessLevelParser, blockParser, typeParser);
             var classParser = new ClassParser(accessLevelParser, genericArgsParser, typeParser);
             var contractParser = new ContractParser(accessLevelParser, genericArgsParser, typeParser);
@@ -43,7 +45,7 @@ namespace Parser
             funcCallParser.Setup(expressionParser);
             funcParser.Setup(expressionParser, statementParser);
             initParser.Setup(statementParser);
-            memberAccessParser.Setup(expressionParser, statementParser);
+            memberAccessParser.Setup(expressionParser, funcCallParser, statementParser);
             moduleParser.Setup(statementParser);
             operatorParser.Setup(expressionParser, statementParser);
             propertyParser.Setup(statementParser);

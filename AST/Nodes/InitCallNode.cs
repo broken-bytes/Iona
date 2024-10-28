@@ -5,8 +5,9 @@ using static AST.Nodes.INode;
 
 namespace AST.Nodes
 {
-    public class FuncCallNode : IExpressionNode
+    public class InitCallNode : IExpressionNode
     {
+        public string TypeFullName { get; set; }
         public INode? Parent { get; set; }
         public NodeType Type { get; set; }
         public INode Root => Utils.GetRoot(this);
@@ -17,14 +18,14 @@ namespace AST.Nodes
         public ExpressionType ExpressionType => ExpressionType.FunctionCall;
         public INode? ResultType { get; set; }
 
-        public FuncCallNode(IdentifierNode target, INode? parent = null)
+        public InitCallNode(string typeFQN, INode? parent = null)
         {
+            TypeFullName = typeFQN;
             Parent = parent;
             Type = NodeType.FuncCall;
-            Target = target;
         }
 
-        public void Accept(IFuncCallVisitor visitor)
+        public void Accept(IInitCallVisitor visitor)
         {
             visitor.Visit(this);
         }

@@ -4,12 +4,13 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Typeck
+namespace Shared
 {
-    internal class TypeError : Exception
+    public static class ErrorCollectorFactory
     {
-        public TypeError(string message) : base(message)
+        public static IErrorCollector Create()
         {
+            return new ErrorCollector();
         }
     }
 }

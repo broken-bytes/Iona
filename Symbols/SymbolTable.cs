@@ -1,6 +1,7 @@
 ﻿using Symbols.Symbols;
 using AST.Nodes;
 using AST.Types;
+using System.Xml.Linq;
 
 namespace Symbols
 {
@@ -27,41 +28,23 @@ namespace Symbols
             var hierarchy = node.Hierarchy();
 
             // First, we need to find the name of the symbol to be found
-            var name = "";
+            var name = GetNodeName(node);
 
-            if (hierarchy.Count == 0)
+            if (name == null)
             {
                 return null;
             }
 
-            var target = hierarchy[hierarchy.Count - 1];
+            // We have a few cases to consider:
+            // - A symbol is ALWAYS contained in a block
+            // - Blocks are contained in functions, inits, operators, and types
+            // Thus we need to check the parent of the node, check if the block contains the symbol
+            // We do this until we reach the root of the tree or we find the symbol
 
-            if (target is IdentifierNode id)
-            {
-                name = id.Name;
-            }
-            else if (target is FuncCallNode funcCall)
-            {
-                if (funcCall.Target is IdentifierNode funcId)
-                {
-                    name = funcId.Name;
-                }
-                else
-                {
-                    return null;
-                }
-            }
-            else if (target is ParameterNode param)
-            {
-                if (param.TypeNode is TypeReferenceNode type)
-                {
-                    name = type.Name;
-                }
-                else
-                {
-                    return null;
-                }
-            }
+            // Reverse the hierarchy so we start from the the node itself
+            hierarchy.Reverse();
+
+            var symbolHierarchy = SymbolHierarchy(node);
 
             return null;
         }
@@ -89,11 +72,210 @@ namespace Symbols
             return null;
         }
 
-        private List<ISymbol> GetSymbolHierarchy(INode node)
+        private string? GetNodeName(INode node)
         {
-            var nodeHierarchy = node.Hierarchy();
+            if (node is TypeReferenceNode type)
+            {
+                return type.Name;
+            }
+            if (node is IdentifierNode id)
+            {
+                return id.Name;
+            }
+            if (node is FuncCallNode funcId)
+            {
+                return ((IdentifierNode)funcId.Target).Name;
+            }
+            else
+            {
+                return null;
+            }
 
-            return [];
-        } 
+            return null;
+        }
+
+        /// <summary>
+        /// Creates the symbol hierarchy that matches the node's ast hierarchy
+        /// </summary>
+        /// <param name="node"></param>
+        /// <returns></returns>
+        private List<ISymbol> SymbolHierarchy(INode node)
+        {
+            var astHierarchy = node.Hierarchy();
+
+            // Drop the file node
+            astHierarchy.RemoveAt(0);
+
+            var symbolHierarchy = new List<ISymbol>();
+
+            var currentNode = astHierarchy[0];
+            ISymbol? currentSymbol = Modules.FirstOrDefault(mod => mod.Name == ((ModuleNode)currentNode).Name);
+
+            if (currentSymbol == null)
+            {
+                return [];
+            }
+
+            symbolHierarchy.Add(currentSymbol);
+            astHierarchy.RemoveAt(0);
+
+            currentNode = astHierarchy[0];
+
+            while (currentNode != null && currentSymbol != null)
+            {
+                if (currentNode is BlockNode)
+                {
+                    currentSymbol = currentSymbol.Symbols.FirstOrDefault(sym => sym is BlockSymbol);
+                }
+                else if (currentNode is InitNode init)
+                {
+                    // We need to find the init symbol that matches the init node by parameters
+                    currentSymbol = currentSymbol.Symbols.FirstOrDefault(sym =>
+                    {
+                        if (sym is InitSymbol initSym)
+                        {
+                            return MatchParameters(initSym, init.Parameters);
+                        }
+                        else
+                        {
+                            return false;
+                        }
+                    });
+                }
+                else if (currentNode is FuncNode func)
+                {
+                    // We need to find the function symbol that matches the function node by parameters
+                    currentSymbol = currentSymbol.Symbols.FirstOrDefault(sym =>
+                    {
+                        if (sym is FuncSymbol funcSym)
+                        {
+                            return MatchParameters(funcSym, func.Parameters);
+                        }
+                        else
+                        {
+                            return false;
+                        }
+                    });
+                }
+                else if (currentNode is OperatorNode op)
+                {
+                    // We need to find the operator symbol that matches the operator node by parameters
+                    currentSymbol = currentSymbol.Symbols.FirstOrDefault(sym =>
+                    {
+                        if (sym is OperatorSymbol opSym)
+                        {
+                            return MatchParameters(opSym, op.Parameters);
+                        }
+                        else
+                        {
+                            return false;
+                        }
+                    });
+                }
+                else if (currentNode is ITypeNode type)
+                {
+                    currentSymbol = currentSymbol.Symbols.FirstOrDefault(sym => sym is TypeSymbol);
+                }
+
+                if (currentSymbol != null)
+                {
+                    symbolHierarchy.Add(currentSymbol);
+                    astHierarchy.RemoveAt(0);
+
+                    if (astHierarchy.Count == 0)
+                    {
+                        break;
+                    }
+
+                    currentNode = astHierarchy[0];
+                }
+                else
+                {
+                    return [];
+                }
+            }
+
+            return symbolHierarchy;
+        }
+
+        private bool MatchParameters(ISymbol target, List<ParameterNode> nodeParams)
+        {
+            var parameters = target.Symbols.OfType<ParameterSymbol>().ToList();
+
+            if (parameters.Count != nodeParams.Count)
+            {
+                return false;
+            }
+
+            for (int i = 0; i < parameters.Count; i++)
+            {
+                // There are three different cases to consider:
+                // - The parameter is a type reference -> we need to compare the type name
+                // - The parameter is an array -> we need to compare the type name of the array
+                // - The parameter is a generic type -> we need to compare the type name of the generic type
+                if (!MatchType(parameters[i].Type, nodeParams[i].TypeNode))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        private bool MatchType(ITypeSymbol symbol, ITypeReferenceNode node)
+        {
+            if (symbol.IsConcrete && node is TypeReferenceNode type)
+            {
+                var typeSymbol = symbol as TypeSymbol;
+
+                if (typeSymbol == null)
+                {
+                    return false;
+                }
+
+                return typeSymbol.FullyQualifiedName == type.FullyQualifiedName;
+            }
+
+            if (symbol.IsArray && node is ArrayTypeReferenceNode array)
+            {
+                var arraySymbol = symbol as ArrayTypeSymbol;
+
+                if (arraySymbol == null)
+                {
+                    return false;
+                }
+
+                // Match the element type
+                return MatchType(arraySymbol.ElementType, array.ElementType);
+            }
+
+            if (symbol.IsGeneric && node is GenericTypeReferenceNode generic)
+            {
+                var genericSymbol = symbol as GenericTypeSymbol;
+
+                if (genericSymbol == null)
+                {
+                    return false;
+                }
+
+                // Match the type arguments
+                if (genericSymbol.TypeArguments.Count != generic.GenericArguments.Count)
+                {
+                    return false;
+                }
+
+                for (int i = 0; i < genericSymbol.TypeArguments.Count; i++)
+                {
+                    if (!MatchType(genericSymbol.TypeArguments[i], generic.GenericArguments[i]))
+                    {
+                        return false;
+                    }
+                }
+
+                return true;
+            }
+
+            return false;
+        }
     }
 }

@@ -5,11 +5,12 @@ using static AST.Nodes.INode;
 
 namespace AST.Nodes
 {
-    public class FuncCallNode : IExpressionNode
+    public class MethodCallNode : IExpressionNode
     {
         public INode? Parent { get; set; }
         public NodeType Type { get; set; }
         public INode Root => Utils.GetRoot(this);
+        public INode Object { get; set; }
         public IdentifierNode Target { get; set; }
         public List<FuncCallArg> Args { get; set; } = new List<FuncCallArg>();
         public ResolutionStatus Status { get; set; } = ResolutionStatus.Unresolved;
@@ -17,14 +18,15 @@ namespace AST.Nodes
         public ExpressionType ExpressionType => ExpressionType.FunctionCall;
         public INode? ResultType { get; set; }
 
-        public FuncCallNode(IdentifierNode target, INode? parent = null)
+        public MethodCallNode(INode objc, IdentifierNode target, INode? parent = null)
         {
             Parent = parent;
             Type = NodeType.FuncCall;
+            Object = objc;
             Target = target;
         }
 
-        public void Accept(IFuncCallVisitor visitor)
+        public void Accept(IMethodCallVisitor visitor)
         {
             visitor.Visit(this);
         }

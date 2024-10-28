@@ -16,9 +16,11 @@ namespace ASTLogger
         IFuncVisitor,
         IIdentifierVisitor,
         IImportVisitor,
+        IInitCallVisitor,
         IInitVisitor,
         ILiteralVisitor,
         IMemberAccessVisitor,
+        IMethodCallVisitor,
         IModuleVisitor,
         IObjectLiteralVisitor,
         IOperatorVisitor,
@@ -159,7 +161,7 @@ namespace ASTLogger
         {
             Log("> FUNCTION CALL:");
             LogMeta(node);
-            Log($"- Name: {((IdentifierNode)node.Target).Name}");
+            Log($"- Name: {node.Target.Name}");
 
             if (node.Args.Count > 0)
             {
@@ -244,6 +246,31 @@ namespace ASTLogger
             Spacer();
         }
 
+        public void Visit(InitCallNode node)
+        {
+            Log("> INIT CALL:");
+            LogMeta(node);
+            Log($"- Type: {node.TypeFullName}");
+
+            if (node.Args.Count > 0)
+            {
+                Log("- Arguments:");
+
+                _indentLevel++;
+                foreach (var argument in node.Args)
+                {
+                    Log($"Name: {argument.Name}");
+                    Log("Value: ");
+                    _indentLevel++;
+                    GetAndLogNode(argument.Value);
+                    _indentLevel--;
+                }
+                _indentLevel--;
+            }
+
+            Spacer();
+        }
+
         public void Visit(InitNode node)
         {
             Log("> INIT:");
@@ -303,6 +330,33 @@ namespace ASTLogger
             _indentLevel++;
             GetAndLogNode(node.Right);
             _indentLevel--;
+
+            Spacer();
+        }
+
+        public void Visit(MethodCallNode node)
+        {
+            Log("> METHOD CALL:");
+            LogMeta(node);
+
+            Log($"- Object: {node.Object}");
+            Log($"- Method: {node.Target}");
+
+            if (node.Args.Count > 0)
+            {
+                Log("- Arguments:");
+
+                _indentLevel++;
+                foreach (var argument in node.Args)
+                {
+                    Log($"Name: {argument.Name}");
+                    Log("Value: ");
+                    _indentLevel++;
+                    GetAndLogNode(argument.Value);
+                    _indentLevel--;
+                }
+                _indentLevel--;
+            }
 
             Spacer();
         }
@@ -480,6 +534,7 @@ namespace ASTLogger
             LogMeta(node);
 
             Log($"- Name: {node.Name}");
+            Log($"- Fully Qualified Name: {node.FullyQualifiedName}");
             Spacer();
         }
 
@@ -557,6 +612,9 @@ namespace ASTLogger
                 case ImportNode importNode:
                     importNode.Accept(this);
                     break;
+                case InitCallNode initCallNode:
+                    initCallNode.Accept(this);
+                    break;
                 case InitNode initNode:
                     initNode.Accept(this);
                     break;
@@ -565,6 +623,9 @@ namespace ASTLogger
                     break;
                 case MemberAccessNode memberAccessNode:
                     memberAccessNode.Accept(this);
+                    break;
+                case MethodCallNode methodCallNode:
+                    methodCallNode.Accept(this);
                     break;
                 case ModuleNode moduleNode:
                     moduleNode.Accept(this);

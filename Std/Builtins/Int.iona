@@ -11,7 +11,7 @@ public struct Int {
         self.value = 0
     }
 
-    public op +(left: Builtins.Int, right: Int) -> Int {
+    public op +(left: Int, right: Int) -> Int {
         var newInt = Int()
         newInt.value = left.value + right.value
 

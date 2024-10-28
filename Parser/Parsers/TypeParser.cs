@@ -1,6 +1,7 @@
 ﻿using AST.Nodes;
 using AST.Types;
 using Lexer.Tokens;
+using Shared;
 using System.Net.Http.Headers;
 using System.Text;
 
@@ -12,7 +13,7 @@ namespace Parser.Parsers
         {
         }
 
-        public INode Parse(TokenStream stream, INode? parent)
+        public ITypeReferenceNode? Parse(TokenStream stream, INode? parent)
         {
             // The type may be an array type([T])
             var token = stream.Peek();
@@ -26,11 +27,17 @@ namespace Parser.Parsers
                 token = stream.Consume(TokenType.BracketLeft, TokenFamily.Keyword);
 
                 // Parse the type of the array
-                INode arrayType = Parse(stream, parent);
+                var arrayType = Parse(stream, parent);
 
                 var end = stream.Consume(TokenType.BracketRight, TokenFamily.Keyword);
 
+                if (arrayType == null)
+                {
+                    return null;
+                }
+
                 var arrayRef = new ArrayTypeReferenceNode(arrayType);
+
                 Utils.SetStart(arrayRef, token);
                 Utils.SetEnd(arrayRef, end);
 
@@ -68,7 +75,13 @@ namespace Parser.Parsers
                 while (stream.Peek().Type != TokenType.Greater)
                 {
                     // Parse the generic argument
-                    INode genericArg = Parse(stream, parent);
+                    ITypeReferenceNode? genericArg = Parse(stream, parent);
+
+                    if (genericArg == null)
+                    {
+                        EmitTypeNotFoundError(genericType.Name, genericType.Meta);
+                        return null;
+                    }
 
                     // Add the generic argument to the list of generic arguments
                     // of the generic type
@@ -89,10 +102,19 @@ namespace Parser.Parsers
             }
 
             var type = new TypeReferenceNode(nameBuilder.ToString(), parent);
+
             Utils.SetStart(type, token);
             Utils.SetEnd(type, endToken);
 
             return type;
+        }
+
+        private void EmitTypeNotFoundError(string typeName, Metadata meta)
+        {
+            CompilerErrorFactory.TopLevelDefinitionError(
+                typeName,
+                meta
+            );
         }
     }
 }

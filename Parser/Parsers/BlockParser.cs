@@ -1,6 +1,6 @@
 ﻿using AST.Nodes;
-using AST.Types;
 using Lexer.Tokens;
+using Shared;
 
 namespace Parser.Parsers
 {
@@ -9,6 +9,7 @@ namespace Parser.Parsers
         private ExpressionParser? expressionParser;
         private MemberAccessParser? memberAccessParser;
         private StatementParser? statementParser;
+
 
         internal BlockParser()
         {
@@ -83,7 +84,13 @@ namespace Parser.Parsers
                     block
                 ));
 
-                // TODO: Proper error metadata
+                throw new ParserException(
+                    ParserExceptionCode.Unknown, 
+                    exception.ErrorToken.Line, 
+                    exception.ErrorToken.ColumnStart, 
+                    exception.ErrorToken.ColumnEnd, 
+                    exception.ErrorToken.File
+                );
             }
 
             return block;

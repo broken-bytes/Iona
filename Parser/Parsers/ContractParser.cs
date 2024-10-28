@@ -138,13 +138,13 @@ namespace Parser.Parsers
                     contract.Body = new BlockNode(contract);
                 }
 
-                contract.Body.AddChild(new ErrorNode(
-                    exception.ErrorToken.Value,
-                    contract.Body,
-                    contract.Body
-                ));
-
-                // TODO: Proper error metadata
+                throw new ParserException(
+                    ParserExceptionCode.Unknown,
+                    exception.ErrorToken.Line,
+                    exception.ErrorToken.ColumnStart,
+                    exception.ErrorToken.ColumnEnd,
+                    exception.ErrorToken.File
+                );
             }
 
             return contract;

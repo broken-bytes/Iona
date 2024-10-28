@@ -1,6 +1,7 @@
 ﻿using AST.Nodes;
 using AST.Types;
 using Lexer.Tokens;
+using Shared;
 
 namespace Parser.Parsers
 {
@@ -9,18 +10,21 @@ namespace Parser.Parsers
         private readonly AccessLevelParser accessLevelParser;
         private readonly BlockParser blockParser;
         private readonly TypeParser typeParser;
+        private readonly IErrorCollector errorCollector;
         private ExpressionParser? expressionParser;
         private StatementParser? statementParser;
 
         internal FuncParser(
             AccessLevelParser accessLevelParser,
             BlockParser blockParser,
-            TypeParser typeParser
+            TypeParser typeParser,
+            IErrorCollector errorCollector
         )
         {
             this.accessLevelParser = accessLevelParser;
             this.blockParser = blockParser;
             this.typeParser = typeParser;
+            this.errorCollector = errorCollector;
         }
 
         internal void Setup(
@@ -108,8 +112,11 @@ namespace Parser.Parsers
                     // Parse the type of the parameter
                     var paramType = typeParser.Parse(stream, func);
 
-                    // Add the parameter to the function
-                    func.Parameters.Add(new ParameterNode(paramName, paramType, parent));
+                    if (paramType != null)
+                    {
+                        // Add the parameter to the function
+                        func.Parameters.Add(new ParameterNode(paramName, paramType, parent));
+                    }
 
                     // If the next token is a comma, consume it
                     if (stream.Peek().Type == TokenType.Comma)
@@ -151,13 +158,13 @@ namespace Parser.Parsers
                     func.Body = new BlockNode(func);
                 }
 
-                func.Body.AddChild(new ErrorNode(
-                    exception.ErrorToken.Value,
-                    func,
-                    func
-                ));
-
-                // TODO: Proper error metadata
+                throw new ParserException(
+                    ParserExceptionCode.Unknown, 
+                    exception.ErrorToken.Line, 
+                    exception.ErrorToken.ColumnStart, 
+                    exception.ErrorToken.ColumnEnd,
+                    exception.ErrorToken.File
+                );
             }
 
             return func;

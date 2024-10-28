@@ -2,6 +2,7 @@
 using AST.Types;
 using Lexer.Tokens;
 using Parser.Parsers.Parser.Parsers;
+using Shared;
 
 namespace Parser.Parsers
 {
@@ -10,16 +11,19 @@ namespace Parser.Parsers
         FuncCallParser funcCallParser;
         MemberAccessParser memberAccessParser;
         TypeParser typeParser;
+        private readonly IErrorCollector errorCollector;
 
         internal ExpressionParser(
             FuncCallParser funcCallParser,
             MemberAccessParser memberAccessParser,
-            TypeParser typeParser
+            TypeParser typeParser,
+            IErrorCollector errorCollector
         )
         {
             this.funcCallParser = funcCallParser;
             this.memberAccessParser = memberAccessParser;
             this.typeParser = typeParser;
+            this.errorCollector = errorCollector;
         }
 
         public INode Parse(TokenStream stream, INode? parent)
@@ -66,74 +70,62 @@ namespace Parser.Parsers
         }
 
         // ------------------- Helper methods -------------------
-        private INode ParseBinaryExpression(TokenStream stream, INode? parent)
+        private INode? ParseBinaryExpression(TokenStream stream, INode? parent)
         {
-            try
+            var left = ParsePrimaryExpression(stream, parent);
+            var op = stream.Consume(TokenFamily.Operator, TokenFamily.Keyword);
+            var right = ParsePrimaryExpression(stream, parent);
+
+            // Get the operation for the token
+            BinaryOperation? operation = GetBinaryOperation(op);
+
+            if (left == null || right == null)
             {
-                var left = ParsePrimaryExpression(stream, parent);
-                var op = stream.Consume(TokenFamily.Operator, TokenFamily.Keyword);
-                var right = ParsePrimaryExpression(stream, parent);
-
-                // Get the operation for the token
-                BinaryOperation? operation = GetBinaryOperation(op);
-
-                var expr = new BinaryExpressionNode(left, right, operation ?? BinaryOperation.Noop, null, parent);
-
-                Utils.SetMeta(expr, left, right);
-
-                return expr;
+                return null;
             }
-            catch (ParserException exception)
-            {
-                var error = new ErrorNode(
-                    exception.Message,
-                    parent,
-                    null
-                );
 
-                // TODO: Proper error metadata
+            var expr = new BinaryExpressionNode(left, right, operation ?? BinaryOperation.Noop, null, parent);
 
-                return error;
-            }
+            left.Parent = expr;
+            right.Parent = expr;
+
+            Utils.SetMeta(expr, left, right);
+
+            return expr;
+
         }
 
         private INode ParseComparisonExpression(TokenStream stream, INode? parent)
         {
-            try
-            {
-                var left = ParsePrimaryExpression(stream, parent);
-                var op = stream.Consume(TokenFamily.Operator, TokenFamily.Keyword);
-                var right = ParsePrimaryExpression(stream, parent);
+            var left = ParsePrimaryExpression(stream, parent);
+            var op = stream.Consume(TokenFamily.Operator, TokenFamily.Keyword);
+            var right = ParsePrimaryExpression(stream, parent);
 
-                // Get the operation for the token
-                ComparisonOperation? operation = GetComparisonOperation(op);
+            // Get the operation for the token
+            ComparisonOperation? operation = GetComparisonOperation(op);
 
-                return new ComparisonExpressionNode(left, right, operation ?? ComparisonOperation.Noop, parent);
-            }
-            catch (ParserException exception)
-            {
-                return new ErrorNode(
-                    exception.Message,
-                    parent,
-                    null
-                );
-
-                // TODO: Proper error metadata
-            }
+            return new ComparisonExpressionNode(left, right, operation ?? ComparisonOperation.Noop, parent);
         }
 
-        private INode ParseObjectLiteral(TokenStream stream, INode? parent)
+        private INode? ParseObjectLiteral(TokenStream stream, INode? parent)
         {
             if (!IsObjectLiteral(stream))
             {
                 var errorToken = stream.Peek();
 
-                return new ErrorNode(
-                    "Invalid object literal",
-                    parent
-                );
+                var meta = new Metadata
+                {
+                    ColumnEnd = errorToken.ColumnEnd,
+                    ColumnStart = errorToken.ColumnStart,
+                    LineStart = errorToken.Line,
+                    LineEnd = errorToken.Line,
+                    File = errorToken.File
+                };
 
-                // TODO: Proper error metadata
+
+                errorCollector.Collect(CompilerErrorFactory.SyntaxError("Invalid object literal", meta));
+
+                return null;
             }
 
 
@@ -176,29 +168,16 @@ namespace Parser.Parsers
 
         private INode ParseUnaryExpression(TokenStream stream, INode? parent)
         {
-            try
-            {
-                var op = stream.Consume(TokenFamily.Operator, TokenFamily.Keyword);
-                var right = ParsePrimaryExpression(stream, parent);
+            var op = stream.Consume(TokenFamily.Operator, TokenFamily.Keyword);
+            var right = ParsePrimaryExpression(stream, parent);
 
-                // Get the operation for the token
-                UnaryOperation? operation = GetUnaryOperation(op);
+            // Get the operation for the token
+            UnaryOperation? operation = GetUnaryOperation(op);
 
-                return new UnaryExpressionNode(right, operation ?? UnaryOperation.Noop, null, parent);
-            }
-            catch (ParserException exception)
-            {
-                return new ErrorNode(
-                    exception.Message,
-                    parent,
-                    null
-                );
-
-                // TODO: Proper error metadata
-            }
+            return new UnaryExpressionNode(right, operation ?? UnaryOperation.Noop, null, parent);
         }
 
-        private INode ParsePrimaryExpression(TokenStream stream, INode? parent)
+        private INode? ParsePrimaryExpression(TokenStream stream, INode? parent)
         {
             // Check if literal or identifier
             var token = stream.Peek();
@@ -238,10 +217,10 @@ namespace Parser.Parsers
                 var identifier = stream.Consume(TokenType.Identifier, TokenFamily.Identifier);
                 INode identifierNode;
 
-                if (identifier.Value == "self") 
+                if (identifier.Value == "self")
                 {
                     identifierNode = new SelfNode(parent);
-                } 
+                }
                 else
                 {
                     identifierNode = new IdentifierNode(identifier.Value, parent);
@@ -276,12 +255,22 @@ namespace Parser.Parsers
             }
             else
             {
-                return new ErrorNode(
-                    "Unexpected token in expression",
-                    parent
-                );
+                var errorToken = stream.Peek();
 
-                // TODO: Proper error metadata
+                var meta = new Metadata
+                {
+                    ColumnEnd = errorToken.ColumnEnd,
+                    ColumnStart = errorToken.ColumnStart,
+                    LineStart = errorToken.Line,
+                    LineEnd = errorToken.Line,
+                    File = errorToken.File
+                };
+
+                var error = CompilerErrorFactory.SyntaxError("Unexpected token in expression", meta);
+
+                errorCollector.Collect(error);
+
+                return null;
             }
         }
 
@@ -345,7 +334,7 @@ namespace Parser.Parsers
             var tokens = stream.Peek(2);
 
             if (
-                (tokens[0].Family == TokenFamily.Identifier || tokens[0].Family == TokenFamily.Literal) 
+                (tokens[0].Family == TokenFamily.Identifier || tokens[0].Family == TokenFamily.Literal)
                 && IsBinaryOperator(tokens[1])
             )
             {
@@ -353,11 +342,11 @@ namespace Parser.Parsers
             }
 
             // We might have a member access and need to fully parse it until we can determine if it's a binary expression
-            if(IsMemberAccess(stream))
+            if (IsMemberAccess(stream))
             {
                 var op = memberAccessParser.PeekTokenAfterMemberAccess(stream);
 
-                if(IsBinaryOperator(op))
+                if (IsBinaryOperator(op))
                 {
                     return true;
                 }

@@ -1,21 +1,23 @@
 ﻿namespace Symbols.Symbols
 {
-    public class TypeSymbol : ITypeSymbol
+    public class GenericTypeSymbol : ITypeSymbol
     {
         public string FullyQualifiedName => GetFullyQualifiedName(this);
         public string Name { get; set; }
-        public bool IsArray => false;
+        public bool IsArray => true;
         public bool IsConcrete => true;
         public bool IsGeneric => false;
+        public List<ITypeSymbol> TypeArguments { get; set; }
         public TypeKind TypeKind { get; }
         public List<ISymbol> Symbols { get; set; }
         public SymbolKind Kind { get; set; } = SymbolKind.Type;
         public ISymbol? Parent { get; set; }
 
-        public TypeSymbol(string name, TypeKind kind)
+        public GenericTypeSymbol(string name, TypeKind kind)
         {
             Name = name;
             TypeKind = kind;
+            TypeArguments = new List<ITypeSymbol>();
             Symbols = new List<ISymbol>();
         }
 

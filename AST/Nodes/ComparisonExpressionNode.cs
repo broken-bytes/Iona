@@ -1,5 +1,6 @@
 ﻿using AST.Types;
 using AST.Visitors;
+using Shared;
 using static AST.Nodes.INode;
 
 namespace AST.Nodes
@@ -8,8 +9,8 @@ namespace AST.Nodes
     {
         public INode? Parent { get; set; }
         public NodeType Type { get; set; }
-        public INode Left { get; set; }
-        public INode Right { get; set; }
+        public INode? Left { get; set; }
+        public INode? Right { get; set; }
         public ComparisonOperation Operation { get; set; }
         public ExpressionType ExpressionType { get; set; }
         public INode Root { get => Utils.GetRoot(this); }
@@ -17,8 +18,8 @@ namespace AST.Nodes
         public Metadata Meta { get; set; }
 
         public ComparisonExpressionNode(
-            INode left,
-            INode right,
+            INode? left,
+            INode? right,
             ComparisonOperation operation,
             INode? parent = null
         )

@@ -141,15 +141,13 @@ namespace Parser.Parsers
                     classNode.Body = new BlockNode(classNode);
                 }
 
-                var errorNode = new ErrorNode(
-                    exception.ErrorToken.Value,
-                    classNode,
-                    classNode
+                throw new ParserException(
+                    ParserExceptionCode.Unknown,
+                    exception.ErrorToken.Line,
+                    exception.ErrorToken.ColumnStart,
+                    exception.ErrorToken.ColumnEnd,
+                    exception.ErrorToken.File
                 );
-
-                Utils.SetMeta(errorNode, new List<Token> { exception.ErrorToken });
-
-                classNode.Body.AddChild(errorNode);
             }
 
             return classNode;

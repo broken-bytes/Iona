@@ -1,12 +1,15 @@
-﻿namespace Typeck
+﻿using Shared;
+
+namespace Typeck
 {
     public static class TypeckFactory
     {
         public static ITypeck Create()
         {
+            var errorCollector = ErrorCollectorFactory.Create();
             var tableConstructor = new SymbolTableConstructor();
-            var topLevelResolver = new TopLevelScopeResolver();
-            var typeResolver = new TypeResolver();
+            var topLevelResolver = new TopLevelScopeResolver(errorCollector);
+            var typeResolver = new TypeResolver(errorCollector);
             var expressionResolver = new ExpressionScopeResolver();
             var mutabilityResolver = new MutabilityResolver();
 

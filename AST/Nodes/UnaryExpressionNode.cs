@@ -1,5 +1,6 @@
 ﻿using AST.Types;
 using AST.Visitors;
+using Shared;
 using static AST.Nodes.INode;
 
 namespace AST.Nodes
@@ -10,7 +11,7 @@ namespace AST.Nodes
         public NodeType Type { get; set; }
         public INode Root => Utils.GetRoot(this);
         public NodeKind Kind { get; set; }
-        public INode Operand { get; set; }
+        public INode? Operand { get; set; }
         public UnaryOperation Operation { get; set; }
         public ExpressionType ExpressionType { get; set; }
         public INode? ResultType { get; set; }
@@ -18,7 +19,7 @@ namespace AST.Nodes
         public Metadata Meta { get; set; }
 
         public UnaryExpressionNode(
-            INode operand,
+            INode? operand,
             UnaryOperation operation,
             INode? resultType,
             INode? parent

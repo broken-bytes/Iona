@@ -1,5 +1,6 @@
 ﻿using AST.Nodes;
 using Lexer.Tokens;
+using Parser.Parsers.Parser.Parsers;
 using System.IO;
 
 namespace Parser.Parsers
@@ -7,6 +8,7 @@ namespace Parser.Parsers
     internal class MemberAccessParser
     {
         private ExpressionParser? expressionParser;
+        private FuncCallParser? funcCallParser;
         private StatementParser? statementParser;
 
         internal MemberAccessParser()
@@ -15,10 +17,12 @@ namespace Parser.Parsers
 
         internal void Setup(
             ExpressionParser expressionParser,
+            FuncCallParser funcCallParser,
             StatementParser statementParser
         )
         {
             this.expressionParser = expressionParser;
+            this.funcCallParser = funcCallParser;
             this.statementParser = statementParser;
         }
 
@@ -35,7 +39,7 @@ namespace Parser.Parsers
         }
 
         public INode Parse(TokenStream stream, INode? parent) {
-            if (expressionParser == null || statementParser == null)
+            if (expressionParser == null || statementParser == null || funcCallParser == null)
             {
                 var error = stream.Peek();
                 throw new ParserException(
@@ -55,23 +59,41 @@ namespace Parser.Parsers
 
             var token = stream.Consume(TokenType.Identifier, TokenFamily.Keyword);
 
+            INode target;
+
+            if (token.Type == TokenType.Self)
+            {
+                target = new SelfNode();
+                Utils.SetMeta(target, token);
+            } else
+            {
+                target = new IdentifierNode(token.Value);
+                Utils.SetMeta(target, token);
+            }
+
             var dot = stream.Consume(TokenType.Dot, TokenFamily.Operator);
 
-            var target = new IdentifierNode(token.Value);
-            Utils.SetMeta(target, token);
+            INode member;
+            if (funcCallParser.IsFuncCall(stream))
+            {
+                var funcCall = funcCallParser.Parse(stream, parent);
+                member = funcCall;
+            }
+            else
+            {
+                var memberIdentifier = stream.Consume(TokenType.Identifier, TokenFamily.Keyword);
+                member = new IdentifierNode(memberIdentifier.Value, parent);
+                Utils.SetMeta(member, memberIdentifier);
+            }
 
-            var memberIdentifier = stream.Consume(TokenType.Identifier, TokenFamily.Keyword);
+            var propAccess = new PropAccessNode(target, member, parent);
+            Utils.SetMeta(propAccess, token);
 
-            var member = new IdentifierNode(memberIdentifier.Value, null);
-            Utils.SetMeta(member, memberIdentifier);
+            target.Parent = propAccess;
+            member.Parent = propAccess;
 
-            var memberAccess = new MemberAccessNode(target, member, parent);
-            Utils.SetMeta(memberAccess, token);
-
-            target.Parent = memberAccess;
-            member.Parent = memberAccess;
-
-            Utils.SetEnd(memberAccess, memberIdentifier);
+            Utils.SetColumnEnd(propAccess, member.Meta.ColumnEnd);
+            Utils.SetLineEnd(propAccess, member.Meta.LineEnd);
 
             token = stream.Peek();
 
@@ -79,16 +101,27 @@ namespace Parser.Parsers
             {
                 stream.Consume(TokenType.Dot, TokenFamily.Keyword);
 
-                var nextIdentifier = stream.Consume(TokenType.Identifier, TokenFamily.Keyword);
-                var next = new IdentifierNode(nextIdentifier.Value, null);
+                INode nextMember;
+                if (funcCallParser.IsFuncCall(stream))
+                {
+                    var funcCall = funcCallParser.Parse(stream, parent);
+                    nextMember = funcCall;
+                }
+                else
+                {
+                    var memberIdentifier = stream.Consume(TokenType.Identifier, TokenFamily.Keyword);
+                    nextMember = new IdentifierNode(memberIdentifier.Value, null);
+                    Utils.SetMeta(nextMember, memberIdentifier);
+                }
 
-                memberAccess.Left = new MemberAccessNode(memberAccess.Left, next, parent);
-                memberAccess.Left.Parent = memberAccess;
-                memberAccess.Right.Parent = memberAccess;
-                Utils.SetEnd(memberAccess, nextIdentifier);
+                propAccess.Object = new PropAccessNode(propAccess.Object, nextMember, parent);
+                propAccess.Object.Parent = propAccess;
+                propAccess.Property.Parent = propAccess;
+                Utils.SetColumnEnd(propAccess, nextMember.Meta.ColumnEnd);
+                Utils.SetLineEnd(propAccess, nextMember.Meta.LineEnd);
             }
 
-            return memberAccess;
+            return propAccess;
         }
 
         public Token PeekTokenAfterMemberAccess(TokenStream stream)

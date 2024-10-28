@@ -1,5 +1,6 @@
 ﻿using AST.Types;
 using AST.Visitors;
+using Shared;
 using static AST.Nodes.INode;
 
 namespace AST.Nodes
@@ -8,8 +9,8 @@ namespace AST.Nodes
     {
         public INode? Parent { get; set; }
         public NodeType Type { get; set; }
-        public INode Left { get; set; }
-        public INode Right { get; set; }
+        public INode? Left { get; set; }
+        public INode? Right { get; set; }
         public BinaryOperation Operation { get; set; }
         public ExpressionType ExpressionType { get; set; }
         public INode? ResultType { get; set; }
@@ -18,8 +19,8 @@ namespace AST.Nodes
         public Metadata Meta { get; set; }
 
         public BinaryExpressionNode(
-            INode left,
-            INode right,
+            INode? left,
+            INode? right,
             BinaryOperation operation,
             INode? resultType = null,
             INode? parent = null

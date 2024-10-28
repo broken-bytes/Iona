@@ -1,5 +1,6 @@
 ﻿using AST.Types;
 using AST.Visitors;
+using Shared;
 using static AST.Nodes.INode;
 
 namespace AST.Nodes
@@ -17,7 +18,7 @@ namespace AST.Nodes
         public SelfNode(INode? parent = null)
         {
             Parent = parent;
-            Type = NodeType.Identifier;
+            Type = NodeType.Self;
         }
 
         public void Accept(ISelfVisitor visitor)

@@ -1,4 +1,5 @@
 ﻿using AST.Nodes;
+using Shared;
 using static AST.Nodes.INode;
 
 namespace AST.Types

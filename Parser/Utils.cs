@@ -1,6 +1,7 @@
 ﻿using AST.Nodes;
 using Lexer.Tokens;
 using System.Text;
+using Shared;
 
 namespace Parser
 {
@@ -8,7 +9,7 @@ namespace Parser
     {
         internal static void SetMeta(INode node, Token token)
         {
-            var meta = new INode.Metadata
+            var meta = new Metadata
             {
                 File = token.File,
                 LineStart = token.Line,
@@ -25,7 +26,7 @@ namespace Parser
             var start = token.ColumnStart;
             var end = tokens[tokens.Count - 1].ColumnEnd;
 
-            var meta = new INode.Metadata
+            var meta = new Metadata
             {
                 File = token.File,
                 LineStart = token.Line,
@@ -38,7 +39,7 @@ namespace Parser
 
         internal static void SetMeta(INode node, INode startNode, INode endNode)
         {
-            var meta = new INode.Metadata
+            var meta = new Metadata
             {
                 File = startNode.Meta.File,
                 LineStart = startNode.Meta.LineStart,
@@ -51,7 +52,7 @@ namespace Parser
 
         internal static void IncreaseColumn(INode node, int amount)
         {
-            var meta = new INode.Metadata
+            var meta = new Metadata
             {
                 File = node.Meta.File,
                 LineStart = node.Meta.LineStart,
@@ -65,7 +66,7 @@ namespace Parser
 
         internal static void SetColumnEnd(INode node, int columnEnd)
         {
-            var meta = new INode.Metadata
+            var meta = new Metadata
             {
                 File = node.Meta.File,
                 LineStart = node.Meta.LineStart,
@@ -79,7 +80,7 @@ namespace Parser
 
         internal static void SetLineEnd(INode node, int lineEnd)
         {
-            var meta = new INode.Metadata
+            var meta = new Metadata
             {
                 File = node.Meta.File,
                 LineStart = node.Meta.LineStart,
@@ -93,7 +94,7 @@ namespace Parser
 
         internal static void SetLineEnd(INode node, Token token)
         {
-            var meta = new INode.Metadata
+            var meta = new Metadata
             {
                 File = node.Meta.File,
                 LineStart = node.Meta.LineStart,
@@ -107,7 +108,7 @@ namespace Parser
 
         internal static void SetStart(INode node, Token token)
         {
-            var meta = new INode.Metadata
+            var meta = new Metadata
             {
                 File = node.Meta.File,
                 LineStart = token.Line,
@@ -121,7 +122,7 @@ namespace Parser
 
         internal static void SetEnd(INode node, Token token)
         {
-            var meta = new INode.Metadata
+            var meta = new Metadata
             {
                 File = node.Meta.File,
                 LineStart = node.Meta.LineStart,

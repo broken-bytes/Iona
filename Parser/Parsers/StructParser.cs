@@ -138,13 +138,13 @@ namespace Parser.Parsers
                     structNode.Body = new BlockNode(structNode);
                 }
 
-                structNode.Body.AddChild(new ErrorNode(
-                    exception.ErrorToken.Value,
-                    structNode,
-                    structNode
-                ));
-
-                // TODO: Proper error metadata
+                throw new ParserException(
+                   ParserExceptionCode.Unknown,
+                   exception.ErrorToken.Line,
+                   exception.ErrorToken.ColumnStart,
+                   exception.ErrorToken.ColumnEnd,
+                   exception.ErrorToken.File
+               );
             }
 
             return structNode;
