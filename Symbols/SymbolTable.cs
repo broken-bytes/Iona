@@ -46,6 +46,27 @@ namespace Symbols
 
             var symbolHierarchy = SymbolHierarchy(node);
 
+            if (symbolHierarchy.Count == 0)
+            {
+                return null;
+            }
+
+            symbolHierarchy.Reverse();
+
+            var currentSymbol = symbolHierarchy[0];
+
+            while (currentSymbol != null)
+            {
+                var foundSymbol = currentSymbol.Symbols.FirstOrDefault(symbol => symbol.Name == name);
+
+                if (foundSymbol != null)
+                {
+                    return foundSymbol;
+                }
+
+                currentSymbol = currentSymbol.Parent;
+            }
+
             return null;
         }
 
@@ -80,11 +101,11 @@ namespace Symbols
             }
             if (node is IdentifierNode id)
             {
-                return id.Name;
+                return id.Value;
             }
             if (node is FuncCallNode funcId)
             {
-                return ((IdentifierNode)funcId.Target).Name;
+                return ((IdentifierNode)funcId.Target).Value;
             }
             else
             {
@@ -176,6 +197,11 @@ namespace Symbols
                 {
                     currentSymbol = currentSymbol.Symbols.FirstOrDefault(sym => sym is TypeSymbol);
                 }
+                else
+                {
+                    // We hit a node that does not create a scope, thus we end the search
+                    break;
+                }
 
                 if (currentSymbol != null)
                 {
@@ -233,7 +259,42 @@ namespace Symbols
                     return false;
                 }
 
-                return typeSymbol.FullyQualifiedName == type.FullyQualifiedName;
+                var fqnMatches = typeSymbol.FullyQualifiedName == type.FullyQualifiedName;
+
+                // If the fully qualified name matches, we have certainly found the symbol
+                if (fqnMatches)
+                {
+                    return true;
+                }
+
+                var imports = ((FileNode)type.Root).Children.OfType<ImportNode>().Select(import => import.Name).ToList();
+                // Always add the current module to the list of imported modules if it's not already there (should be the case)
+                var moduleNode = ((FileNode)type.Root).Children.OfType<ModuleNode>().FirstOrDefault();
+
+                if (moduleNode != null)
+                {
+                    imports.Add(moduleNode.Name);
+                }
+                else
+                {
+                    return false;
+                }
+
+                var importedModules = Modules.Where(module => imports.First(import => import == module.Name) != null);
+
+                // If the fully qualified name doesn't match, we need to check in each module if the type is defined
+                foreach (var module in importedModules)
+                {
+                    var foundSymbol = module.Symbols.OfType<TypeSymbol>().FirstOrDefault(sym => sym.Name == type.Name);
+
+                    if (foundSymbol != null)
+                    {
+                        type.FullyQualifiedName = foundSymbol.FullyQualifiedName;
+                        return true;
+                    }
+                }
+
+                return false;
             }
 
             if (symbol.IsArray && node is ArrayTypeReferenceNode array)

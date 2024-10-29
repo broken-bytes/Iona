@@ -9,6 +9,7 @@ using AST.Nodes;
 using Generator;
 using System.Collections.Concurrent;
 using System.Reflection;
+using Shared;
 
 namespace Compiler
 {
@@ -18,13 +19,15 @@ namespace Compiler
         private readonly IParser parser;
         private readonly ITypeck typeck;
         private readonly IGenerator generator;
+        private readonly IErrorCollector errorCollector;
 
-        internal Compiler(ILexer lexer, IParser parser, ITypeck typeck, IGenerator generator)
+        internal Compiler(ILexer lexer, IParser parser, ITypeck typeck, IGenerator generator, IErrorCollector errorCollector)
         {
             this.lexer = lexer;
             this.parser = parser;
             this.typeck = typeck;
             this.generator = generator;
+            this.errorCollector = errorCollector;
         }
 
         public void Compile(string assemblyName, List<CompilationUnit> files)
@@ -67,8 +70,13 @@ namespace Compiler
                 File.WriteAllText(((FileNode)ast.Root).Name + ".ast", visualizer.Visualize(ast));
             });
 
+            foreach(var error in errorCollector.Errors)
+            {
+                Console.WriteLine(error);
+            }
 
-            //GenerateCode(assemblyName, asts.ToList(), globalTable);
+
+            // GenerateCode(assemblyName, asts.ToList(), globalTable);
         }
 
         private void GenerateCode(string assemblyName, List<INode> asts, SymbolTable globalTable)

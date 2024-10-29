@@ -7,7 +7,7 @@ namespace AST.Nodes
 {
     public class IdentifierNode : IExpressionNode
     {
-        public string Name { get; set; }
+        public string Value { get; set; }
         public INode? Parent { get; set; }
         public NodeType Type { get; set; }
         public ExpressionType ExpressionType => ExpressionType.Identifier;
@@ -16,9 +16,9 @@ namespace AST.Nodes
         public ResolutionStatus Status { get; set; } = ResolutionStatus.Unresolved;
         public Metadata Meta { get; set; }
 
-        public IdentifierNode(string name, INode? parent = null)
+        public IdentifierNode(string value, INode? parent = null)
         {
-            Name = name;
+            Value = value;
             Parent = parent;
             Type = NodeType.Identifier;
         }
@@ -30,7 +30,7 @@ namespace AST.Nodes
 
         public override string ToString()
         {
-            return Name;
+            return Value;
         }
     }
 }

@@ -14,8 +14,7 @@ namespace Typeck
 
         internal void CheckScopes(INode ast, SymbolTable table)
         {
-            Console.WriteLine("Checking scopes");
-            Console.WriteLine($"AST: {ast}, table: {table}");
+            
         }
     }
 }

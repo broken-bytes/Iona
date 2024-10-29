@@ -34,7 +34,7 @@
         Private,
         Public,
         Return,
-        This,
+        Self,
         Static,
         Struct,
         Task,

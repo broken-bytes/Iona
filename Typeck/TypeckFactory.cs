@@ -4,9 +4,8 @@ namespace Typeck
 {
     public static class TypeckFactory
     {
-        public static ITypeck Create()
+        public static ITypeck Create(IErrorCollector errorCollector)
         {
-            var errorCollector = ErrorCollectorFactory.Create();
             var tableConstructor = new SymbolTableConstructor();
             var topLevelResolver = new TopLevelScopeResolver(errorCollector);
             var typeResolver = new TypeResolver(errorCollector);

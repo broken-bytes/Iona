@@ -216,7 +216,7 @@ namespace Lexer
                 case Keyword.Private: return "private";
                 case Keyword.Public: return "public";
                 case Keyword.Return: return "return";
-                case Keyword.This: return "self";
+                case Keyword.Self: return "self";
                 case Keyword.Static: return "static";
                 case Keyword.Struct: return "struct";
                 case Keyword.Task: return "task";

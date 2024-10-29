@@ -18,7 +18,7 @@
             return $"Error {Code}: {Message} at {Meta}";
         }
 
-        private string GetCodeString(CompilerErrorCode code)
+        private static string GetCodeString(CompilerErrorCode code)
         {
             switch (code)
             {

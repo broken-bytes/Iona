@@ -53,11 +53,11 @@ namespace Typeck
 
             if (node.Value.Status == INode.ResolutionStatus.Failed)
             {
-                node.Value = new ErrorNode(
-                    $"`{node.Value}` is not defined",
-                    node.Value,
-                    node
+                var error = CompilerErrorFactory.UndefinedNameError(
+                    $"{node.Value}",
+                    node.Value.Meta
                 );
+                errorCollector.Collect(error);
 
                 return;
             }
@@ -193,6 +193,13 @@ namespace Typeck
         public void Visit(IdentifierNode node)
         {
             node.Status = INode.ResolutionStatus.Resolving;
+
+            if (node.Value == "self")
+            {
+                ReplaceNode(node, new SelfNode(node.Parent) { Meta = node.Meta, Status = INode.ResolutionStatus.Resolved });
+
+                return;
+            }
 
             // Check if the identifier is in the current (or parent) scope
             var symbol = table.FindBy(node);
@@ -438,12 +445,8 @@ namespace Typeck
                 return found;
             }
 
-            // Step 2: Check all nested types in the current module, if name has a dot AND we found nothing in step 1
+            // TODO: Step 2: Check all nested types in the current module, if name has a dot AND we found nothing in step 1
             var split = name.Split('.').ToList();
-            Console.WriteLine(name);
-            Console.WriteLine($"Symbol: {symbol}");
-            Console.WriteLine("____");
-
 
             return found;
         }
@@ -455,7 +458,7 @@ namespace Typeck
             // Check 1: -> Free functions in each module
             foreach (var module in table.Modules)
             {
-                var found = FindFuncSymbolIn(funcCallNode.Target.Name, module);
+                var found = FindFuncSymbolIn(funcCallNode.Target.Value, module);
 
                 if (found != null)
                 {
@@ -466,7 +469,7 @@ namespace Typeck
             // If we found more than one type with the same name, we have an ambiguity error
             if (functions.Count > 1)
             {
-                return Result<FuncSymbol, SymbolError>.Err(new SymbolError($"Ambiguous function name `{funcCallNode.Target.Name}`"));
+                return Result<FuncSymbol, SymbolError>.Err(new SymbolError($"Ambiguous function name `{funcCallNode.Target.Value}`"));
             }
 
             // Check 2: -> Member functions in current type
@@ -477,7 +480,7 @@ namespace Typeck
             // Check if the current type is a type node
             if (currentType == null)
             {
-                return Result<FuncSymbol, SymbolError>.Err(new SymbolError($"Function `{funcCallNode.Target.Name}` not found"));
+                return Result<FuncSymbol, SymbolError>.Err(new SymbolError($"Function `{funcCallNode.Target.Value}` not found"));
             }
 
             // Check if the current type has a method with the name of the function call
@@ -485,17 +488,17 @@ namespace Typeck
 
             if (typeSymbol.IsError)
             {
-                return Result<FuncSymbol, SymbolError>.Err(new SymbolError($"Function `{funcCallNode.Target.Name}` not found"));
+                return Result<FuncSymbol, SymbolError>.Err(new SymbolError($"Function `{funcCallNode.Target.Value}` not found"));
             }
 
-            var func = FindFuncSymbolIn(funcCallNode.Target.Name, typeSymbol.Success!);
+            var func = FindFuncSymbolIn(funcCallNode.Target.Value, typeSymbol.Success!);
 
             if (func != null)
             {
                 return Result<FuncSymbol, SymbolError>.Ok(func);
             }
 
-            return Result<FuncSymbol, SymbolError>.Err(new SymbolError($"Function `{funcCallNode.Target.Name}` not found"));
+            return Result<FuncSymbol, SymbolError>.Err(new SymbolError($"Function `{funcCallNode.Target.Value}` not found"));
         }
 
         private FuncSymbol? FindFuncSymbolIn(string name, ISymbol symbol)

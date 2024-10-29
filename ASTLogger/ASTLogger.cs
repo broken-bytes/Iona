@@ -161,7 +161,7 @@ namespace ASTLogger
         {
             Log("> FUNCTION CALL:");
             LogMeta(node);
-            Log($"- Name: {node.Target.Name}");
+            Log($"- Name: {node.Target.Value}");
 
             if (node.Args.Count > 0)
             {
@@ -233,7 +233,7 @@ namespace ASTLogger
             Log("> IDENTIFIER:");
             LogMeta(node);
 
-            Log($"- Name: {node.Name}");
+            Log($"- Name: {node.Value}");
             Spacer();
         }
 

@@ -2,6 +2,7 @@
 using Lexer;
 using Parser;
 using Typeck;
+using Shared;
 
 namespace Compiler
 {
@@ -9,12 +10,13 @@ namespace Compiler
     {
         public static ICompiler Create()
         {
-            var generator = GeneratorFactory.Create();
-            var lexer = LexerFactory.Create();
-            var parser = ParserFactory.Create();
-            var typeck = TypeckFactory.Create();
+            var errorCollector = ErrorCollectorFactory.Create();
+            var generator = GeneratorFactory.Create(errorCollector);
+            var lexer = LexerFactory.Create(errorCollector);
+            var parser = ParserFactory.Create(errorCollector);
+            var typeck = TypeckFactory.Create(errorCollector);
 
-            return new Compiler(lexer, parser, typeck, generator);
+            return new Compiler(lexer, parser, typeck, generator, errorCollector);
         }
     }
 }

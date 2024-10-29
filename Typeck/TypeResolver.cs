@@ -17,7 +17,6 @@ namespace Typeck
         IBinaryExpressionVisitor,
         IClassVisitor,
         IContractVisitor,
-        IErrorVisitor,
         IFileVisitor,
         IFuncCallVisitor,
         IFuncVisitor,
@@ -129,11 +128,6 @@ namespace Typeck
             }
         }
 
-        public void Visit(ErrorNode node)
-        {
-            Console.WriteLine(node.Message);
-        }
-
         public void Visit(FileNode node)
         {
             // We ignore the file itself, but we visit its children and add the module to the symbol table
@@ -237,8 +231,6 @@ namespace Typeck
             {
                 node.Status = ResolutionStatus.Failed;
             }
-
-            Console.WriteLine(symbol);
         }
 
         public void Visit(ImportNode import)
@@ -360,11 +352,10 @@ namespace Typeck
             if (node.Object is IdentifierNode target)
             {
 
-                // Find the symbol `Object` in the current scope
+                // TODO: Find the symbol `Object` in the current scope
                 var symbol = _symbolTable.FindBy(target);
-
-                Console.WriteLine(symbol);
-            } else if (node.Object is SelfNode self)
+            } 
+            else if (node.Object is SelfNode self)
             {
                 var type = GetTypeOfSelf(self);
 
@@ -372,8 +363,10 @@ namespace Typeck
                 {
                     type.Status = ResolutionStatus.Resolved;
                 }
-
-                Console.WriteLine(type);
+                else
+                {
+                    type.Status = ResolutionStatus.Failed;
+                }
             }
         }
 
@@ -527,7 +520,7 @@ namespace Typeck
             }
 
             // Step 2: Find the module
-            var isModule = _symbolTable.Modules.Any(mod => mod.Name == target.Name);
+            var isModule = _symbolTable.Modules.Any(mod => mod.Name == target.Value);
 
             // Edge case: If the target is indeed a module, we still need to check if the module has a type with the same name
             // To do so we need to do the following:
@@ -562,9 +555,6 @@ namespace Typeck
                     break;
                 case ContractNode contractNode:
                     contractNode.Accept(this);
-                    break;
-                case ErrorNode errorNode:
-                    errorNode.Accept(this);
                     break;
                 case FileNode fileNode:
                     fileNode.Accept(this);
@@ -690,10 +680,25 @@ namespace Typeck
         {
             if (propAccess.Object is IdentifierNode target)
             {
-                // Find the symbol `Object` in the current scope
+                // Edge case `self`
+                if (target.Value == "self")
+                {
+                    var selfNode = new SelfNode(propAccess.Object.Parent);
+                    selfNode.Meta = propAccess.Object.Meta;
+                    propAccess.Object = selfNode;
+
+                    return GetTypeOfSelf(selfNode);
+                }
+                // TODO: Find the symbol `Object` in the current scope
                 var symbol = _symbolTable.FindBy(target);
 
-                Console.WriteLine(symbol);
+                if (symbol == null)
+                {
+                    return null;
+                }
+
+                return new TypeReferenceNode(symbol.Name);
+
             }
             else if (propAccess.Object is SelfNode self)
             {

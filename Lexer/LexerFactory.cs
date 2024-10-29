@@ -1,10 +1,11 @@
 ﻿using Lexer.Processors;
+using Shared;
 
 namespace Lexer
 {
     public static class LexerFactory
     {
-        public static ILexer Create()
+        public static ILexer Create(IErrorCollector errorCollector)
         {
             List<IProcessor> processors = new List<IProcessor>();
             var numberProcessor = new NumberProcessor();
@@ -17,7 +18,7 @@ namespace Lexer
             processors.Add(new IdentifierProcessor());
             processors.Add(new LiteralProcessor(numberProcessor));
 
-            return new Lexer(processors);
+            return new Lexer(processors, errorCollector);
         }
     }
 }

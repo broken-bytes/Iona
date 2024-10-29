@@ -725,8 +725,6 @@ namespace Generator
             emitter.GetThis();
 
             // Load the value
-            Console.WriteLine(prop);
-
 
             // Get the property from the current type
         } 
@@ -742,13 +740,13 @@ namespace Generator
 
             if (node.Left is IdentifierNode target)
             {
-                if (target.Name == "self")
+                if (target.Value == "self")
                 {
                     var symbol = table.FindBy(target);
 
                     if (symbol is TypeSymbol typeSymbol)
                     {
-                        var memberIdentifier = ((IdentifierNode)node.Right).Name;
+                        var memberIdentifier = ((IdentifierNode)node.Right).Value;
 
                         var prop = typeSymbol.Symbols.OfType<PropertySymbol>().FirstOrDefault(f => f.Name == memberIdentifier);
 

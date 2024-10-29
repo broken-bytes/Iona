@@ -1,15 +1,18 @@
 ﻿using Lexer.Processors;
 using Lexer.Tokens;
+using Shared;
 
 namespace Lexer
 {
     public class Lexer : ILexer
     {
         private readonly List<IProcessor> processors;
+        private readonly IErrorCollector errorCollector;
 
-        internal Lexer(List<IProcessor> processors)
+        internal Lexer(List<IProcessor> processors, IErrorCollector errorCollector)
         {
             this.processors = processors;
+            this.errorCollector = errorCollector;
         }
 
         public TokenStream Tokenize(string code, string fileName)

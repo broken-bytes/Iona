@@ -1,10 +1,12 @@
-﻿namespace Generator
+﻿using Shared;
+
+namespace Generator
 {
     public static class GeneratorFactory
     {
-        public static IGenerator Create()
+        public static IGenerator Create(IErrorCollector errorCollector)
         {
-            return new Generator();
+            return new Generator(errorCollector);
         }
     }
 }

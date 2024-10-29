@@ -458,7 +458,7 @@ namespace ASTVisualizer
                     type = "func";
                     break;
                 case IdentifierNode:
-                    name = ((IdentifierNode)node).Name;
+                    name = ((IdentifierNode)node).Value;
                     type = "identifier";
                     break;
                 case InitNode:
