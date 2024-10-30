@@ -8,11 +8,20 @@ namespace Lexer
     {
         private readonly List<IProcessor> processors;
         private readonly IErrorCollector errorCollector;
+        private readonly IWarningCollector warningCollector;
+        private readonly IFixItCollector fixItCollector;
 
-        internal Lexer(List<IProcessor> processors, IErrorCollector errorCollector)
+        internal Lexer(
+            List<IProcessor> processors, 
+            IErrorCollector errorCollector,
+            IWarningCollector warningCollector,
+            IFixItCollector fixItCollector
+        )
         {
             this.processors = processors;
             this.errorCollector = errorCollector;
+            this.warningCollector = warningCollector;
+            this.fixItCollector = fixItCollector;
         }
 
         public TokenStream Tokenize(string code, string fileName)

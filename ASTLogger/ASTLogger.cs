@@ -1,5 +1,6 @@
 ﻿using AST.Nodes;
 using AST.Visitors;
+using System.Reflection.Metadata;
 using System.Text;
 
 namespace ASTLogger
@@ -234,6 +235,13 @@ namespace ASTLogger
             LogMeta(node);
 
             Log($"- Name: {node.Value}");
+            Log("- Type:");
+            if (node.ResultType != null)
+            {
+                _indentLevel++;
+                GetAndLogNode(node.ResultType);
+                _indentLevel--;
+            }
             Spacer();
         }
 

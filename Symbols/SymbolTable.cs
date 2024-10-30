@@ -338,5 +338,82 @@ namespace Symbols
 
             return false;
         }
+
+        public TypeSymbol? FindTypeByFQN(string name)
+        {
+            var module = FindModuleByFQN(name);
+
+            if (module == null)
+            {
+                return null;
+            }
+
+            string typePart = name.Remove(0, module.Name.Length + 1);
+
+            var typeSplit = typePart.Split(".");
+
+            if (typeSplit.Length == 0)
+            {
+                return null;
+            }
+
+            TypeSymbol? type = module.Symbols.OfType<TypeSymbol>().FirstOrDefault(sym => sym.Name == typeSplit[0]);
+
+            if (type == null)
+            {
+                return null;
+            }
+
+            typeSplit = typeSplit.Skip(1).ToArray();
+
+            while (typeSplit.Length > 0)
+            {
+                var foundSymbol = type.Symbols.Find(sym => sym.Name == typeSplit[0]);
+
+                if (foundSymbol is TypeSymbol foundType)
+                {
+                    type = foundType;
+                    typeSplit = typeSplit.Skip(1).ToArray();
+                }
+                else
+                {
+                    return null;
+                }
+            }
+
+            return type;
+        }
+
+        public ModuleSymbol? FindModuleByFQN(string name)
+        {
+            // First, break the fully qualified name into parts
+            var parts = name.Split('.');
+
+            if (parts.Length == 0)
+            {
+                return null;
+            }
+
+            // We need to find the module of thye fqn first. 
+            // Edge case: Modules can also have multiple parts in their name (e.g. std.io)
+            // So we check the fqn minus the last part, then minus the second last part, etc. until we find a module
+            var moduleName = parts.Aggregate((current, next) => current + "." + next);
+
+            ModuleSymbol? module = Modules.FirstOrDefault(mod => mod.Name == moduleName);
+
+            while (module == null && parts.Length > 1)
+            {
+                parts = parts.Take(parts.Length - 1).ToArray();
+                moduleName = parts.Aggregate((current, next) => current + "." + next);
+                module = Modules.FirstOrDefault(mod => mod.Name == moduleName);
+            }
+
+            if (module == null)
+            {
+                return null;
+            }
+
+            return module;
+        }
     }
 }

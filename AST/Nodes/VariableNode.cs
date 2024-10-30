@@ -15,12 +15,12 @@ namespace AST.Nodes
         public AccessLevel AccessLevel { get; set; }
         public StatementType StatementType { get; set; }
         public INode? TypeNode { get; set; }
-        public INode? Value { get; set; }
+        public IExpressionNode? Value { get; set; }
         bool IsAssigned { get; set; }
         public ResolutionStatus Status { get; set; } = ResolutionStatus.Unresolved;
         public Metadata Meta { get; set; }
 
-        public VariableNode(string name, INode? value, INode? parent = null)
+        public VariableNode(string name, IExpressionNode? value, INode? parent = null)
         {
             Name = name;
             Module = "";

@@ -20,14 +20,26 @@ namespace Compiler
         private readonly ITypeck typeck;
         private readonly IGenerator generator;
         private readonly IErrorCollector errorCollector;
+        private readonly IWarningCollector warningCollector;
+        private readonly IFixItCollector fixItCollector;
 
-        internal Compiler(ILexer lexer, IParser parser, ITypeck typeck, IGenerator generator, IErrorCollector errorCollector)
+        internal Compiler(
+            ILexer lexer, 
+            IParser parser, 
+            ITypeck typeck, 
+            IGenerator generator, 
+            IErrorCollector errorCollector,
+            IWarningCollector warningCollector,
+            IFixItCollector fixItCollector
+        )
         {
             this.lexer = lexer;
             this.parser = parser;
             this.typeck = typeck;
             this.generator = generator;
             this.errorCollector = errorCollector;
+            this.warningCollector = warningCollector;
+            this.fixItCollector = fixItCollector;
         }
 
         public void Compile(string assemblyName, List<CompilationUnit> files)

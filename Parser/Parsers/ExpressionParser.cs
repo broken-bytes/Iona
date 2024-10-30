@@ -26,7 +26,7 @@ namespace Parser.Parsers
             this.errorCollector = errorCollector;
         }
 
-        public INode Parse(TokenStream stream, INode? parent)
+        public IExpressionNode Parse(TokenStream stream, INode? parent)
         {
             if (IsBinaryExpression(stream))
             {
@@ -70,7 +70,7 @@ namespace Parser.Parsers
         }
 
         // ------------------- Helper methods -------------------
-        private INode? ParseBinaryExpression(TokenStream stream, INode? parent)
+        private IExpressionNode? ParseBinaryExpression(TokenStream stream, INode? parent)
         {
             var left = ParsePrimaryExpression(stream, parent);
             var op = stream.Consume(TokenFamily.Operator, TokenFamily.Keyword);
@@ -95,7 +95,7 @@ namespace Parser.Parsers
 
         }
 
-        private INode ParseComparisonExpression(TokenStream stream, INode? parent)
+        private IExpressionNode ParseComparisonExpression(TokenStream stream, INode? parent)
         {
             var left = ParsePrimaryExpression(stream, parent);
             var op = stream.Consume(TokenFamily.Operator, TokenFamily.Keyword);
@@ -107,7 +107,7 @@ namespace Parser.Parsers
             return new ComparisonExpressionNode(left, right, operation ?? ComparisonOperation.Noop, parent);
         }
 
-        private INode? ParseObjectLiteral(TokenStream stream, INode? parent)
+        private IExpressionNode? ParseObjectLiteral(TokenStream stream, INode? parent)
         {
             if (!IsObjectLiteral(stream))
             {
@@ -166,7 +166,7 @@ namespace Parser.Parsers
             return objectLiteral;
         }
 
-        private INode ParseUnaryExpression(TokenStream stream, INode? parent)
+        private IExpressionNode ParseUnaryExpression(TokenStream stream, INode? parent)
         {
             var op = stream.Consume(TokenFamily.Operator, TokenFamily.Keyword);
             var right = ParsePrimaryExpression(stream, parent);
@@ -177,7 +177,7 @@ namespace Parser.Parsers
             return new UnaryExpressionNode(right, operation ?? UnaryOperation.Noop, null, parent);
         }
 
-        private INode? ParsePrimaryExpression(TokenStream stream, INode? parent)
+        private IExpressionNode? ParsePrimaryExpression(TokenStream stream, INode? parent)
         {
             // Check if literal or identifier
             var token = stream.Peek();
@@ -215,7 +215,7 @@ namespace Parser.Parsers
             else if (token.Family == TokenFamily.Identifier)
             {
                 var identifier = stream.Consume(TokenType.Identifier, TokenFamily.Identifier);
-                INode identifierNode;
+                IExpressionNode identifierNode;
 
                 if (identifier.Value == "self")
                 {

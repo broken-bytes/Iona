@@ -11,12 +11,14 @@ namespace Compiler
         public static ICompiler Create()
         {
             var errorCollector = ErrorCollectorFactory.Create();
-            var generator = GeneratorFactory.Create(errorCollector);
-            var lexer = LexerFactory.Create(errorCollector);
-            var parser = ParserFactory.Create(errorCollector);
-            var typeck = TypeckFactory.Create(errorCollector);
+            var warningCollector = WarningCollectorFactory.Create();
+            var fixitCollector = FixItCollectorFactory.Create();
+            var generator = GeneratorFactory.Create(errorCollector, warningCollector, fixitCollector);
+            var lexer = LexerFactory.Create(errorCollector, warningCollector, fixitCollector);
+            var parser = ParserFactory.Create(errorCollector, warningCollector, fixitCollector);
+            var typeck = TypeckFactory.Create(errorCollector, warningCollector, fixitCollector);
 
-            return new Compiler(lexer, parser, typeck, generator, errorCollector);
+            return new Compiler(lexer, parser, typeck, generator, errorCollector, warningCollector, fixitCollector);
         }
     }
 }

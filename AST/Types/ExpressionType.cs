@@ -18,6 +18,7 @@
         PointerDereference,
         PropAccess,
         AddressOf,
+        Self,
         New,
         Delete,
         Lambda,

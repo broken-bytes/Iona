@@ -38,7 +38,7 @@ namespace Parser.Parsers
             return false;
         }
 
-        public INode Parse(TokenStream stream, INode? parent) {
+        public IExpressionNode Parse(TokenStream stream, INode? parent) {
             if (expressionParser == null || statementParser == null || funcCallParser == null)
             {
                 var error = stream.Peek();

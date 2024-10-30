@@ -34,7 +34,7 @@ namespace Parser.Parsers
             {
                 var identifier = stream.Consume(TokenType.Identifier, TokenFamily.Identifier);
 
-                var varNode = new VariableNode(identifier.Value, parent);
+                var varNode = new VariableNode(identifier.Value, null, parent);
                 Utils.SetStart(varNode, token);
                 Utils.SetEnd(varNode, identifier);
 

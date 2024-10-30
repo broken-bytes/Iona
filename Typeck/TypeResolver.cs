@@ -5,6 +5,7 @@ using Shared;
 using Symbols;
 using Symbols.Symbols;
 using System;
+using System.ComponentModel.DataAnnotations;
 using System.Net.Http.Headers;
 using System.Reflection.Metadata;
 using static AST.Nodes.INode;
@@ -38,11 +39,20 @@ namespace Typeck
     {
         private SymbolTable _symbolTable;
         private readonly IErrorCollector _errorCollector;
-        internal TypeResolver(IErrorCollector errorCollector)
+        private readonly IWarningCollector _warningCollector;
+        private readonly IFixItCollector _fixItCollector;
+
+        internal TypeResolver(
+            IErrorCollector errorCollector,
+            IWarningCollector warningCollector,
+            IFixItCollector fixItCollector
+        )
         {
             // Dummy symbol table so it doesn't need to be nullable
             _symbolTable = new SymbolTable();
             _errorCollector = errorCollector;
+            _warningCollector = warningCollector;
+            _fixItCollector = fixItCollector;
         }
 
         internal void TypeCheckAST(FileNode file, SymbolTable table)
@@ -241,7 +251,33 @@ namespace Typeck
         public void Visit(InitCallNode initCall)
         {
             // Find the type for the init call
-            var type = GetTypeOf(initCall.Target);
+            var type = _symbolTable.FindTypeByFQN(initCall.TypeFullName);
+
+            if (type == null)
+            {
+                initCall.Status = ResolutionStatus.Failed;
+                return;
+            }
+
+            initCall.ResultType = new TypeReferenceNode(type.Name, initCall)
+            {
+                FullyQualifiedName = type.FullyQualifiedName,
+                TypeKind = Utils.SymbolKindToASTKind(type.TypeKind),
+                Status = ResolutionStatus.Resolved,
+                Meta = initCall.Meta
+            };
+
+            // Ensure that the type is imported
+            if (!CheckFileImportsModule(initCall.ResultType))
+            {
+                EmitImportMissing(initCall, type);
+
+                initCall.Status = ResolutionStatus.Failed;
+
+                return;
+            }
+
+            initCall.Status = ResolutionStatus.Resolved;
         }
 
         public void Visit(InitNode node)
@@ -273,7 +309,61 @@ namespace Typeck
 
         public void Visit(LiteralNode node)
         {
+            // There are six different types of literals:
+            // - Bool
+            // - Int
+            // - Float
+            // - String
+            // - Char
+            // - Null
 
+            // We can determine the type of the literal by looking at the value (except for null and array `[]`)
+
+            if (node.LiteralType == LiteralType.Boolean)
+            {
+                node.ResultType = new TypeReferenceNode("Bool", node)
+                {
+                    FullyQualifiedName = "Builtins.Bool",
+                    TypeKind = AST.Types.Kind.Struct,
+                    Status = ResolutionStatus.Resolved
+                };
+            }
+            if (node.LiteralType == LiteralType.Integer)
+            {
+                node.ResultType = new TypeReferenceNode("Int", node)
+                {
+                    FullyQualifiedName = "Builtins.Int",
+                    TypeKind = AST.Types.Kind.Struct,
+                    Status = ResolutionStatus.Resolved
+                };
+            }
+            if (node.LiteralType == LiteralType.Float)
+            {
+                node.ResultType = new TypeReferenceNode("Float", node)
+                {
+                    FullyQualifiedName = "Builtins.Float",
+                    TypeKind = AST.Types.Kind.Struct,
+                    Status = ResolutionStatus.Resolved
+                };
+            }
+            if (node.LiteralType == LiteralType.String)
+            {
+                node.ResultType = new TypeReferenceNode("String", node)
+                {
+                    FullyQualifiedName = "Builtins.String",
+                    TypeKind = AST.Types.Kind.Struct,
+                    Status = ResolutionStatus.Resolved
+                };
+            }
+            if (node.LiteralType == LiteralType.Char)
+            {
+                node.ResultType = new TypeReferenceNode("Char", node)
+                {
+                    FullyQualifiedName = "Builtins.Char",
+                    TypeKind = AST.Types.Kind.Struct,
+                    Status = ResolutionStatus.Resolved
+                };
+            }
         }
 
         public void Visit(ModuleNode node)
@@ -305,7 +395,7 @@ namespace Typeck
 
         public void Visit(ObjectLiteralNode node)
         {
-            throw new NotImplementedException();
+           
         }
 
         public void Visit(OperatorNode node)
@@ -351,10 +441,36 @@ namespace Typeck
 
             if (node.Object is IdentifierNode target)
             {
-
+                TypeSymbol? typeSymbol = null;
                 // TODO: Find the symbol `Object` in the current scope
                 var symbol = _symbolTable.FindBy(target);
-            } 
+
+                if (symbol is VariableSymbol var)
+                {
+                    typeSymbol = var.Type;
+                }
+                else if (symbol is PropertySymbol prop)
+                {
+                    typeSymbol = prop.Type;
+                }
+                else if (symbol is ParameterSymbol param)
+                {
+                    typeSymbol = param.Type;
+                }
+
+                // Get the property on this type
+
+
+                if (typeSymbol != null)
+                {
+                    node.Status = ResolutionStatus.Resolved;
+                }
+                else
+                {
+                    node.Status = ResolutionStatus.Failed;
+                }
+
+            }
             else if (node.Object is SelfNode self)
             {
                 var type = GetTypeOfSelf(self);
@@ -417,6 +533,22 @@ namespace Typeck
             {
                 var actualType = CheckNodeType(type);
                 node.TypeNode = actualType;
+            }
+
+            if (node.Value != null)
+            {
+                CheckNode(node.Value);
+
+                if (node.Value.ResultType == null)
+                {
+                    node.Status = ResolutionStatus.Failed;
+                    return;
+                }
+
+                if (node.Value.Status == ResolutionStatus.Resolved)
+                {
+                    node.TypeNode = node.Value.ResultType;
+                }
             }
         }
 
@@ -537,8 +669,13 @@ namespace Typeck
             return null;
         }
 
-        private void CheckNode(INode node)
+        private void CheckNode(INode? node)
         {
+            if (node == null)
+            {
+                return;
+            }
+
             switch (node)
             {
                 case AssignmentNode assignmentNode:
@@ -570,6 +707,9 @@ namespace Typeck
                     break;
                 case ImportNode importNode:
                     importNode.Accept(this);
+                    break;
+                case InitCallNode initCallNode:
+                    initCallNode.Accept(this);
                     break;
                 case InitNode initNode:
                     initNode.Accept(this);
@@ -727,6 +867,84 @@ namespace Typeck
             }
 
             return null;
+        }
+
+        private bool CheckFileImportsModule(INode node)
+        {
+            if (node is not TypeReferenceNode type)
+            {
+                return false;
+            }
+
+            var file = ((FileNode)node.Root);
+
+            var imports = file.Children.OfType<ImportNode>();
+
+            ModuleNode? moduleNode = null;
+
+            var module = _symbolTable.FindModuleByFQN(type.FullyQualifiedName);
+
+            while (node.Parent != null)
+            {
+                if (node is ModuleNode mod)
+                {
+                    moduleNode = mod;
+                    break;
+                }
+
+                node = node.Parent;
+            }
+
+            if (moduleNode == null)
+            {
+                return false;
+            }
+
+            // Always import the module of the node itself
+            imports = imports.Append(new ImportNode(moduleNode.Name, null));
+
+            foreach (var import in imports)
+            {
+                if (import.Name == module.Name)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private void EmitImportMissing(INode node, TypeSymbol type)
+        {
+            var error = CompilerErrorFactory.TopLevelDefinitionError(
+                    type.Name,
+                    node.Meta
+                );
+
+            _errorCollector.Collect(error);
+
+            var module = _symbolTable.FindModuleByFQN(type.FullyQualifiedName);
+
+            if (module == null)
+            {
+                return;
+            }
+
+            // Show a fix-it to import the module
+            var fixIt = FixItFactory.ImportMissing(
+                module.Name,
+                new Metadata
+                {
+                    File = node.Root.ToString(),
+                    LineStart = 0,
+                    LineEnd = 0,
+                    ColumnStart = 0,
+                    ColumnEnd = 1
+
+                }
+            );
+
+            _fixItCollector.Collect(fixIt);
         }
     }
 }

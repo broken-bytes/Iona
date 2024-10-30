@@ -9,7 +9,7 @@ namespace AST.Nodes
     {
         public INode? Parent { get; set; }
         public NodeType Type { get; set; }
-        public ExpressionType ExpressionType => ExpressionType.Identifier;
+        public ExpressionType ExpressionType => ExpressionType.Self;
         public INode? ResultType { get; set; }
         public INode Root { get => Utils.GetRoot(this); }
         public ResolutionStatus Status { get; set; } = ResolutionStatus.Unresolved;

@@ -4,9 +4,13 @@ namespace Generator
 {
     public static class GeneratorFactory
     {
-        public static IGenerator Create(IErrorCollector errorCollector)
+        public static IGenerator Create(
+            IErrorCollector errorCollector,
+            IWarningCollector warningCollector,
+            IFixItCollector fixItCollector
+        )
         {
-            return new Generator(errorCollector);
+            return new Generator(errorCollector, warningCollector, fixItCollector);
         }
     }
 }

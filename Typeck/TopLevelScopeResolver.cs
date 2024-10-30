@@ -20,18 +20,27 @@ namespace Typeck
         IMemberAccessVisitor,
         IModuleVisitor,
         IOperatorVisitor,
+        IPropAccessVisitor,
         IPropertyVisitor,
         IReturnVisitor,
         IStructVisitor,
         IVariableVisitor
     {
         private SymbolTable table;
-        private IErrorCollector errorCollector;
+        private readonly IErrorCollector errorCollector;
+        private readonly IWarningCollector warningCollector;
+        private readonly IFixItCollector fixItCollector;
 
-        internal TopLevelScopeResolver(IErrorCollector errorCollector)
+        internal TopLevelScopeResolver(
+            IErrorCollector errorCollector,
+            IWarningCollector warningCollector,
+            IFixItCollector fixItCollector
+        )
         {
             this.table = new SymbolTable();
             this.errorCollector = errorCollector;
+            this.warningCollector = warningCollector;
+            this.fixItCollector = fixItCollector;
         }
 
         internal void CheckScopes(INode ast, SymbolTable table)
@@ -280,6 +289,12 @@ namespace Typeck
             }
         }
 
+        public void Visit(PropAccessNode propAccessNode)
+        {
+            HandleNode(propAccessNode.Object);
+            propAccessNode.Status = propAccessNode.Status = INode.ResolutionStatus.Resolving;
+        }
+
         public void Visit(PropertyNode node)
         {
             node.Status = INode.ResolutionStatus.Resolving;
@@ -356,6 +371,9 @@ namespace Typeck
                     break;
                 case OperatorNode op:
                     op.Accept(this);
+                    break;
+                case PropAccessNode propAccess:
+                    propAccess.Accept(this);
                     break;
                 case PropertyNode property:
                     property.Accept(this);
@@ -559,7 +577,7 @@ namespace Typeck
             // Case 2: Node is value of a variable decl
             else if (node.Parent is VariableNode variable)
             {
-                variable.Value = newNode;
+                variable.Value = (IExpressionNode)newNode;
             }
             // Case 3: Node is value of a property decl
             else if (node.Parent is PropertyNode property)
@@ -593,6 +611,18 @@ namespace Typeck
                 else
                 {
                     binary.Right = (IExpressionNode)newNode;
+                }
+            }
+            // Case 7: Node is the object or prop of a property access node
+            else if (node.Parent is PropAccessNode propAccess)
+            {
+                if (propAccess.Object == node)
+                {
+                    propAccess.Object = (IExpressionNode)newNode;
+                }
+                else
+                {
+                    propAccess.Property = (IExpressionNode)newNode;
                 }
             }
         }

@@ -5,7 +5,11 @@ namespace Lexer
 {
     public static class LexerFactory
     {
-        public static ILexer Create(IErrorCollector errorCollector)
+        public static ILexer Create(
+            IErrorCollector errorCollector,
+            IWarningCollector warningCollector,
+            IFixItCollector fixItCollector
+        )
         {
             List<IProcessor> processors = new List<IProcessor>();
             var numberProcessor = new NumberProcessor();
@@ -18,7 +22,7 @@ namespace Lexer
             processors.Add(new IdentifierProcessor());
             processors.Add(new LiteralProcessor(numberProcessor));
 
-            return new Lexer(processors, errorCollector);
+            return new Lexer(processors, errorCollector, warningCollector, fixItCollector);
         }
     }
 }

@@ -10,11 +10,19 @@ namespace Generator
 {
     public class Generator : IGenerator
     {
-        private IErrorCollector _errorCollector;
+        private readonly IErrorCollector _errorCollector;
+        private readonly IWarningCollector _warningCollector;
+        private readonly IFixItCollector _fixItCollector;
 
-        internal Generator(IErrorCollector errorCollector)
+        internal Generator
+            (IErrorCollector errorCollector,
+            IWarningCollector warningCollector,
+            IFixItCollector fixItCollector
+        )
         {
             _errorCollector = errorCollector;
+            _warningCollector = warningCollector;
+            _fixItCollector = fixItCollector;
         }
 
         public Assembly CreateAssembly(string name, SymbolTable table)

@@ -6,7 +6,11 @@ namespace Parser
 {
     public static class ParserFactory
     {
-        public static IParser Create(IErrorCollector errorCollector)
+        public static IParser Create(
+            IErrorCollector errorCollector,
+            IWarningCollector warningCollector,
+            IFixItCollector fixItCollector
+        )
         {
             var accessLevelParser = new AccessLevelParser();
             var genericArgsParser = new GenericArgsParser();

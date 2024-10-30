@@ -3,6 +3,7 @@
     public enum LiteralType
     {
         Array,
+        Char,
         Boolean,
         Double,
         Float,
