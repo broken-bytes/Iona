@@ -28,6 +28,7 @@ namespace ASTLogger
         IPropAccessVisitor,
         IPropertyVisitor,
         IReturnVisitor,
+        ISelfVisitor,
         IStructVisitor,
         ITypeReferenceVisitor,
         IUnaryExpressionVisitor,
@@ -43,7 +44,7 @@ namespace ASTLogger
         public void Visit(AssignmentNode node)
         {
             Log("> ASSIGNMENT:");
-            Log($" - Type: {node.AssignmentType}");
+            Log($"- Type: {node.AssignmentType}");
             Log("- Target:");
             LogMeta(node);
 
@@ -448,7 +449,13 @@ namespace ASTLogger
         public void Visit(PropAccessNode node)
         {
             Log("> PROPERTY ACCESS:");
-            LogMeta(node);
+            if (node.ResultType != null)
+            {
+                Log("- Type: ");
+                _indentLevel++;
+                GetAndLogNode(node.ResultType);
+                _indentLevel--;
+            }
 
             Log($"- Object:");
             _indentLevel++;
@@ -502,6 +509,13 @@ namespace ASTLogger
                 _indentLevel--;
             }
 
+            Spacer();
+        }
+
+        public void Visit(SelfNode node)
+        {
+            Log("> SELF:");
+            LogMeta(node);
             Spacer();
         }
 
@@ -652,6 +666,9 @@ namespace ASTLogger
                     break;
                 case ReturnNode returnNode:
                     returnNode.Accept(this);
+                    break;
+                case SelfNode selfNode:
+                    selfNode.Accept(this);
                     break;
                 case StructNode structNode:
                     structNode.Accept(this);

@@ -15,6 +15,7 @@ namespace AST.Nodes
 
     public interface ITypeReferenceNode : INode
     {
+        public string FullyQualifiedName { get; }
         public TypeReferenceKind ReferenceKind { get; }
     }
 }

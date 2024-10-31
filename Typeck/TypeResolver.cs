@@ -69,25 +69,6 @@ namespace Typeck
             // - Check that the target and value have the same type (else add an error node)
             CheckNode(node.Target);
             CheckNode(node.Value);
-
-            TypeReferenceNode? leftType = GetTypeOf(node.Target);
-            TypeReferenceNode? rightType = GetTypeOf(node.Value);
-
-            if (leftType == null || rightType == null)
-            {
-                node.Status = ResolutionStatus.Failed;
-                return;
-            }
-
-            // Ensure that the target and value have the same type
-            if (leftType.FullyQualifiedName != rightType.FullyQualifiedName)
-            {
-                node.Target = new ErrorNode(
-                    $"Type mismatch. No conversion from {rightType} to {leftType} possible.",
-                    node.Target,
-                    node
-                );
-            }
         }
 
         public void Visit(BlockNode node)
@@ -102,24 +83,6 @@ namespace Typeck
         {
             CheckNode(node.Left);
             CheckNode(node.Right);
-
-            var leftType = GetTypeOf(node.Left);
-            var rightType = GetTypeOf(node.Right);
-
-            if (leftType == null || rightType == null)
-            {
-                node.Status = ResolutionStatus.Failed;
-                return;
-            }
-
-            if (leftType.FullyQualifiedName != rightType.FullyQualifiedName)
-            {
-                node.Left = new ErrorNode(
-                    $"Type mismatch. No conversion from {rightType} to {leftType} possible.",
-                    node.Left,
-                    node
-                );
-            }
         }
 
         public void Visit(ClassNode node)
@@ -403,26 +366,7 @@ namespace Typeck
             // Check the parameters if they have a (known) type
             foreach (var param in node.Parameters)
             {
-                if (param.TypeNode is TypeReferenceNode type)
-                {
-                    var actualType = CheckNodeType(type);
-
-                    if (actualType != null)
-                    {
-                        param.TypeNode = actualType;
-                    }
-                    else
-                    {
-                        var error = CompilerErrorFactory.TopLevelDefinitionError(
-                            type.Name,
-                            type.Meta
-                        );
-
-                        _errorCollector.Collect(error);
-
-                        node.Status = ResolutionStatus.Failed;
-                    }
-                }
+                ResolveParameter(param);
             }
 
             // Check the body
@@ -434,56 +378,12 @@ namespace Typeck
 
         public void Visit(PropAccessNode node)
         {
-            if (node.Status is INode.ResolutionStatus.Failed or INode.ResolutionStatus.Resolved)
+            if (node.Status is not ResolutionStatus.Resolving)
             {
                 return;
             }
 
-            if (node.Object is IdentifierNode target)
-            {
-                TypeSymbol? typeSymbol = null;
-                // TODO: Find the symbol `Object` in the current scope
-                var symbol = _symbolTable.FindBy(target);
-
-                if (symbol is VariableSymbol var)
-                {
-                    typeSymbol = var.Type;
-                }
-                else if (symbol is PropertySymbol prop)
-                {
-                    typeSymbol = prop.Type;
-                }
-                else if (symbol is ParameterSymbol param)
-                {
-                    typeSymbol = param.Type;
-                }
-
-                // Get the property on this type
-
-
-                if (typeSymbol != null)
-                {
-                    node.Status = ResolutionStatus.Resolved;
-                }
-                else
-                {
-                    node.Status = ResolutionStatus.Failed;
-                }
-
-            }
-            else if (node.Object is SelfNode self)
-            {
-                var type = GetTypeOfSelf(self);
-
-                if (type != null)
-                {
-                    type.Status = ResolutionStatus.Resolved;
-                }
-                else
-                {
-                    type.Status = ResolutionStatus.Failed;
-                }
-            }
+            GetTypeOfPropAccess(node);
         }
 
         public void Visit(PropertyNode node)
@@ -492,6 +392,15 @@ namespace Typeck
             {
                 var actualType = CheckNodeType(type);
                 node.TypeNode = actualType;
+
+                // Update the symbol in the symbol table
+                var symbol = _symbolTable.FindBy(node);
+                var typeSymbol = _symbolTable.FindTypeByFQN(node.TypeNode.FullyQualifiedName);
+
+                if (symbol is PropertySymbol prop && typeSymbol is not null)
+                {
+                    prop.Type = typeSymbol;
+                }
             }
         }
 
@@ -548,6 +457,15 @@ namespace Typeck
                 if (node.Value.Status == ResolutionStatus.Resolved)
                 {
                     node.TypeNode = node.Value.ResultType;
+
+                    // Update the symbol in the symbol table
+                    var symbol = _symbolTable.FindBy(node);
+                    var typeSymbol = _symbolTable.FindTypeByFQN(node.Value.ResultType.FullyQualifiedName);
+                    
+                    if (symbol is VariableSymbol var && typeSymbol is not null)
+                    {
+                        var.Type = typeSymbol;
+                    }
                 }
             }
         }
@@ -816,57 +734,143 @@ namespace Typeck
             return null;
         }
 
-        private TypeReferenceNode? GetTypeOfPropAccess(PropAccessNode propAccess)
+        private TypeReferenceNode? GetTypeOfPropAccess(PropAccessNode propAccess, TypeSymbol? parent = null)
         {
+            TypeSymbol? typeSymbol = null;
+
             if (propAccess.Object is IdentifierNode target)
             {
-                // Edge case `self`
-                if (target.Value == "self")
-                {
-                    var selfNode = new SelfNode(propAccess.Object.Parent);
-                    selfNode.Meta = propAccess.Object.Meta;
-                    propAccess.Object = selfNode;
+                ISymbol? symbol = null;
 
-                    return GetTypeOfSelf(selfNode);
+                if (parent == null)
+                {
+                    symbol = _symbolTable.FindBy(target);
                 }
-                // TODO: Find the symbol `Object` in the current scope
-                var symbol = _symbolTable.FindBy(target);
+                else
+                {
+                    parent.Symbols.Find(s => s.Name == target.Value);
+                }
 
                 if (symbol == null)
                 {
                     return null;
                 }
 
-                return new TypeReferenceNode(symbol.Name);
+                if (symbol is TypeSymbol type)
+                {
+                    typeSymbol = type;
+                }
+                else if (symbol is VariableSymbol variable)
+                {
+                    typeSymbol = variable.Type;
+                }
+                else if (symbol is PropertySymbol property)
+                {
+                    typeSymbol = property.Type;
+                }
+                else if (symbol is ParameterSymbol parameter)
+                {
+                    typeSymbol = parameter.Type;
+                }
 
+                if (typeSymbol == null)
+                {
+                    return null;
+                }
+
+                target.ResultType = new TypeReferenceNode(typeSymbol.Name, target)
+                {
+                    FullyQualifiedName = typeSymbol.FullyQualifiedName,
+                    TypeKind = Utils.SymbolKindToASTKind(typeSymbol.TypeKind),
+                    Status = ResolutionStatus.Resolved
+                };
             }
             else if (propAccess.Object is SelfNode self)
             {
                 var type = GetTypeOfSelf(self);
 
-                if (type != null)
+                typeSymbol = _symbolTable.FindTypeByFQN(type.FullyQualifiedName);
+
+                if (typeSymbol == null)
                 {
-                    type.Status = ResolutionStatus.Resolved;
+                    return null;
                 }
 
-                return type;
-
+                self.ResultType = type;
             }
             else
             {
                 return null;
             }
 
-            if (propAccess.Property is PropAccessNode nestedPropAccess)
+            if (propAccess.Property is IdentifierNode identifier)
             {
-                return GetTypeOfPropAccess(nestedPropAccess);
+                var block = typeSymbol.Symbols.OfType<BlockSymbol>().First();
+                var prop = block.Symbols.OfType<PropertySymbol>().ToList().Find(symbol => symbol.Name == identifier.Value);
+
+                var typeRef = new TypeReferenceNode(prop.Type.Name, propAccess)
+                {
+                    FullyQualifiedName = prop.Type.FullyQualifiedName,
+                    TypeKind = Utils.SymbolKindToASTKind(prop.Type.TypeKind),
+                    Status = ResolutionStatus.Resolved
+                };
+
+                identifier.ResultType = typeRef;
+
+                propAccess.ResultType = typeRef;
+
+                return typeRef;
             }
-            else if (propAccess.Property is IdentifierNode identifier)
+            else if (propAccess.Property is PropAccessNode prop)
             {
-                return identifier.ResultType as TypeReferenceNode;
+                return GetTypeOfPropAccess(prop, typeSymbol);
             }
 
             return null;
+        }
+
+        private void ResolveParameter(ParameterNode param)
+        {
+            if (param.TypeNode is TypeReferenceNode type)
+            {
+                var actualType = CheckNodeType(type);
+
+                var symbol = (ParameterSymbol?)_symbolTable.FindBy(param);
+
+                if (actualType != null && symbol != null)
+                {
+                    param.TypeNode = actualType;
+
+                    if (actualType is TypeReferenceNode typeRef)
+                    {
+                        // Set the type of the parameter (symbol)
+                        var typeSymbol = _symbolTable.FindTypeByFQN(typeRef.FullyQualifiedName);
+
+                        if (typeSymbol != null)
+                        {
+                            symbol.Type = typeSymbol;
+                        }
+                        else
+                        {
+                            param.Status = ResolutionStatus.Failed;
+                            _errorCollector.Collect(CompilerErrorFactory.TopLevelDefinitionError(typeRef.Name, typeRef.Meta));
+                        }
+                    }
+
+                    // TODO: Add array and generic type support
+                }
+                else
+                {
+                    var error = CompilerErrorFactory.TopLevelDefinitionError(
+                        type.Name,
+                        type.Meta
+                    );
+
+                    _errorCollector.Collect(error);
+
+                    param.Status = ResolutionStatus.Failed;
+                }
+            }
         }
 
         private bool CheckFileImportsModule(INode node)
@@ -940,7 +944,6 @@ namespace Typeck
                     LineEnd = 0,
                     ColumnStart = 0,
                     ColumnEnd = 1
-
                 }
             );
 

@@ -115,7 +115,7 @@ namespace Parser.Parsers
                     if (paramType != null)
                     {
                         // Add the parameter to the function
-                        func.Parameters.Add(new ParameterNode(paramName, paramType, parent));
+                        func.Parameters.Add(new ParameterNode(paramName, paramType, func));
                     }
 
                     // If the next token is a comma, consume it

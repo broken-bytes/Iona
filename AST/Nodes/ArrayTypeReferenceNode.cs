@@ -6,6 +6,7 @@ namespace AST.Nodes
 {
     public class ArrayTypeReferenceNode : ITypeReferenceNode
     {
+        public string FullyQualifiedName => $"Array<{ElementType.FullyQualifiedName}>";
         public ITypeReferenceNode ElementType { get; set; }
         public INode? Parent { get; set; }
         public NodeType Type { get; set; }

@@ -99,17 +99,25 @@ namespace Symbols
             {
                 return type.Name;
             }
-            if (node is IdentifierNode id)
+            else if (node is IdentifierNode id)
             {
                 return id.Value;
             }
-            if (node is FuncCallNode funcId)
+            else if (node is FuncCallNode funcId)
             {
                 return ((IdentifierNode)funcId.Target).Value;
             }
-            else
+            else if (node is ParameterNode param)
             {
-                return null;
+                return param.Name;
+            }
+            else if (node is PropertyNode prop)
+            {
+                return prop.Name;
+            }
+            else if (node is VariableNode var)
+            {
+                return var.Name;
             }
 
             return null;
@@ -195,7 +203,7 @@ namespace Symbols
                 }
                 else if (currentNode is ITypeNode type)
                 {
-                    currentSymbol = currentSymbol.Symbols.FirstOrDefault(sym => sym is TypeSymbol);
+                    currentSymbol = currentSymbol.Symbols.FirstOrDefault(sym => sym is TypeSymbol && sym.Name == type.Name);
                 }
                 else
                 {
@@ -279,6 +287,10 @@ namespace Symbols
                 {
                     return false;
                 }
+
+#if IONA_BOOTSTRAP
+                imports.Add("Primitives");
+#endif
 
                 var importedModules = Modules.Where(module => imports.First(import => import == module.Name) != null);
 

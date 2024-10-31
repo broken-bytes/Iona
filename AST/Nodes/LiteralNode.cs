@@ -12,7 +12,7 @@ namespace AST.Nodes
         public NodeType Type { get; set; }
         public INode Root => Utils.GetRoot(this);
         public ExpressionType ExpressionType => ExpressionType.Literal;
-        public INode? ResultType { get; set; }
+        public ITypeReferenceNode? ResultType { get; set; }
         public LiteralType LiteralType { get; set; }
         public ResolutionStatus Status { get; set; } = ResolutionStatus.Unresolved;
         public Metadata Meta { get; set; }

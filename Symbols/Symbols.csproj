@@ -5,6 +5,9 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
+	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+		<DefineConstants>$(DefineConstants);IONA_BOOTSTRAP</DefineConstants>
+	</PropertyGroup>
 	<ItemGroup>
 		<ProjectReference Include="..\AST\AST.csproj" />
 	</ItemGroup>

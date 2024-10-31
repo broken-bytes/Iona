@@ -7,7 +7,7 @@
         public bool IsArray => false;
         public bool IsConcrete => true;
         public bool IsGeneric => false;
-        public TypeKind TypeKind { get; }
+        public TypeKind TypeKind { get; set; }
         public List<ISymbol> Symbols { get; set; }
         public SymbolKind Kind { get; set; } = SymbolKind.Type;
         public ISymbol? Parent { get; set; }

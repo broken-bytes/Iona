@@ -43,6 +43,57 @@ namespace Typeck
             _symbolTable = new SymbolTable();
             table = _symbolTable;
 
+            // If we are in bootstrap mode, we need to add the primitive types to the symbol table
+#if IONA_BOOTSTRAP
+            var boolType = new TypeSymbol("bool", TypeKind.Primitive);
+            var byteType = new TypeSymbol("byte", TypeKind.Primitive);
+            var decimalType = new TypeSymbol("decimal", TypeKind.Primitive);
+            var doubleType = new TypeSymbol("double", TypeKind.Primitive);
+            var floatType = new TypeSymbol("float", TypeKind.Primitive);
+            var intType = new TypeSymbol("int", TypeKind.Primitive);
+            var longType = new TypeSymbol("long", TypeKind.Primitive);
+            var nintType = new TypeSymbol("nint", TypeKind.Primitive);
+            var nuintType = new TypeSymbol("nuint", TypeKind.Primitive);
+            var sbyteType = new TypeSymbol("sbyte", TypeKind.Primitive);
+            var shortType = new TypeSymbol("short", TypeKind.Primitive);
+            var uintType = new TypeSymbol("uint", TypeKind.Primitive);
+            var ulongType = new TypeSymbol("ulong", TypeKind.Primitive);
+            var ushortType = new TypeSymbol("ushort", TypeKind.Primitive);
+
+            var builtins = new ModuleSymbol("Primitives");
+
+            builtins.Symbols.Add(boolType);
+            boolType.Parent = builtins;
+            builtins.Symbols.Add(byteType);
+            byteType.Parent = builtins;
+            builtins.Symbols.Add(decimalType);
+            decimalType.Parent = builtins;
+            builtins.Symbols.Add(doubleType);
+            doubleType.Parent = builtins;
+            builtins.Symbols.Add(floatType);
+            floatType.Parent = builtins;
+            builtins.Symbols.Add(intType);
+            intType.Parent = builtins;
+            builtins.Symbols.Add(longType);
+            longType.Parent = builtins;
+            builtins.Symbols.Add(nintType);
+            nintType.Parent = builtins;
+            builtins.Symbols.Add(nuintType);
+            nuintType.Parent = builtins;
+            builtins.Symbols.Add(sbyteType);
+            sbyteType.Parent = builtins;
+            builtins.Symbols.Add(shortType);
+            shortType.Parent = builtins;
+            builtins.Symbols.Add(uintType);
+            uintType.Parent = builtins;
+            builtins.Symbols.Add(ulongType);
+            ulongType.Parent = builtins;
+            builtins.Symbols.Add(ushortType);
+            ushortType.Parent = builtins;
+
+            _symbolTable.Modules.Add(builtins);
+#endif
+
             file.Accept(this);
         }
 
@@ -58,7 +109,7 @@ namespace Typeck
 
         public void Visit(BlockNode node)
         {
-            if(_currentSymbol == null)
+            if (_currentSymbol == null)
             {
                 return;
             }
@@ -130,7 +181,7 @@ namespace Typeck
 
             _currentSymbol = symbol;
 
-            if(node.Body != null)
+            if (node.Body != null)
             {
                 node.Body.Accept(this);
             }
@@ -199,7 +250,7 @@ namespace Typeck
                 symbol.Symbols.Add(parameter);
             }
 
-            if(node.ReturnType is TypeReferenceNode returnType)
+            if (node.ReturnType is TypeReferenceNode returnType)
             {
                 symbol.ReturnType = new TypeSymbol(returnType.Name, TypeKind.Unknown);
             }
@@ -267,8 +318,15 @@ namespace Typeck
 
         public void Visit(ModuleNode node)
         {
-            var symbol = new ModuleSymbol(node.Name);
-            _symbolTable.Modules.Add(symbol);
+            ModuleSymbol? symbol = null;
+
+            symbol = _symbolTable.Modules.Find(module => module.Name == node.Name);
+
+            if (symbol == null)
+            {
+                symbol = new ModuleSymbol(node.Name);
+                _symbolTable.Modules.Add(symbol);
+            }
 
             _currentSymbol = symbol;
 
