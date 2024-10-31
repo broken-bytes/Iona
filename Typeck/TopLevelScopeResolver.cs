@@ -9,6 +9,7 @@ namespace Typeck
 {
     internal class TopLevelScopeResolver :
         IAssignmentVisitor,
+        IBinaryExpressionVisitor,
         IBlockVisitor,
         IClassVisitor,
         IFileVisitor,
@@ -75,6 +76,15 @@ namespace Typeck
             {
                 node.Status = INode.ResolutionStatus.Resolved;
             }
+        }
+
+        public void Visit(BinaryExpressionNode node)
+        {
+            node.Status = INode.ResolutionStatus.Resolving;
+
+            HandleNode(node.Left);
+            HandleNode(node.Right);
+
         }
 
         public void Visit(BlockNode node)
@@ -341,6 +351,9 @@ namespace Typeck
             {
                 case AssignmentNode assignment:
                     assignment.Accept(this);
+                    break;
+                case BinaryExpressionNode binary:
+                    binary.Accept(this);
                     break;
                 case BlockNode block:
                     block.Accept(this);
