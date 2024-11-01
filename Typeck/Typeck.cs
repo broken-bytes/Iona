@@ -52,7 +52,7 @@ namespace Typeck
         {
             CheckTopLevelScopes(node, table);
             TypeCheck(node, table);
-            CheckExpressionScopes(node, table);
+            CheckExpressions(node, table);
         }
 
         public void CheckTopLevelScopes(INode node, SymbolTable table)
@@ -63,7 +63,7 @@ namespace Typeck
             }
         }
 
-        public void CheckExpressionScopes(INode node, SymbolTable table)
+        public void CheckExpressions(INode node, SymbolTable table)
         {
             if (node is FileNode fileNode)
             {

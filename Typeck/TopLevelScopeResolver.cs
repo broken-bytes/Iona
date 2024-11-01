@@ -84,7 +84,6 @@ namespace Typeck
 
             HandleNode(node.Left);
             HandleNode(node.Right);
-
         }
 
         public void Visit(BlockNode node)
@@ -299,10 +298,10 @@ namespace Typeck
             }
         }
 
-        public void Visit(PropAccessNode propAccessNode)
+        public void Visit(PropAccessNode node)
         {
-            HandleNode(propAccessNode.Object);
-            propAccessNode.Status = propAccessNode.Status = INode.ResolutionStatus.Resolving;
+            HandleNode(node.Object);
+            node.Status = node.Status = INode.ResolutionStatus.Resolving;
         }
 
         public void Visit(PropertyNode node)

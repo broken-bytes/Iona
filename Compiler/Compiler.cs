@@ -76,7 +76,7 @@ namespace Compiler
 
             Parallel.ForEach(asts, ast => typeck.CheckTopLevelScopes(ast, globalTable));
             Parallel.ForEach(asts, ast => typeck.TypeCheck(ast, globalTable));
-            Parallel.ForEach(asts, ast => typeck.CheckExpressionScopes(ast, globalTable));
+            Parallel.ForEach(asts, ast => typeck.CheckExpressions(ast, globalTable));
             Parallel.ForEach(asts, ast => logger.Log(ast));
             Parallel.ForEach(asts, ast => {
                 File.WriteAllText(((FileNode)ast.Root).Name + ".ast", visualizer.Visualize(ast));
