@@ -1,4 +1,5 @@
-﻿using System;
+﻿using AST.Types;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -15,7 +16,9 @@ namespace AST.Nodes
 
     public interface ITypeReferenceNode : INode
     {
-        public string FullyQualifiedName { get; }
+        public string Name { get; set; }
+        public string FullyQualifiedName { get; set; }
         public TypeReferenceKind ReferenceKind { get; }
+        public Kind TypeKind { get; set; }
     }
 }

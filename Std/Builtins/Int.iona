@@ -13,7 +13,7 @@ public struct Int {
 
     public op +(left: Int, right: Int) -> Int {
         var newInt = Int()
-        newInt.value = left.value + right.value * 3
+        newInt.value = left.value + right.value
 
         return newInt
     }

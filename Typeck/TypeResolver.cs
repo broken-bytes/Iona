@@ -369,6 +369,17 @@ namespace Typeck
                 ResolveParameter(param);
             }
 
+            // Check the return type
+            if (node.ReturnType is TypeReferenceNode returnType)
+            {
+                var actualType = CheckNodeType(returnType);
+
+                if (actualType != null)
+                {
+                    node.ReturnType = actualType;
+                }
+            }
+
             // Check the body
             if (node.Body != null)
             {

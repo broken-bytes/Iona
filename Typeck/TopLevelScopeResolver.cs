@@ -131,6 +131,17 @@ namespace Typeck
                 ResolveParameter(param);
             }
 
+            if (node.ReturnType is not null)
+            {
+                var symbol = FindTypeSymbol(node.ReturnType.Name);
+
+                if (symbol.IsSuccess)
+                {
+                    node.ReturnType.FullyQualifiedName = symbol.Success!.FullyQualifiedName;
+                    node.ReturnType.TypeKind = Utils.SymbolKindToASTKind(symbol.Success!.TypeKind);
+                }
+            }
+
             var isResolved = node.Parameters.TrueForAll(p => p.TypeNode.Status == INode.ResolutionStatus.Resolved);
 
             if (node.Body != null)
@@ -282,6 +293,17 @@ namespace Typeck
             foreach (var param in node.Parameters)
             {
                 ResolveParameter(param);
+            }
+
+            if (node.ReturnType is not null)
+            {
+                var symbol = FindTypeSymbol(node.ReturnType.Name);
+
+                if (symbol.IsSuccess)
+                {
+                    node.ReturnType.FullyQualifiedName = symbol.Success!.FullyQualifiedName;
+                    node.ReturnType.TypeKind = Utils.SymbolKindToASTKind(symbol.Success!.TypeKind);
+                }
             }
 
             var isResolved = node.Parameters.TrueForAll(p => p.TypeNode.Status == INode.ResolutionStatus.Resolved);

@@ -6,8 +6,8 @@ namespace AST.Nodes
 {
     public class GenericTypeReferenceNode : ITypeReferenceNode
     {
-        public string FullyQualifiedName => $"{Module}.{Name}";
         public string Name { get; set; }
+        public string FullyQualifiedName { get; set; }
         public string Module { get; set; }
         public Kind TypeKind { get; set; }
         public List<ITypeReferenceNode> GenericArguments { get; set; } = new List<ITypeReferenceNode>();

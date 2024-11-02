@@ -88,7 +88,7 @@ namespace Compiler
             }
 
 
-            // GenerateCode(assemblyName, asts.ToList(), globalTable);
+            GenerateCode(assemblyName, asts.ToList(), globalTable);
         }
 
         private void GenerateCode(string assemblyName, List<INode> asts, SymbolTable globalTable)

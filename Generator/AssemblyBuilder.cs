@@ -30,7 +30,8 @@ namespace Generator
         IPropertyVisitor,
         IReturnVisitor,
         IStructVisitor,
-        ITypeReferenceVisitor
+        ITypeReferenceVisitor,
+        IVariableVisitor
     {
 
         private readonly AssemblyDefinition assembly;
@@ -163,6 +164,10 @@ namespace Generator
                 else if (child is ReturnNode ret)
                 {
                     ret.Accept(this);
+                }
+                else if (child is VariableNode variable)
+                {
+                    variable.Accept(this);
                 }
             }
         }
@@ -576,6 +581,46 @@ namespace Generator
 
         }
 
+        public void Visit(VariableNode node)
+        {
+            if (assembly == null || currentMethod == null)
+            {
+                return;
+            }
+
+            var type = (TypeReferenceNode)node.TypeNode;
+            TypeReference? reference = null;
+
+            if (type == null)
+            {
+                return;
+            }
+
+            reference = new TypeReference(
+                NamespaceOf(type.FullyQualifiedName),
+                type.Name,
+                assembly.MainModule,
+                assembly.MainModule
+            );
+
+            var variable = new VariableDefinition(reference);
+            currentMethod.Body.Variables.Add(variable);
+
+            if (node.Value is IdentifierNode identifier)
+            {
+                EmitGetIdentifier(identifier);
+            }
+            else if (node.Value is MemberAccessNode memberAccess)
+            {
+                EmitGetMemberAccess(memberAccess);
+            }
+            else if (node.Value is BinaryExpressionNode bin)
+            {
+                bin.Accept(this);
+            }
+
+            emitter.SetVariable(variable.Index);
+        }
 
         // ---- Helper methods ----
         private void SetTypeLayout(TypeDefinition type, int size)
