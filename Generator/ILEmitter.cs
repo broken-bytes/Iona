@@ -1,6 +1,7 @@
 ﻿using AST.Types;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
+using Mono.Cecil.Rocks;
 
 namespace Generator
 {
@@ -16,6 +17,15 @@ namespace Generator
         }
 
         // ---- Get emitters ----
+        internal void Call(MethodReference methodRef)
+        {
+            _processor.Emit(OpCodes.Call, methodRef);
+        }
+
+        internal void CreateObject(MethodDefinition ctor)
+        {
+            _processor.Emit(OpCodes.Newobj, ctor);
+        }
 
         internal void GetArg(int index)
         {

@@ -15,6 +15,7 @@ using TypeAttributes = Mono.Cecil.TypeAttributes;
 using System.Runtime.InteropServices;
 using MethodBody = Mono.Cecil.Cil.MethodBody;
 using System.Linq.Expressions;
+using Mono.Cecil.Rocks;
 
 namespace Generator
 {
@@ -23,6 +24,7 @@ namespace Generator
         IBinaryExpressionVisitor,
         IBlockVisitor,
         IIdentifierVisitor,
+        IInitCallVisitor,
         IInitVisitor,
         IFileVisitor,
         IModuleVisitor,
@@ -116,7 +118,7 @@ namespace Generator
             {
                 EmitGetMemberAccess(memberAccess);
             }
-            else 
+            else
             {
                 return;
             }
@@ -149,7 +151,7 @@ namespace Generator
                 {
                     block.Accept(this);
                 }
-                 else if (child is AssignmentNode assignment)
+                else if (child is AssignmentNode assignment)
                 {
                     assignment.Accept(this);
                 }
@@ -185,6 +187,44 @@ namespace Generator
 
         public void Visit(IdentifierNode node)
         {
+        }
+
+        public void Visit(InitCallNode node)
+        {
+            if (assembly == null || currentMethod == null)
+            {
+                return;
+            }
+
+            var type = (TypeReferenceNode)node.ResultType;
+
+            if (type == null)
+            {
+                return;
+            }
+
+            var reference = new TypeReference(
+                NamespaceOf(type.FullyQualifiedName),
+                type.Name,
+                assembly.MainModule,
+                assembly.MainModule
+            );
+
+
+            var constructor = reference.Resolve().GetConstructors().Where(m => m.IsConstructor && m.Parameters.Count == 0).FirstOrDefault();
+
+            if (constructor == null)
+            {
+                return;
+            }
+
+            if (!currentMethod.IsStatic)
+            {
+
+                emitter.GetThis();
+            }
+
+            emitter.CreateObject(constructor);
         }
 
         public void Visit(InitNode node)
@@ -227,9 +267,9 @@ namespace Generator
                 }
 
                 reference = new TypeReference(
-                    NamespaceOf(type.FullyQualifiedName), 
+                    NamespaceOf(type.FullyQualifiedName),
                     type.Name,
-                    assembly.MainModule, 
+                    assembly.MainModule,
                     assembly.MainModule
                 );
 
@@ -282,9 +322,9 @@ namespace Generator
             }
 
             reference = new TypeReference(
-                NamespaceOf(returnType.FullyQualifiedName), 
-                returnType.Name, 
-                assembly.MainModule, 
+                NamespaceOf(returnType.FullyQualifiedName),
+                returnType.Name,
+                assembly.MainModule,
                 assembly.MainModule
             );
 
@@ -354,9 +394,9 @@ namespace Generator
                 }
 
                 paramReference = new TypeReference(
-                    NamespaceOf(type.FullyQualifiedName), 
-                    type.Name, 
-                    assembly.MainModule, 
+                    NamespaceOf(type.FullyQualifiedName),
+                    type.Name,
+                    assembly.MainModule,
                     assembly.MainModule
                 );
 
@@ -440,9 +480,9 @@ namespace Generator
                     break;
                 default:
                     reference = new TypeReference(
-                        NamespaceOf(type.FullyQualifiedName), 
-                        type.Name, 
-                        assembly.MainModule, 
+                        NamespaceOf(type.FullyQualifiedName),
+                        type.Name,
+                        assembly.MainModule,
                         assembly.MainModule
                     );
                     break;
@@ -496,7 +536,7 @@ namespace Generator
             setter.HasThis = true;
 
             setter.Parameters.Add(new ParameterDefinition("value", ParameterAttributes.None, reference));
-            
+
             emitter.SetILProcessor(setter.Body.GetILProcessor());
 
             emitter.GetThis();
@@ -567,13 +607,13 @@ namespace Generator
 
             SetTypeLayout(strct, 1);
 
+            assembly?.MainModule.Types.Add(strct);
+
             // If the struct has a body, visit it
             if (node.Body != null)
             {
                 node.Body.Accept(this);
             }
-
-            assembly?.MainModule.Types.Add(strct);
         }
 
         public void Visit(TypeReferenceNode node)
@@ -617,6 +657,10 @@ namespace Generator
             else if (node.Value is BinaryExpressionNode bin)
             {
                 bin.Accept(this);
+            }
+            else if (node.Value is InitCallNode init)
+            {
+                init.Accept(this);
             }
 
             emitter.SetVariable(variable.Index);
@@ -761,8 +805,8 @@ namespace Generator
 
         void EmitSetProperty(PropertyNode prop)
         {
-            if (currentMethod == null) 
-            { 
+            if (currentMethod == null)
+            {
                 return;
             }
 
@@ -772,7 +816,7 @@ namespace Generator
             // Load the value
 
             // Get the property from the current type
-        } 
+        }
 
         private void EmitGetMemberAccess(MemberAccessNode node)
         {
