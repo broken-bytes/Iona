@@ -23,8 +23,10 @@ namespace ASTVisualizer
         IModuleVisitor,
         IObjectLiteralVisitor,
         IOperatorVisitor,
+        IPropAccessVisitor,
         IPropertyVisitor,
         IReturnVisitor,
+        ISelfVisitor,
         IStructVisitor,
         ITypeReferenceVisitor,
         IUnaryExpressionVisitor,
@@ -208,6 +210,18 @@ namespace ASTVisualizer
             _lastNodeId = GetNodeId(node);
         }
 
+        public void Visit(PropAccessNode node)
+        {
+            _output += GetNodeRepresentation(node);
+            _output += $"{_lastNodeId} --> {GetNodeId(node)}\n";
+            MakeConnection(node, "Object");
+            GetAndLogNode(node.Object);
+            _lastNodeId = GetNodeId(node);
+            MakeConnection(node, "Property");
+            GetAndLogNode(node.Property);
+            _lastNodeId = GetNodeId(node);
+        }
+
         public void Visit(PropertyNode node)
         {
             _output += GetNodeRepresentation(node);
@@ -234,6 +248,12 @@ namespace ASTVisualizer
                 GetAndLogNode(node.Value);
                 _lastNodeId = GetNodeId(node);
             }
+        }
+
+        public void Visit(SelfNode node)
+        {
+            _output += GetNodeRepresentation(node);
+            _output += $"{_lastNodeId} --> {GetNodeId(node)}\n";
         }
 
         public void Visit(StructNode node)
@@ -321,11 +341,17 @@ namespace ASTVisualizer
                 case OperatorNode operatorNode:
                     operatorNode.Accept(this);
                     break;
+                case PropAccessNode propAccessNode:
+                    propAccessNode.Accept(this);
+                    break;
                 case PropertyNode propertyNode:
                     propertyNode.Accept(this);
                     break;
                 case ReturnNode returnNode:
                     returnNode.Accept(this);
+                    break;
+                case SelfNode selfNode:
+                    selfNode.Accept(this);
                     break;
                 case StructNode structNode:
                     structNode.Accept(this);
@@ -395,6 +421,9 @@ namespace ASTVisualizer
                 case ReturnNode returnNode:
                     id = "return_";
                     break;
+                case SelfNode:
+                    id = "self_";
+                    break;
                 case StructNode:
                     id = "struct_";
                     break;
@@ -406,7 +435,7 @@ namespace ASTVisualizer
                     break;
             }
 
-            return $"{id}_{node.Meta.LineStart}_{node.Meta.ColumnStart}";
+            return $"{id}_{node.Meta.LineStart}_{node.Meta.ColumnStart}_{node.Meta.ColumnEnd}";
         }
 
         private void MakeConnection(INode root, string name)
@@ -429,8 +458,8 @@ namespace ASTVisualizer
                     name = "Assignment";
                     type = "assignment";
                     break;
-                case BinaryExpressionNode:
-                    name = "Binary Expression";
+                case BinaryExpressionNode binary:
+                    name = binary.Operation.ToString();
                     type = "binary expression";
                     break;
                 case BlockNode:

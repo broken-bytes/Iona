@@ -28,6 +28,11 @@ namespace Parser.Parsers
 
         internal bool IsMemberAccess(TokenStream stream)
         {
+            if (stream.Count() < 2)
+            {
+                return false;
+            }
+
             var tokens = stream.Peek(2);
 
             if ((tokens[0].Type is TokenType.Identifier or TokenType.Self) && tokens[1].Type == TokenType.Dot)
@@ -94,6 +99,11 @@ namespace Parser.Parsers
 
             Utils.SetColumnEnd(propAccess, member.Meta.ColumnEnd);
             Utils.SetLineEnd(propAccess, member.Meta.LineEnd);
+
+            if (stream.IsEmpty())
+            {
+                return propAccess;
+            }
 
             token = stream.Peek();
 

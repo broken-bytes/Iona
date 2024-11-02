@@ -131,7 +131,7 @@ namespace Parser.Parsers
 
         private INode ParseBasicAssignment(TokenStream stream, INode? parent)
         {
-            var target = expressionParser.Parse(stream, null);
+            var target = expressionParser.Parse(stream, parent);
 
             // Consume the assign operator
             var token = stream.Consume(TokenFamily.Operator, TokenFamily.Keyword);

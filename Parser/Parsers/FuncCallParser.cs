@@ -27,6 +27,11 @@ namespace Parser.Parsers
 
             internal bool IsFuncCall(TokenStream stream)
             {
+                if (stream.Count() < 3)
+                {
+                    return false;
+                }
+
                 var tokens = stream.Peek(2);
 
                 if (tokens[0].Type == TokenType.Identifier && tokens[1].Type == TokenType.ParenLeft)
