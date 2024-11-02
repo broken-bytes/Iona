@@ -177,30 +177,6 @@ namespace Parser.Parsers
             var expression = BuildBinaryExpressionNode(postfix, parent);
 
             return (IExpressionNode)expression;
-
-            /*
-            var left = ParsePrimaryExpression(stream, parent);
-            var op = stream.Consume(TokenFamily.Operator, TokenFamily.Keyword);
-            var right = ParsePrimaryExpression(stream, parent);
-
-            // Get the operation for the token
-            BinaryOperation? operation = GetBinaryOperation(op);
-
-            if (left == null || right == null)
-            {
-                return null;
-            }
-
-            var expr = new BinaryExpressionNode(left, right, operation ?? BinaryOperation.Noop, null, parent);
-
-            left.Parent = expr;
-            right.Parent = expr;
-
-            Utils.SetMeta(expr, left, right);
-
-            return expr;
-            */
-
         }
 
         private IExpressionNode? ParseObjectLiteral(TokenStream stream, INode? parent)
@@ -535,6 +511,44 @@ namespace Parser.Parsers
                 }
                 else if (token.Type == TokenType.ParenLeft)
                 {
+                    // When we have an identifier followed by a parenthesis without any operator
+                    // we have a function call and parse until the closing parenthesis
+                    if (output[output.Count - 1].Type is TokenType.Identifier)
+                    {
+                        output.Add(token);
+
+                        token = stream.Peek();
+                        while (token.Type != TokenType.ParenRight)
+                        {
+                            if (stream.IsEmpty())
+                            {
+                                errorCollector.Collect(
+                                    CompilerErrorFactory.SyntaxError("Unexpected end of file",
+                                        new Metadata
+                                        {
+                                            ColumnStart = token.ColumnStart,
+                                            ColumnEnd = token.ColumnEnd,
+                                            LineStart = token.Line,
+                                            LineEnd = token.Line,
+                                            File = token.File
+                                        }
+                                    )
+                                );
+                                break;
+                            }
+
+                            output.Add(token);
+
+                            stream.Consume();
+                            token = stream.Peek();
+                        }
+
+                        output.Add(token);
+
+                        stream.Consume();
+
+                        continue;
+                    }
                     stack.Push(token);
                 }
                 else if (token.Type == TokenType.ParenRight)
@@ -599,13 +613,19 @@ namespace Parser.Parsers
                     }
                     else
                     {
-                        var identifier = new IdentifierNode(token.Value, parent);
-
-                        Utils.SetMeta(identifier, token);
-
-                        stream.Consume();
-
-                        stack.Push(identifier);
+                        // We need to check if the identifier is a function call
+                        if (IsFunctionCall(stream))
+                        {
+                            var funcCall = funcCallParser.Parse(stream, parent);
+                            stack.Push(funcCall);
+                        }
+                        else
+                        {
+                            var identifier = stream.Consume(TokenType.Identifier, TokenFamily.Identifier);
+                            var identifierNode = new IdentifierNode(identifier.Value, parent);
+                            Utils.SetMeta(identifierNode, identifier);
+                            stack.Push(identifierNode);
+                        }
                     }
                 }
                 else if (token.Family == TokenFamily.Literal)

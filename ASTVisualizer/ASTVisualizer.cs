@@ -17,6 +17,7 @@ namespace ASTVisualizer
         IFuncVisitor,
         IIdentifierVisitor,
         IImportVisitor,
+        IInitCallVisitor,
         IInitVisitor,
         ILiteralVisitor,
         IMemberAccessVisitor,
@@ -143,6 +144,23 @@ namespace ASTVisualizer
         public void Visit(ImportNode import)
         {
 
+        }
+
+        public void Visit(InitCallNode node)
+        {
+            _output += GetNodeRepresentation(node);
+            _output += $"{_lastNodeId} --> {GetNodeId(node)}\n";
+            _lastNodeId = GetNodeId(node);
+
+            if (node.Args != null)
+            {
+                foreach (var arg in node.Args)
+                {
+                    GetAndLogNode(arg.Value);
+                    MakeConnection(node, "Arg");
+                    _lastNodeId = GetNodeId(node);
+                }
+            }
         }
 
         public void Visit(InitNode node)
@@ -283,7 +301,23 @@ namespace ASTVisualizer
 
         public void Visit(VariableNode node)
         {
+            _output += GetNodeRepresentation(node);
+            _output += $"{_lastNodeId} --> {GetNodeId(node)}\n";
+            _lastNodeId = GetNodeId(node);
 
+            if (node.TypeNode != null)
+            {
+                MakeConnection(node, "Type");
+                GetAndLogNode(node.TypeNode);
+                _lastNodeId = GetNodeId(node);
+            }
+
+            if (node.Value != null)
+            {
+                MakeConnection(node, "Value");
+                GetAndLogNode(node.Value);
+                _lastNodeId = GetNodeId(node);
+            }
         }
 
         private void GetAndLogNode(INode node)
@@ -322,6 +356,9 @@ namespace ASTVisualizer
                     break;
                 case ImportNode importNode:
                     importNode.Accept(this);
+                    break;
+                case InitCallNode initCallNode:
+                    initCallNode.Accept(this);
                     break;
                 case InitNode initNode:
                     initNode.Accept(this);
