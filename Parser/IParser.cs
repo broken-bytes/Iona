@@ -5,6 +5,6 @@ namespace Parser
 {
     public interface IParser
     {
-        public INode Parse(TokenStream stream);
+        public INode Parse(TokenStream stream, string assemblyName);
     }
 }

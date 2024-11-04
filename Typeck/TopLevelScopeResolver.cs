@@ -4,6 +4,7 @@ using Symbols;
 using AST.Visitors;
 using AST.Types;
 using Shared;
+using System.Xml.Linq;
 
 namespace Typeck
 {
@@ -334,6 +335,21 @@ namespace Typeck
             {
                 HandleNode(node.Value);
             }
+
+            if (node.TypeNode.Name != "Unknown")
+            {
+                var symbol = FindTypeSymbol(node.TypeNode.Name);
+
+                if (symbol.IsSuccess)
+                {
+                    node.TypeNode.FullyQualifiedName = symbol.Success!.FullyQualifiedName;
+                    node.TypeNode.TypeKind = Utils.SymbolKindToASTKind(symbol.Success!.TypeKind);
+                }
+                else
+                {
+                    errorCollector.Collect(CompilerErrorFactory.TopLevelDefinitionError(node.TypeNode.Name, node.Meta));
+                }
+            }
         }
 
         public void Visit(ReturnNode node)
@@ -448,6 +464,29 @@ namespace Typeck
                 else
                 {
                     typeNode.FullyQualifiedName = result.Success!.FullyQualifiedName;
+
+                    if (param.TypeNode.Name != "Unknown")
+                    {
+                        var symbol = FindTypeSymbol(param.TypeNode.Name);
+
+                        if (symbol.IsSuccess)
+                        {
+                            param.TypeNode.FullyQualifiedName = symbol.Success!.FullyQualifiedName;
+                            param.TypeNode.TypeKind = Utils.SymbolKindToASTKind(symbol.Success!.TypeKind);
+
+                            // Also update the symbol in the symbol table
+                            var parameterSymbol = (ParameterSymbol)table.FindBy(param);
+
+                            if (parameterSymbol != null)
+                            {
+                                parameterSymbol.Type = symbol.Success;
+                            }
+                        }
+                        else
+                        {
+                            errorCollector.Collect(CompilerErrorFactory.TopLevelDefinitionError(param.TypeNode.Name, param.Meta));
+                        }
+                    }
                 }
             }
         }
@@ -461,8 +500,9 @@ namespace Typeck
         {
             List<TypeSymbol> types = new List<TypeSymbol>();
 
+            var modules = table.Assemblies.SelectMany(a => a.Symbols.OfType<ModuleSymbol>());
             // Check in each module for the type
-            foreach (var module in table.Modules)
+            foreach (var module in modules)
             {
                 var found = FindTypeSymbolIn(name, module);
 
@@ -507,8 +547,9 @@ namespace Typeck
         {
             List<FuncSymbol> functions = new List<FuncSymbol>();
 
+            var modules = table.Assemblies.SelectMany(a => a.Symbols.OfType<ModuleSymbol>());
             // Check 1: -> Free functions in each module
-            foreach (var module in table.Modules)
+            foreach (var module in modules)
             {
                 var found = FindFuncSymbolIn(funcCallNode.Target.Value, module);
 

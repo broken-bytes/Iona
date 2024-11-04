@@ -65,10 +65,10 @@ namespace Compiler
             Parallel.ForEach(files, file =>
             {
                 var tokens = lexer.Tokenize(file.Source, file.Name);
-                var ast = parser.Parse(tokens);
+                var ast = parser.Parse(tokens, assemblyName);
                 asts.Add(ast);
 
-                var fileTable = typeck.BuildSymbolTable(ast);
+                var fileTable = typeck.BuildSymbolTable(ast, assemblyName);
                 symbols.Add(fileTable);
             });
 

@@ -1,9 +1,0 @@
-module Builtins
-
-public struct UInt16 {
-    private var value: ushort
-
-    public init(value: Integer) {
-        self.value = value
-    }
-}

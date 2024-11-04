@@ -1,9 +1,0 @@
-module Builtins
-
-public struct Bool {
-    private var value: bool
-
-    public init(value: Boolean) {
-        self.value = value
-    }
-}

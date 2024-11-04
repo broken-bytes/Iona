@@ -1,9 +1,0 @@
-module Builtins
-
-public struct UInt8 {
-    private var value: byte
-
-    public init(value: Integer) {
-        self.value = value
-    }
-}

@@ -43,7 +43,7 @@ namespace Parser.Parsers
             {
                 var token = stream.Consume(TokenType.Module, TokenFamily.Keyword);
 
-                module = new ModuleNode("", parent);
+                module = new ModuleNode("", "", parent);
                 Utils.SetMeta(module, token);
 
                 token = stream.Consume(TokenType.Identifier, TokenFamily.Identifier);

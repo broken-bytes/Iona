@@ -1,9 +1,0 @@
-module Builtins
-
-public struct Float {
-    private var value: float
-
-    public init(value: FloatingPoint) {
-        self.value = value
-    }
-}

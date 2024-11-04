@@ -1,6 +1,7 @@
 ﻿using AST.Nodes;
 using Lexer.Tokens;
 using Parser.Parsers;
+using System.Reflection;
 
 namespace Parser
 {
@@ -13,12 +14,13 @@ namespace Parser
             this.statementParser = statementParser;
         }
 
-        public INode Parse(TokenStream stream)
+        public INode Parse(TokenStream stream, string assemblyName)
         {
             // Create a file node
             var fileNode = new FileNode(stream.First().File);
 
-            var module = statementParser.Parse(stream, fileNode);
+            var module = (ModuleNode)statementParser.Parse(stream, fileNode);
+            module.Assembly = assemblyName;
 
             fileNode.AddChild(module);
 

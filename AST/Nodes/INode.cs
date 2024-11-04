@@ -36,5 +36,7 @@ namespace AST.Nodes
 
             return nodeOrder;
         }
+
+        public ModuleNode Module => Utils.GetModule(this);
     }
 }

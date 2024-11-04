@@ -539,8 +539,9 @@ namespace Typeck
                 return null;
             }
 
+            var modules = _symbolTable.Assemblies.SelectMany(asm => asm.Symbols.OfType<ModuleSymbol>());
             // Now we know the model and the scopes in correct order, we can traverse both the ast and the symbol table to find the type
-            var types = _symbolTable.Modules.SelectMany(mod => mod.Symbols.OfType<TypeSymbol>());
+            var types = modules.SelectMany(mod => mod.Symbols.OfType<TypeSymbol>());
 
             var type = types.FirstOrDefault(symbol => symbol.FullyQualifiedName == typeNode.FullyQualifiedName);
 
@@ -580,8 +581,9 @@ namespace Typeck
                 return null;
             }
 
+            var modules = _symbolTable.Assemblies.SelectMany(asm => asm.Symbols.OfType<ModuleSymbol>());
             // Step 2: Find the module
-            var isModule = _symbolTable.Modules.Any(mod => mod.Name == target.Value);
+            var isModule = modules.Any(mod => mod.Name == target.Value);
 
             // Edge case: If the target is indeed a module, we still need to check if the module has a type with the same name
             // To do so we need to do the following:

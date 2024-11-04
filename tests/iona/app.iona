@@ -1,52 +1,9 @@
 module App
 
-contract Spawnable {
-    mut fn onSpawn()
-}
+public class Test {
+    private var value: Int
 
-struct Entity: Spawnable {
-    var name: String = ""
-
-    mut fn onSpawn() {
+    public init(value: Int) {
+        self.value = value
     }
 }
-
-class Generic<T> {
-    var value: T
-}
-
-class World {
-    var name: String
-    var lifetime: Float = 0
-    var entities: [Entity] = []
-
-    init {}
-
-    mut fn start() {
-        lifetime = 0
-    }
-
-    mut fn tick() {
-        lifetime += 1
-    }
-
-    mut fn spawn(entity: Entity) {
-        entities.push(item: entity)
-        entity.onSpawn()
-    }
-}
-
-/*
-This is a multiline comment
-*/
-
-fn main() -> Int {
-    // This is a comment
-    var world = World()
-    let world2 = world
-    let world3 = world
-
-    world.spawn(entity: Entity { name: "Entity"})
-    return world.start()
-}
-

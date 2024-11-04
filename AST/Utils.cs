@@ -13,5 +13,20 @@ namespace AST
 
             return node;
         }
+
+        public static ModuleNode GetModule(INode node)
+        {
+            while (node.Parent != null)
+            {
+                if (node is ModuleNode module)
+                {
+                    return module;
+                }
+
+                node = node.Parent;
+            }
+
+            return new ModuleNode("Global", "Global", null);
+        }
     }
 }

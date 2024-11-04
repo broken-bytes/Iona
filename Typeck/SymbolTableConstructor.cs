@@ -3,6 +3,8 @@ using AST.Types;
 using AST.Visitors;
 using Symbols;
 using Symbols.Symbols;
+using System.Reflection;
+using System.Runtime.Loader;
 
 namespace Typeck
 {
@@ -33,68 +35,118 @@ namespace Typeck
     {
         private SymbolTable _symbolTable = new SymbolTable();
         private ISymbol? _currentSymbol;
+        private string _assembly;
 
         internal SymbolTableConstructor()
         {
         }
 
-        internal void ConstructSymbolTable(FileNode file, out SymbolTable table)
+        internal void ConstructSymbolTable(FileNode file, out SymbolTable table, string assembly)
         {
             _symbolTable = new SymbolTable();
+            _symbolTable.Assemblies.Add(new AssemblySymbol(assembly));
+            _assembly = assembly;
             table = _symbolTable;
 
-            // If we are in bootstrap mode, we need to add the primitive types to the symbol table
-#if IONA_BOOTSTRAP
-            var boolType = new TypeSymbol("bool", TypeKind.Primitive);
-            var byteType = new TypeSymbol("byte", TypeKind.Primitive);
-            var decimalType = new TypeSymbol("decimal", TypeKind.Primitive);
-            var doubleType = new TypeSymbol("double", TypeKind.Primitive);
-            var floatType = new TypeSymbol("float", TypeKind.Primitive);
-            var intType = new TypeSymbol("int", TypeKind.Primitive);
-            var longType = new TypeSymbol("long", TypeKind.Primitive);
-            var nintType = new TypeSymbol("nint", TypeKind.Primitive);
-            var nuintType = new TypeSymbol("nuint", TypeKind.Primitive);
-            var sbyteType = new TypeSymbol("sbyte", TypeKind.Primitive);
-            var shortType = new TypeSymbol("short", TypeKind.Primitive);
-            var uintType = new TypeSymbol("uint", TypeKind.Primitive);
-            var ulongType = new TypeSymbol("ulong", TypeKind.Primitive);
-            var ushortType = new TypeSymbol("ushort", TypeKind.Primitive);
-
-            var builtins = new ModuleSymbol("Primitives");
-
-            builtins.Symbols.Add(boolType);
-            boolType.Parent = builtins;
-            builtins.Symbols.Add(byteType);
-            byteType.Parent = builtins;
-            builtins.Symbols.Add(decimalType);
-            decimalType.Parent = builtins;
-            builtins.Symbols.Add(doubleType);
-            doubleType.Parent = builtins;
-            builtins.Symbols.Add(floatType);
-            floatType.Parent = builtins;
-            builtins.Symbols.Add(intType);
-            intType.Parent = builtins;
-            builtins.Symbols.Add(longType);
-            longType.Parent = builtins;
-            builtins.Symbols.Add(nintType);
-            nintType.Parent = builtins;
-            builtins.Symbols.Add(nuintType);
-            nuintType.Parent = builtins;
-            builtins.Symbols.Add(sbyteType);
-            sbyteType.Parent = builtins;
-            builtins.Symbols.Add(shortType);
-            shortType.Parent = builtins;
-            builtins.Symbols.Add(uintType);
-            uintType.Parent = builtins;
-            builtins.Symbols.Add(ulongType);
-            ulongType.Parent = builtins;
-            builtins.Symbols.Add(ushortType);
-            ushortType.Parent = builtins;
-
-            _symbolTable.Modules.Add(builtins);
-#endif
+            // Add the builtins module to the imports of the file node
+            file.Children.Insert(0, new ImportNode("Builtins", file));
 
             file.Accept(this);
+        }
+
+        internal void ConstructSymbolsForAssembly(string assemblyName)
+        {
+
+            Assembly assembly;
+            // First try loading it from the current working directory
+            try
+            {
+                var path = $"{Environment.GetEnvironmentVariable("IONA_SDK_DIR")}\\{assemblyName}.dll";
+                assembly = Assembly.LoadFrom(path);
+            }
+            catch
+            {
+                // If that fails, try loading it from the GAC
+                assembly = Assembly.Load(assemblyName);
+            }
+
+            var assemblySymbol = new AssemblySymbol(assemblyName);
+            _symbolTable.Assemblies.Add(assemblySymbol);
+
+            var types = assembly.GetTypes();
+
+            foreach (var type in assembly.GetTypes())
+            {
+                var nspace = type.Namespace;
+
+                if (nspace == null)
+                {
+                    continue;
+                }
+
+                var module = assemblySymbol.Symbols.OfType<ModuleSymbol>().ToList().Find(m => m.Name == nspace);
+                if (module == null)
+                {
+                    module = new ModuleSymbol(nspace, assemblyName);
+                    module.Parent = assemblySymbol;
+                    assemblySymbol.Symbols.Add(module);
+                }
+                TypeKind kind = TypeKind.Unknown;
+                if (type.IsClass)
+                {
+                    kind = TypeKind.Class;
+                }
+                else if (type.IsInterface)
+                {
+                    kind = TypeKind.Contract;
+                }
+                else if (type.IsEnum)
+                {
+                    kind = TypeKind.Enum;
+                }
+                else if (type.IsValueType)
+                {
+                    kind = TypeKind.Struct;
+                }
+
+                var symbol = new TypeSymbol(type.Name, kind);
+                symbol.Parent = module;
+                module.Symbols.Add(symbol);
+
+                foreach (var member in type.GetMembers())
+                {
+                    if (member.MemberType == MemberTypes.Method)
+                    {
+                        var method = member as MethodInfo;
+                        var funcSymbol = new FuncSymbol(method.Name);
+                        funcSymbol.Parent = symbol;
+                        symbol.Symbols.Add(funcSymbol);
+
+                        foreach (var param in method.GetParameters())
+                        {
+                            var paramSymbol = new ParameterSymbol(param.Name, new TypeSymbol(param.ParameterType.Name, TypeKind.Unknown), funcSymbol);
+                            funcSymbol.Symbols.Add(paramSymbol);
+                        }
+
+                        var returnType = new TypeSymbol(method.ReturnType.Name, TypeKind.Unknown);
+                        funcSymbol.ReturnType = returnType;
+                    }
+                    else if (member.MemberType == MemberTypes.Field)
+                    {
+                        var field = member as FieldInfo;
+                        var fieldSymbol = new VariableSymbol(field.Name, new TypeSymbol(field.FieldType.Name, TypeKind.Unknown));
+                        fieldSymbol.Parent = symbol;
+                        symbol.Symbols.Add(fieldSymbol);
+                    }
+                    else if (member.MemberType == MemberTypes.Property)
+                    {
+                        var property = member as PropertyInfo;
+                        var propertySymbol = new PropertySymbol(property.Name, new TypeSymbol(property.PropertyType.Name, TypeKind.Unknown));
+                        propertySymbol.Parent = symbol;
+                        symbol.Symbols.Add(propertySymbol);
+                    }
+                }
+            }
         }
 
         public void Visit(ArrayNode node)
@@ -320,12 +372,14 @@ namespace Typeck
         {
             ModuleSymbol? symbol = null;
 
-            symbol = _symbolTable.Modules.Find(module => module.Name == node.Name);
+            var assembly = _symbolTable.Assemblies.FirstOrDefault(assembly => assembly.Name == _assembly);
+            var modules = assembly.Symbols.OfType<ModuleSymbol>().ToList();
+            symbol = modules.Find(module => module.Name == node.Name);
 
             if (symbol == null)
             {
-                symbol = new ModuleSymbol(node.Name);
-                _symbolTable.Modules.Add(symbol);
+                symbol = new ModuleSymbol(node.Name, _assembly);
+                assembly.Symbols.Add(symbol);
             }
 
             _currentSymbol = symbol;

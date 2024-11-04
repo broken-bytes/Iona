@@ -1,9 +1,0 @@
-module Builtins
-
-public struct UInt {
-    private var value: nuint
-
-    public init(value: Integer) {
-        self.value = value
-    }
-}

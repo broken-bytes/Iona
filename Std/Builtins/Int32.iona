@@ -1,9 +1,0 @@
-module Builtins
-
-public struct Int32 {
-    private var value: int
-
-    public init(value: Integer) {
-        self.value = value
-    }
-}

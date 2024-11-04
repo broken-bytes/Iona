@@ -25,5 +25,22 @@
 
             return null;
         }
+
+        public string Assembly => GetAssembly();
+
+        private string GetAssembly()
+        {
+            while (Parent != null)
+            {
+                if (Parent is ModuleSymbol module)
+                {
+                    return module.Assembly;
+                }
+
+                Parent = Parent.Parent;
+            }
+
+            return "";
+        }
     }
 }

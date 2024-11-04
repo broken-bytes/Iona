@@ -5,6 +5,8 @@ using Mono.Cecil.Cil;
 using Shared;
 using Symbols;
 using System;
+using System.Reflection.Emit;
+using System.Reflection;
 
 namespace Generator
 {

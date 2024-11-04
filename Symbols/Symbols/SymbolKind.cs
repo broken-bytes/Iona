@@ -2,6 +2,7 @@
 {
     public enum SymbolKind
     {
+        Assembly,
         Enum,
         Function,
         Module,

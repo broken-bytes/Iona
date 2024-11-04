@@ -1,9 +1,0 @@
-module Builtins
-
-public struct Decimal {
-    private var value: decimal
-
-    public init(value: FloatingPoint) {
-        self.value = value
-    }
-}

@@ -9,6 +9,7 @@ namespace AST.Nodes
     {
         public string FullyQualifiedName { get; set; }
         public string Name { get; set; }
+        public string Assembly { get; set; }
         public Kind TypeKind { get; set; }
         public INode? Parent { get; set; }
         public NodeType Type { get; set; }

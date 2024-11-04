@@ -1,8 +1,5 @@
 ﻿using AST.Nodes;
-using AST.Visitors;
-using Mono.Cecil;
-using Mono.Cecil.Cil;
-using Mono.Cecil.Rocks;
+using Generator.Types;
 using Symbols;
 
 namespace Generator
@@ -10,23 +7,16 @@ namespace Generator
     public class Assembly
     {
         public string Name { get; set; }
-        private readonly AssemblyDefinition? assembly;
         private readonly AssemblyBuilder builder;
+        AssemblyDefinition assembly;
 
         public Assembly(string name, SymbolTable table)
         {
             Name = name;
 
-            var mp = new ModuleParameters
-            {
-                Kind = ModuleKind.Dll
-            };
+            assembly = new AssemblyDefinition(name);
 
-            // Create the assembly
-            var assemblyName = new AssemblyNameDefinition(name, new Version(1, 0, 0, 0));
-            assembly = AssemblyDefinition.CreateAssembly(assemblyName, name, mp);
-
-            builder = new AssemblyBuilder(assembly, table, new ILEmitter());
+            builder = new AssemblyBuilder(table, new ILEmitter(), assembly);
         }
 
         public Assembly Generate(INode node)
@@ -38,7 +28,13 @@ namespace Generator
 
         public void Build()
         {
-            assembly?.Write(Name + ".dll");
+            // Create or empty file at `Name + ".dll"`
+            File.Create(Name + ".dll").Close();
+
+            foreach (var module in assembly.Modules)
+            {
+                module.Write(Name + ".dll");
+            }
         }
     }
 }

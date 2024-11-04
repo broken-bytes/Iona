@@ -27,7 +27,7 @@ namespace Typeck
             _mutabilityResolver = mutabilityResolver;
         }
 
-        public SymbolTable BuildSymbolTable(INode node)
+        public SymbolTable BuildSymbolTable(INode node, string assembly)
         {
             SymbolTable table;
 
@@ -38,7 +38,7 @@ namespace Typeck
                 return new SymbolTable();
             }
 
-            _tableConstructor.ConstructSymbolTable(fileNode, out table);
+            _tableConstructor.ConstructSymbolTable(fileNode, out table, assembly);
 
 #if !IONA_BOOTSTRAP
             // Add the builtins module to the imports of the file node
@@ -83,11 +83,14 @@ namespace Typeck
         {
             var mergedTable = new SymbolTable();
 
+            _tableConstructor.ConstructSymbolsForAssembly("Builtins");
+            _tableConstructor.ConstructSymbolsForAssembly("System.Private.CoreLib");
+
             foreach (var table in tables)
             {
-                foreach (var module in table.Modules)
+                foreach (var assembly in table.Assemblies)
                 {
-                    mergedTable.Modules.Add(module);
+                    mergedTable.Assemblies.Add(assembly);
                 }
             }
 
