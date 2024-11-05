@@ -42,7 +42,7 @@ namespace Typeck
 
 #if !IONA_BOOTSTRAP
             // Add the builtins module to the imports of the file node
-            fileNode.Children.Insert(0, new ImportNode("Builtins", fileNode));
+            fileNode.Children.Insert(0, new ImportNode("Iona.Builtins", fileNode));
 #endif
 
             return table;
@@ -83,7 +83,7 @@ namespace Typeck
         {
             var mergedTable = new SymbolTable();
 
-            _tableConstructor.ConstructSymbolsForAssembly("Builtins");
+            _tableConstructor.ConstructSymbolsForAssembly("Iona.Builtins");
             _tableConstructor.ConstructSymbolsForAssembly("System.Private.CoreLib");
 
             foreach (var table in tables)

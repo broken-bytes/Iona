@@ -315,8 +315,8 @@ namespace Generator
 
             var typeRef = new TypeReference(
                 "Void",
-                "Builtins",
-                "Builtins",
+                "Iona.Builtins",
+                "Iona.Builtins",
                 false
             );
 
@@ -426,8 +426,8 @@ namespace Generator
 
             var boolRef = new TypeReference(
                 "Bool",
-                "Builtins",
-                "Builtins",
+                "Iona.Builtins",
+                "Iona.Builtins",
                 false
             );
 
@@ -578,8 +578,8 @@ namespace Generator
             // Find (Void) in the type system of Iona (not C#s void)
             var typeRef = new TypeReference(
                 "Void",
-                "Builtins",
-                "Builtins",
+                "Iona.Builtins",
+                "Iona.Builtins",
                 false
             );
             // Add the setter

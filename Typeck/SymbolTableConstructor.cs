@@ -49,7 +49,7 @@ namespace Typeck
             table = _symbolTable;
 
             // Add the builtins module to the imports of the file node
-            file.Children.Insert(0, new ImportNode("Builtins", file));
+            file.Children.Insert(0, new ImportNode("Iona.Builtins", file));
 
             file.Accept(this);
         }
