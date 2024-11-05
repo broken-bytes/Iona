@@ -20,9 +20,10 @@ namespace Generator.Types
             TypeReference = typeReference;
         }
 
-        public void Write(string filePath)
+        public void Write(StreamWriter stream)
         {
-
+            var type = TypeReference.IsReferenceType ? "class" : "valuetype";
+            stream.WriteLine($".field private initonly {type} [{TypeReference.Assembly}]{TypeReference.FullName} '{Name}'");
         }
     }
 }

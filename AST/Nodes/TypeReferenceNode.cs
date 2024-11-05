@@ -17,6 +17,7 @@ namespace AST.Nodes
         public ResolutionStatus Status { get; set; } = ResolutionStatus.Unresolved;
         public Metadata Meta { get; set; }
         public TypeReferenceKind ReferenceKind { get; set; }
+        public List<ITypeReferenceNode> GenericArguments { get; set; } = new List<ITypeReferenceNode>();
 
         public TypeReferenceNode(string name, INode? parent = null)
         {

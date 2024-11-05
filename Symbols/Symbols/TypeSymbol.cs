@@ -2,6 +2,7 @@
 {
     public class TypeSymbol : ITypeSymbol
     {
+        public string Assembly => GetAssembly();
         public string FullyQualifiedName => GetFullyQualifiedName(this);
         public string Name { get; set; }
         public bool IsArray => false;
@@ -27,13 +28,28 @@
             var name = symbol.Name;
             var parent = symbol.Parent;
 
-            while (parent != null)
+            while (parent != null && parent is not AssemblySymbol)
             {
                 name = $"{parent.Name}.{name}";
                 parent = parent.Parent;
             }
 
             return name;
+        }
+
+        private string GetAssembly()
+        {
+            while (Parent != null)
+            {
+                if (Parent is ModuleSymbol module)
+                {
+                    return module.Assembly;
+                }
+
+                Parent = Parent.Parent;
+            }
+
+            return "";
         }
     }
 }

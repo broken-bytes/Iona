@@ -36,7 +36,8 @@ namespace Parser.Parsers
                     return null;
                 }
 
-                var arrayRef = new ArrayTypeReferenceNode(arrayType);
+                var arrayRef = new TypeReferenceNode("Array");
+                arrayRef.GenericArguments.Add(arrayType);
 
                 Utils.SetStart(arrayRef, token);
                 Utils.SetEnd(arrayRef, end);
@@ -69,7 +70,7 @@ namespace Parser.Parsers
                 // Consume the less than token
                 stream.Consume(TokenType.Less, TokenFamily.Operator);
 
-                var genericType = new GenericTypeReferenceNode(token.Value);
+                var genericType = new TypeReferenceNode(token.Value);
                 Utils.SetStart(genericType, token);
 
                 while (stream.Peek().Type != TokenType.Greater)

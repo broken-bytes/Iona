@@ -19,9 +19,9 @@ namespace Generator.Types
             TypeReference = typeReference;
         }
 
-        public void Write(string filePath)
+        public void Write(StreamWriter stream)
         {
-
+            stream.WriteLine("// TODO");
         }
     }
 }

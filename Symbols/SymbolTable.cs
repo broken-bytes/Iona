@@ -308,45 +308,6 @@ namespace Symbols
                 return false;
             }
 
-            if (symbol.IsArray && node is ArrayTypeReferenceNode array)
-            {
-                var arraySymbol = symbol as ArrayTypeSymbol;
-
-                if (arraySymbol == null)
-                {
-                    return false;
-                }
-
-                // Match the element type
-                return MatchType(arraySymbol.ElementType, array.ElementType);
-            }
-
-            if (symbol.IsGeneric && node is GenericTypeReferenceNode generic)
-            {
-                var genericSymbol = symbol as GenericTypeSymbol;
-
-                if (genericSymbol == null)
-                {
-                    return false;
-                }
-
-                // Match the type arguments
-                if (genericSymbol.TypeArguments.Count != generic.GenericArguments.Count)
-                {
-                    return false;
-                }
-
-                for (int i = 0; i < genericSymbol.TypeArguments.Count; i++)
-                {
-                    if (!MatchType(genericSymbol.TypeArguments[i], generic.GenericArguments[i]))
-                    {
-                        return false;
-                    }
-                }
-
-                return true;
-            }
-
             return false;
         }
 

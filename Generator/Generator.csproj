@@ -16,6 +16,7 @@
 		<PackageReference Include="Microsoft.NETCore.ILDAsm" Version="8.0.0" />
 		<PackageReference Include="Mono.Cecil" Version="0.11.6" />
 		<PackageReference Include="NLog" Version="5.3.4" />
+		<PackageReference Include="runtime.win-x64.Microsoft.NETCore.ILAsm" Version="8.0.0" />
 		<PackageReference Include="System.Reflection" Version="4.3.0" />
 		<PackageReference Include="System.Reflection.Emit" Version="4.7.0" />
 	</ItemGroup>

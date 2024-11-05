@@ -22,16 +22,16 @@ namespace Generator.Types
             _processor = new ILProcessor();
         }
 
-        internal void Write(string filePath)
+        internal void Write(StreamWriter stream)
         {
             foreach (var type in Types)
             {
-                type.Write(filePath);
+                type.Write(stream);
             }
 
             foreach (var method in Methods)
             {
-                method.Write(filePath);
+                method.Write(stream);
             }
         }
     }

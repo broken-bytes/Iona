@@ -344,6 +344,7 @@ namespace Typeck
                 {
                     node.TypeNode.FullyQualifiedName = symbol.Success!.FullyQualifiedName;
                     node.TypeNode.TypeKind = Utils.SymbolKindToASTKind(symbol.Success!.TypeKind);
+                    node.TypeNode.Assembly = symbol.Success!.Assembly;
                 }
                 else
                 {
@@ -473,6 +474,7 @@ namespace Typeck
                         {
                             param.TypeNode.FullyQualifiedName = symbol.Success!.FullyQualifiedName;
                             param.TypeNode.TypeKind = Utils.SymbolKindToASTKind(symbol.Success!.TypeKind);
+                            param.TypeNode.Assembly = symbol.Success!.Assembly;
 
                             // Also update the symbol in the symbol table
                             var parameterSymbol = (ParameterSymbol)table.FindBy(param);

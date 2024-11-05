@@ -12,12 +12,14 @@ namespace Generator.Types
         public string Namespace { get; } = string.Empty;
         public string FullName => $"{Namespace}.{Name}";
         public string Assembly { get; } = string.Empty;
+        public bool IsReferenceType { get; set; }
 
-        public TypeReference(string name, string ns, string assembly)
+        public TypeReference(string name, string ns, string assembly, bool isReferenceType)
         {
             Name = name;
             Namespace = ns;
             Assembly = assembly;
+            IsReferenceType = isReferenceType;
         }
     }
 }

@@ -27,22 +27,49 @@ namespace Generator.Types
             BaseType = baseType;
         }
 
-        public void Write(string filePath)
+        public void Write(StreamWriter stream)
         {
-            foreach (var field in Fields)
+            // Write the class header
+            stream.Write($".class public beforefieldinit {Namespace}.{Name}\n extends [{BaseType.Assembly}]{BaseType.FullName}\n");
+            stream.Write("{\n");
+
+            if (Fields.Count > 0)
             {
-                field.Write(filePath);
+                // Write the fields
+                stream.Write("\t");
+                stream.WriteLine("// Fields");
+                foreach (var field in Fields)
+                {
+                    stream.Write("\t");
+                    field.Write(stream);
+                }
             }
 
-            foreach (var property in Properties)
+            if (Properties.Count > 0)
             {
-                property.Write(filePath);
+                // Write the properties
+                stream.Write("\t");
+                stream.WriteLine("// Properties");
+                foreach (var property in Properties)
+                {
+                    stream.Write("\t");
+                    property.Write(stream);
+                }
             }
 
-            foreach (var method in Methods)
+            if (Methods.Count > 0)
             {
-                method.Write(filePath);
+                // Write the methods
+                stream.Write("\t");
+                stream.WriteLine("// Methods");
+                foreach (var method in Methods)
+                {
+                    stream.Write("\t");
+                    method.Write(stream);
+                }
             }
+
+            stream.Write("}\n");
         }
     }
 }

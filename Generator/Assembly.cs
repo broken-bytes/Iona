@@ -28,13 +28,22 @@ namespace Generator
 
         public void Build()
         {
+            var path = $"{Environment.CurrentDirectory}\\{Name}.il";
             // Create or empty file at `Name + ".dll"`
-            File.Create(Name + ".dll").Close();
+            File.Create(path).Close();
+
+            // Empty the file
+            File.WriteAllText(path, string.Empty);
+
+            var stream = new StreamWriter(path, true);
 
             foreach (var module in assembly.Modules)
             {
-                module.Write(Name + ".dll");
+                module.Write(stream);
             }
+
+            stream.Close();
+            stream.Dispose();
         }
     }
 }

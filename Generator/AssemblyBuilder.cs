@@ -230,7 +230,8 @@ namespace Generator
             var objcTypeRef = new TypeReference(
                 "Object",
                 "System",
-                "System.Runtime"
+                "System.Runtime",
+                true
             );
 
             // TODO: Add type to assembly
@@ -315,7 +316,8 @@ namespace Generator
             var typeRef = new TypeReference(
                 "Void",
                 "Builtins",
-                "Builtins"
+                "Builtins",
+                false
             );
 
             var method = new MethodDefinition(
@@ -352,7 +354,12 @@ namespace Generator
                     return;
                 }
 
-                reference = GetTypeReference(table.FindTypeByFQN(type.FullyQualifiedName));
+                reference = new TypeReference(
+                    type.Name,
+                    NamespaceOf(type.FullyQualifiedName),
+                    type.Assembly,
+                    type.TypeKind == Kind.Class || type.TypeKind == Kind.Contract
+                );
 
                 var def = new ParameterDefinition(parameter.Name, ParameterAttributes.None, reference);
                 method.Parameters.Add(def);
@@ -413,13 +420,15 @@ namespace Generator
             reference = new TypeReference(
                 returnType.Name,
                 NamespaceOf(returnType.FullyQualifiedName),
-                returnType.Assembly
+                returnType.Assembly,
+                returnType.TypeKind == Kind.Class || returnType.TypeKind == Kind.Contract
             );
 
             var boolRef = new TypeReference(
                 "Bool",
                 "Builtins",
-                "Builtins"
+                "Builtins",
+                false
             );
 
             MethodAttributes methodAttributes = MethodAttributes.Public | MethodAttributes.Static;
@@ -487,10 +496,11 @@ namespace Generator
                     return;
                 }
 
-                paramReference = new TypeReference(
+                reference = new TypeReference(
                     type.Name,
                     NamespaceOf(type.FullyQualifiedName),
-                    type.Assembly
+                    type.Assembly,
+                    type.TypeKind == Kind.Class || type.TypeKind == Kind.Contract
                 );
 
                 var def = new ParameterDefinition(param.Name, ParameterAttributes.None, paramReference);
@@ -528,7 +538,12 @@ namespace Generator
                 return;
             }
 
-            reference = GetTypeReference(table.FindTypeByFQN(type.FullyQualifiedName));
+            reference = new TypeReference(
+                type.Name,
+                NamespaceOf(type.FullyQualifiedName),
+                type.Assembly,
+                type.TypeKind == Kind.Class || type.TypeKind == Kind.Contract
+            );
 
             // Add the property to the current type
             var property = new PropertyDefinition(node.Name, PropertyAttributes.None, reference);
@@ -564,7 +579,8 @@ namespace Generator
             var typeRef = new TypeReference(
                 "Void",
                 "Builtins",
-                "Builtins"
+                "Builtins",
+                false
             );
             // Add the setter
             var setter = new MethodDefinition($"set_{node.Name}",

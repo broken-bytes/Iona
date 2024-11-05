@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<TargetFramework>net8.0</TargetFramework>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+		<Company>broken-bytes.dev</Company>
+		<Product>Iona</Product>
+		<AssemblyName>Iona.Builtins</AssemblyName>
+	</PropertyGroup>
+</Project>
