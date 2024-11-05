@@ -400,3 +400,5 @@ FodyWeavers.xsd
 *.ast
 
 .vscode/
+
+.idea/.idea.Iona/.idea/
