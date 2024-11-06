@@ -36,18 +36,13 @@ namespace Generator
         private CompilationUnitSyntax compilationUnit;
         private AssemblyDefinition? assembly;
         private TypeDeclarationSyntax? currentType;
-        private MethodDefinition currentMethod;
+        private BaseMethodDeclarationSyntax currentMethod;
         private NamespaceDeclarationSyntax? currentNamespace;
         private List<MetadataReference> references = new();
 
         internal AssemblyBuilder(SymbolTable table)
         {
             this.table = table;
-            
-            // Load all the Standard Library assemblies per default
-            var sdkPath = Environment.GetEnvironmentVariable("IONA_SDK_DIR");
-            MetadataReference ionaBuiltinsReference = MetadataReference.CreateFromFile($"{sdkPath}/Iona.Builtins.dll");
-            references.Add(ionaBuiltinsReference);
         }
 
         internal CompilationUnitSyntax Build(INode node)
@@ -84,12 +79,6 @@ namespace Generator
                     else if (symbol is ParameterSymbol parameter)
                     {
                         var index = parameter.Parent.Symbols.OfType<ParameterSymbol>().ToList().FindIndex(symbol => symbol.Name == parameter.Name);
-
-                        if (!currentMethod.IsStatic)
-                        {
-                            index++;
-                        }
-
                     }
                     else if (symbol is PropertySymbol property)
                     {
@@ -241,7 +230,16 @@ namespace Generator
 
         public void Visit(FileNode node)
         {
-            compilationUnit = SyntaxFactory.CompilationUnit();
+            compilationUnit = SyntaxFactory.CompilationUnit()
+                .AddUsings(
+                    SyntaxFactory.UsingDirective(
+                        SyntaxFactory.QualifiedName(
+                            SyntaxFactory.IdentifierName("Iona"), 
+                            SyntaxFactory.IdentifierName("Builtins")
+                            )
+                        )
+                    );
+            
             foreach (var child in node.Children)
             {
                 if (child is ModuleNode module)
@@ -299,7 +297,7 @@ namespace Generator
 
         public void Visit(InitNode node)
         {
-            if (assembly == null || currentType == null)
+            if (currentType == null)
             {
                 return;
             }
@@ -329,35 +327,44 @@ namespace Generator
                     method.Attributes |= MethodAttributes.Private;
                     break;
             }
+
+            var constructor = SyntaxFactory.ConstructorDeclaration(currentType.Identifier.Text);
+
+            if (node.AccessLevel == AST.Types.AccessLevel.Private)
+            {
+                constructor = constructor.AddModifiers(SyntaxFactory.Token(SyntaxKind.PrivateKeyword));
+            }
+            else if (node.AccessLevel == AST.Types.AccessLevel.Public)
+            {
+                constructor = constructor.AddModifiers(SyntaxFactory.Token(SyntaxKind.PublicKeyword));
+            }
+            else
+            {
+                constructor = constructor.AddModifiers(SyntaxFactory.Token(SyntaxKind.InternalKeyword));
+            }
             
             // Add the parameters to the method
             foreach (var parameter in node.Parameters)
             {
-                var type = (TypeReferenceNode)parameter.TypeNode;
-                TypeReference? reference = null;
-
-                if (type == null)
-                {
-                    return;
-                }
-
-                reference = new TypeReference(
-                    type.Name,
-                    NamespaceOf(type.FullyQualifiedName),
-                    type.Assembly,
-                    type.TypeKind == Kind.Class || type.TypeKind == Kind.Contract
-                );
-
-                var def = new ParameterDefinition(parameter.Name, ParameterAttributes.None, reference);
-                method.Parameters.Add(def);
+                var type = GetBoxedName(parameter.TypeNode.FullyQualifiedName);
+                var parameterSyntax = SyntaxFactory.Parameter(SyntaxFactory.Identifier(parameter.Name))
+                    .WithType(type);
+                
+                constructor = constructor.AddParameterListParameters(parameterSyntax);
             }
-
-            currentMethod = method;
+            
+            currentMethod = constructor;
 
             if (node.Body != null)
             {
+                constructor = constructor.WithBody(SyntaxFactory.Block());
                 node.Body.Accept(this);
             }
+            
+            // Create the constructor
+            currentType = currentType.AddMembers(
+                constructor
+            );
         }
 
         public void Visit(ModuleNode node)
@@ -490,7 +497,6 @@ namespace Generator
                 method.Parameters.Add(def);
             }
 
-            currentMethod = method;
             
             if (node.Body != null)
             {
@@ -505,9 +511,38 @@ namespace Generator
 
         public void Visit(PropertyNode node)
         {
-            if (assembly == null || currentType == null)
+            if (currentType == null)
             {
                 return;
+            }
+            
+            // Get the type of the prop
+            var type = GetBoxedName(node.TypeNode.FullyQualifiedName);
+            
+            // We have two cases here:
+            // - The property is an actual property, that is it has get/set Methods
+            // - The property has no get or set, making it essentially a field
+            var isField = node.Set is null && node.Get is null;
+
+            if (isField)
+            {
+                var fieldDeclaration = SyntaxFactory.FieldDeclaration(
+                    SyntaxFactory.VariableDeclaration(type)
+                        .AddVariables(SyntaxFactory.VariableDeclarator($"{node.Name}")));
+
+                if (node.AccessLevel != AccessLevel.Public)
+                {
+                    fieldDeclaration = fieldDeclaration.AddModifiers(SyntaxFactory.Token(SyntaxKind.PrivateKeyword));
+                } else if (node.AccessLevel == AccessLevel.Private)
+                {
+                    fieldDeclaration = fieldDeclaration.AddModifiers(SyntaxFactory.Token(SyntaxKind.PrivateKeyword));
+                }
+                else
+                {
+                    fieldDeclaration = fieldDeclaration.AddModifiers(SyntaxFactory.Token(SyntaxKind.InternalKeyword));
+                }
+                
+                currentType = currentType.AddMembers(fieldDeclaration);
             }
         }
 
@@ -588,6 +623,48 @@ namespace Generator
             }
 
             return nameSyntax;
+        }
+
+        /// <summary>
+        /// Used to get the boxed type. This automatically converts Iona's Builtin Types like `Int` to the C# primitive `int` etc.
+        /// </summary>
+        /// <param name="name">The Full name of the type</param>
+        /// <returns></returns>
+        private static NameSyntax GetBoxedName(string fullName)
+        {
+            switch (fullName)
+            {
+                case "Iona.Builtins.Bool":
+                    return SyntaxFactory.IdentifierName("bool");
+                case "Iona.Builtins.Double":
+                    return SyntaxFactory.IdentifierName("double");
+                case "Iona.Builtins.Float":
+                    return SyntaxFactory.IdentifierName("float");
+                case "Iona.Builtins.Int8":
+                    return SyntaxFactory.IdentifierName("sbyte");
+                case "Iona.Builtins.Int16":
+                    return SyntaxFactory.IdentifierName("short");
+                case "Iona.Builtins.Int32":
+                    return SyntaxFactory.IdentifierName("int");
+                case "Iona.Builtins.Int64":
+                    return SyntaxFactory.IdentifierName("long");
+                case "Iona.Builtins.Int":
+                    return SyntaxFactory.IdentifierName("nint");
+                case "Iona.Builtins.UInt8":
+                    return SyntaxFactory.IdentifierName("byte");
+                case "Iona.Builtins.UInt16":
+                    return SyntaxFactory.IdentifierName("ushort");
+                case "Iona.Builtins.UInt32":
+                    return SyntaxFactory.IdentifierName("uint");
+                case "Iona.Builtins.UInt64":
+                    return SyntaxFactory.IdentifierName("ulong");
+                case "Iona.Builtins.UInt":
+                    return SyntaxFactory.IdentifierName("nuint");
+                case "Iona.Builtins.String":
+                    return SyntaxFactory.IdentifierName("string");
+            }
+            
+            return ResolveQualifiedName(fullName);
         }
     }
 }

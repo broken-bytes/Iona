@@ -17,8 +17,10 @@ namespace AST.Nodes
         public ITypeReferenceNode TypeNode { get; set; }
         public IExpressionNode? Value { get; set; }
         bool IsAssigned { get; set; } = false;
-        /// Indicates whether the property is computed or not (i.e. has a getter and/or setter) or not.
-        bool IsComputed { get; set; }
+        public FuncNode? Get { get; set; }
+        public FuncNode? Set { get; set; }
+        public FuncNode? BeforeSet { get; set; }
+        public FuncNode? AfterSet { get; set; }
         public ResolutionStatus Status { get; set; } = ResolutionStatus.Unresolved;
         public Metadata Meta { get; set; }
 
