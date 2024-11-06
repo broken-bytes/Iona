@@ -1,5 +1,6 @@
 ﻿using Builtins;
 using System;
+using App;
 
 namespace Dummy
 {
@@ -7,11 +8,7 @@ namespace Dummy
     {
         public Foo()
         {
-            Test test = new Test(3);
-
-            test.value = 2;
-
-            Console.WriteLine(test.ToString());
+            var app = new Test();
         }
     }
 

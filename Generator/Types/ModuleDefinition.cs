@@ -9,9 +9,7 @@ namespace Generator.Types
     internal class ModuleDefinition
     {
         public string Name { get; }
-        private ILProcessor? _processor;
 
-        public ILProcessor Processor => _processor!;
 
         public List<TypeDefinition> Types { get; set; } = new List<TypeDefinition>();
         public List<MethodDefinition> Methods { get; set; } = new List<MethodDefinition>();
@@ -19,7 +17,6 @@ namespace Generator.Types
         internal ModuleDefinition(string name)
         {
             Name = name;
-            _processor = new ILProcessor();
         }
 
         internal void Write(StreamWriter stream)

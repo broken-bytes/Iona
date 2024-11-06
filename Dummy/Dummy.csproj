@@ -8,6 +8,9 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Reference Include="App">
+      <HintPath>..\Iona\bin\Debug\net8.0\App.dll</HintPath>
+    </Reference>
     <Reference Include="Builtins">
       <HintPath>..\Iona\bin\Debug\net8.0\Builtins.dll</HintPath>
     </Reference>

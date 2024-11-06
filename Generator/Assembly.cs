@@ -1,5 +1,8 @@
 ﻿using AST.Nodes;
 using Generator.Types;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.Emit;
 using Symbols;
 
 namespace Generator
@@ -8,42 +11,50 @@ namespace Generator
     {
         public string Name { get; set; }
         private readonly AssemblyBuilder builder;
-        AssemblyDefinition assembly;
+        CSharpSyntaxTree syntaxTree;
 
         public Assembly(string name, SymbolTable table)
         {
             Name = name;
-
-            assembly = new AssemblyDefinition(name);
-
-            builder = new AssemblyBuilder(table, new ILEmitter(), assembly);
+            builder = new AssemblyBuilder(table);
         }
 
         public Assembly Generate(INode node)
         {
-            builder.Build(node);
+            var unit = builder.Build(node);
+
+            var builtins = Environment.GetEnvironmentVariable("IONA_SDK_DIR") + "/Iona.Builtins.dll";
+
+            CSharpCompilation compilation = CSharpCompilation.Create(Name)
+                .AddSyntaxTrees(unit.SyntaxTree)
+                .AddReferences(MetadataReference.CreateFromFile(typeof(object).Assembly.Location))
+                .AddReferences(MetadataReference.CreateFromFile(builtins))
+                .WithOptions(new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+            
+            Console.WriteLine(unit.NormalizeWhitespace().ToFullString());
+
+            using (var stream = new MemoryStream())
+            {
+                EmitResult result = compilation.Emit(stream);
+                if (result.Success)
+                {
+                    File.WriteAllBytes($"{Name}.dll", stream.ToArray());
+                    Console.WriteLine($"Assembly written to {Name}.dll");
+                }
+                else
+                {
+                    foreach (var diagnostic in result.Diagnostics)
+                    {
+                        Console.Error.WriteLine(diagnostic);
+                    }
+                }
+            }
 
             return this;
         }
 
         public void Build()
         {
-            var path = $"{Environment.CurrentDirectory}\\{Name}.il";
-            // Create or empty file at `Name + ".dll"`
-            File.Create(path).Close();
-
-            // Empty the file
-            File.WriteAllText(path, string.Empty);
-
-            var stream = new StreamWriter(path, true);
-
-            foreach (var module in assembly.Modules)
-            {
-                module.Write(stream);
-            }
-
-            stream.Close();
-            stream.Dispose();
         }
     }
 }

@@ -14,7 +14,6 @@ namespace Generator.Types
         public MethodAttributes Attributes { get; set; }
         public TypeReference ReturnType { get; }
         public bool HasThis { get; set; }
-        private ILEmitter? _currentEmitter;
         public FunctionBody Body;
         public bool IsStatic { get; set; }
         public List<ParameterDefinition> Parameters { get; set; } = new();
@@ -24,7 +23,6 @@ namespace Generator.Types
             Name = name;
             Attributes = attributes;
             ReturnType = returnType;
-            _currentEmitter = new ILEmitter();
             Body = new FunctionBody();
         }
 
