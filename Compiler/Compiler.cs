@@ -42,7 +42,7 @@ namespace Compiler
             this.fixItCollector = fixItCollector;
         }
 
-        public void Compile(string assemblyName, List<CompilationUnit> files)
+        public void Compile(string assemblyName, List<CompilationUnit> files, bool intermediate)
         {
             // The compiler is made up of several passes:
             // - Lexing
@@ -88,14 +88,13 @@ namespace Compiler
             }
 
 
-            GenerateCode(assemblyName, asts.ToList(), globalTable);
+            GenerateCode(assemblyName, asts.ToList(), globalTable, intermediate);
         }
 
-        private void GenerateCode(string assemblyName, List<INode> asts, SymbolTable globalTable)
+        private void GenerateCode(string assemblyName, List<INode> asts, SymbolTable globalTable, bool intermediate)
         {
             var assembly = generator.CreateAssembly(assemblyName, globalTable);
-            Parallel.ForEach(asts, ast => assembly.Generate(ast));
-            assembly.Build();
+            Parallel.ForEach(asts, ast => assembly.Generate(ast, intermediate));
         }
     }
 }

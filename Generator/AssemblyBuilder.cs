@@ -216,11 +216,11 @@ namespace Generator
                 .AddUsings(
                     SyntaxFactory.UsingDirective(
                         SyntaxFactory.QualifiedName(
-                            SyntaxFactory.IdentifierName("Iona"), 
+                            SyntaxFactory.IdentifierName("Iona"),
                             SyntaxFactory.IdentifierName("Builtins")
-                            )
                         )
-                    );
+                    )
+                );
             
             foreach (var child in node.Children)
             {
@@ -315,7 +315,7 @@ namespace Generator
                 currentMethod = currentMethod.AddModifiers(SyntaxFactory.Token(SyntaxKind.StaticKeyword))
                     .WithLeadingTrivia(SyntaxFactory.ParseLeadingTrivia(doc));
                 classDecl = classDecl.AddMembers(currentMethod);
-
+                
                 freeNamespace = freeNamespace.AddMembers(classDecl);
 
                 freeFunctionsUnit = freeFunctionsUnit.AddMembers(freeNamespace);

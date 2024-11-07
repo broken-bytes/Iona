@@ -2,7 +2,7 @@
   "profiles": {
     "Iona": {
       "commandName": "Project",
-      "commandLineArgs": "D:\\Projects\\Iona\\tests\\iona\\app.iona C:\\Program Files\\dotnet\\shared\\Microsoft.NETCore.App\\8.0.10"
+      "commandLineArgs": "D:\\Projects\\Iona\\tests\\iona\\app.iona D:\\Projects\\Iona\\tests\\iona\\app.iona"
     }
   }
 }

@@ -1,13 +1,15 @@
 module App
 
-public class Test {
-    private var value: Int
+use UnityEngine
+
+public class Test: MonoBehaviour {
+    public var value: Int
 
     public init(value: Int) {
         self.value = value
     }
-}
 
-public fn add(x: Int, y: Int) -> Int {
-    return x + y
+    public fn update() {
+        value = value + 1
+    }
 }

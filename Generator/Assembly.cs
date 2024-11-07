@@ -1,4 +1,7 @@
-﻿using AST.Nodes;
+﻿using System.Reflection;
+using System.Runtime.Versioning;
+using AST.Nodes;
+using Basic.Reference.Assemblies;
 using Generator.Types;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -20,7 +23,7 @@ namespace Generator
             builder = new AssemblyBuilder(table);
         }
 
-        public Assembly Generate(INode node)
+        public Assembly Generate(INode node, bool intermediate)
         {
             var freeFunctionsUnit = SyntaxFactory.CompilationUnit();
             
@@ -28,19 +31,35 @@ namespace Generator
 
             unit = WithFileHeader(node.ToString(), unit);
             freeFunctionsUnit = WithFileHeader("GENERATED", freeFunctionsUnit);
-
+            
             var builtins = Environment.GetEnvironmentVariable("IONA_SDK_DIR") + "/Iona.Builtins.dll";
+            
+            var options = new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary)
+                .WithPlatform(Platform.AnyCpu)
+                .WithNullableContextOptions(NullableContextOptions.Enable);
+            
+            var attribute = SyntaxFactory.Attribute(SyntaxFactory.ParseName("assembly:TargetFramework"))
+                .AddArgumentListArguments(
+                    SyntaxFactory.AttributeArgument(SyntaxFactory.ParseExpression("\".NET,Version=v8.0\", FrameworkDisplayName = \".NET, Version 8.0\"")));
+            
+            var attributeList = SyntaxFactory.AttributeList(
+                SyntaxFactory.SingletonSeparatedList(attribute)
+            );
 
-            var runtime = System.Reflection.Assembly.Load("System.Private.CoreLib");
-            
             CSharpCompilation compilation = CSharpCompilation.Create(Name)
-                .AddSyntaxTrees(unit.SyntaxTree,freeFunctionsUnit.SyntaxTree)
-                .AddReferences(MetadataReference.CreateFromFile(runtime.Location))
+                .AddSyntaxTrees(unit.SyntaxTree, freeFunctionsUnit.SyntaxTree, AssemblyInfo().SyntaxTree)
+                .AddReferences(ReferenceAssemblies.Net80)
                 .AddReferences(MetadataReference.CreateFromFile(builtins))
-                .WithOptions(new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
-            
-            Console.WriteLine(unit.NormalizeWhitespace().ToFullString());
-            Console.WriteLine(freeFunctionsUnit.NormalizeWhitespace().ToFullString());
+                .WithOptions(options);
+
+            if (intermediate)
+            {
+                File.WriteAllText(node.ToString() + ".cs", unit.NormalizeWhitespace().ToFullString());
+                File.WriteAllText(node.ToString() + "__free__.cs", freeFunctionsUnit.NormalizeWhitespace().ToFullString());
+                File.WriteAllText(node.ToString() + "__assembly.cs", AssemblyInfo().NormalizeWhitespace().ToFullString());
+
+                return null;
+            }
 
             using (var stream = new MemoryStream())
             {
@@ -113,6 +132,19 @@ namespace Generator
                 );
                 
                 return unit.WithLeadingTrivia(leadingTrivia);
+        }
+
+        private CompilationUnitSyntax AssemblyInfo()
+        {
+
+            
+            var assemblyInfo = SyntaxFactory.CompilationUnit()
+                .AddUsings(SyntaxFactory.UsingDirective(SyntaxFactory.ParseName("System.Runtime.Versioning")))
+                .AddUsings(SyntaxFactory.UsingDirective(SyntaxFactory.ParseName("System.Reflection")))
+                .AddUsings(SyntaxFactory.UsingDirective(SyntaxFactory.ParseName("System.Runtime.CompilerServices")))
+                .NormalizeWhitespace();
+
+            return assemblyInfo;
         }
     }
 }
