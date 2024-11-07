@@ -31,5 +31,10 @@ namespace AST.Nodes
         {
             visitor.Visit(this);
         }
+
+        public override string ToString()
+        {
+            return Name;
+        }
     }
 }
