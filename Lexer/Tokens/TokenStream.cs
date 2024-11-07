@@ -244,7 +244,7 @@
 
         public List<Token> Peek(int count)
         {
-            if (count >= tokens.Count)
+            if (count > tokens.Count)
             {
                 var errorToken = new Token
                 {

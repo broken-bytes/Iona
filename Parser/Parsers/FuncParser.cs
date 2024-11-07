@@ -136,6 +136,12 @@ namespace Parser.Parsers
                     func.ReturnType.Parent = func;
                     Utils.SetColumnEnd(func, func.ReturnType.Meta.ColumnEnd);
                 }
+                else
+                {
+                    func.ReturnType = new TypeReferenceNode("Void", func);
+                    func.ReturnType.FullyQualifiedName = "Iona.Builtins.Void";
+                    func.ReturnType.Assembly = "Iona.Builtins";
+                }
 
                 token = stream.Peek();
 

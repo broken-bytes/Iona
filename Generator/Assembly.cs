@@ -21,17 +21,20 @@ namespace Generator
 
         public Assembly Generate(INode node)
         {
-            var unit = builder.Build(node);
+            var freeFunctionsUnit = SyntaxFactory.CompilationUnit();
+            
+            var unit = builder.Build(node, ref freeFunctionsUnit);
 
             var builtins = Environment.GetEnvironmentVariable("IONA_SDK_DIR") + "/Iona.Builtins.dll";
 
             CSharpCompilation compilation = CSharpCompilation.Create(Name)
-                .AddSyntaxTrees(unit.SyntaxTree)
+                .AddSyntaxTrees(unit.SyntaxTree, freeFunctionsUnit.SyntaxTree)
                 .AddReferences(MetadataReference.CreateFromFile(typeof(object).Assembly.Location))
                 .AddReferences(MetadataReference.CreateFromFile(builtins))
                 .WithOptions(new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
             
             Console.WriteLine(unit.NormalizeWhitespace().ToFullString());
+            Console.WriteLine(freeFunctionsUnit.NormalizeWhitespace().ToFullString());
 
             using (var stream = new MemoryStream())
             {

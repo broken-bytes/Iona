@@ -7,3 +7,7 @@ public class Test {
         self.value = value
     }
 }
+
+public fn add(x: Int, y: Int) -> Int {
+    return x + y
+}
