@@ -2,7 +2,7 @@
   "profiles": {
     "Iona": {
       "commandName": "Project",
-      "commandLineArgs": "D:\\Projects\\Iona\\tests\\iona\\app.iona D:\\Projects\\Iona\\tests\\iona\\app.iona"
+      "commandLineArgs": "D:\\Projects\\Iona\\tests\\iona\\app.iona D:\\Projects\\Iona\\tests\\iona\\app.iona -a \"C:\\Program Files\\Unity\\Hub\\Editor\\6000.0.23f1\\Editor\\Data\\il2cpp\\build\\deploy\" \"C:\\Program Files\\Unity\\Hub\\Editor\\6000.0.23f1\\Editor\\Data\\Managed\\UnityEngine\" -r UnityEngine.CoreModule"
     }
   }
 }

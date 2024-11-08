@@ -3,13 +3,14 @@ module App
 use UnityEngine
 
 public class Test: MonoBehaviour {
-    public var value: Int
+    public var value: Int32 = 0
 
-    public init(value: Int) {
-        self.value = value
+
+    public fn start() {
+        value = 1
     }
 
     public fn update() {
-        value = value + 1
+        value += 1
     }
 }

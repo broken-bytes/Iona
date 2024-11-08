@@ -1,4 +1,5 @@
-﻿using AST.Nodes;
+﻿using System.Reflection;
+using AST.Nodes;
 using Symbols;
 using Symbols.Symbols;
 
@@ -10,6 +11,6 @@ namespace Typeck
         public void CheckTopLevelScopes(INode node, SymbolTable table);
         public void CheckExpressions(INode node, SymbolTable table);
         public void TypeCheck(INode node, SymbolTable table);
-        public SymbolTable MergeTables(List<SymbolTable> tables);
+        public SymbolTable MergeTables(List<SymbolTable> tables, List<string> assemblies);
     }
 }

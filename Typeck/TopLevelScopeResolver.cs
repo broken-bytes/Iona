@@ -502,9 +502,8 @@ namespace Typeck
         {
             List<TypeSymbol> types = new List<TypeSymbol>();
 
-            var modules = table.Assemblies.SelectMany(a => a.Symbols.OfType<ModuleSymbol>());
             // Check in each module for the type
-            foreach (var module in modules)
+            foreach (var module in table.Modules)
             {
                 var found = FindTypeSymbolIn(name, module);
 
@@ -549,9 +548,8 @@ namespace Typeck
         {
             List<FuncSymbol> functions = new List<FuncSymbol>();
 
-            var modules = table.Assemblies.SelectMany(a => a.Symbols.OfType<ModuleSymbol>());
             // Check 1: -> Free functions in each module
-            foreach (var module in modules)
+            foreach (var module in table.Modules)
             {
                 var found = FindFuncSymbolIn(funcCallNode.Target.Value, module);
 

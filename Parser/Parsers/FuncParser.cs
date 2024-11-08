@@ -96,6 +96,12 @@ namespace Parser.Parsers
                 var name = stream.Consume(TokenType.Identifier, TokenFamily.Keyword);
 
                 func = new FuncNode(name.Value, accessLevel, isMutating, isStatic, parent);
+
+                if (parent?.Parent is not ITypeNode typeNode)
+                {
+                    func.IsFree = true;
+                }
+                
                 Utils.SetStart(func, isMutating ? mut : token);
 
                 // Parse the function parameters

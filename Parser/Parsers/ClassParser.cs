@@ -82,14 +82,22 @@ namespace Parser.Parsers
                 {
                     stream.Consume(TokenType.Colon, TokenFamily.Operator);
 
-                    var contract = typeParser.Parse(stream, classNode);
-                    classNode.Contracts.Add(contract);
+                    var reference = typeParser.Parse(stream, classNode);
+
+                    if (reference != null)
+                    {
+                        classNode.Contracts.Add(reference);
+                    }
 
                     while (stream.Peek().Type != TokenType.CurlyLeft)
                     {
                         stream.Consume(TokenType.Comma, TokenFamily.Operator);
 
-                        contract = typeParser.Parse(stream, classNode);
+                        var contract = typeParser.Parse(stream, classNode);
+                        if (contract.TypeKind != Kind.Contract)
+                        {
+                            // TODO: Error when multiple classes
+                        }
                         classNode.Contracts.Add(contract);
                         Utils.SetColumnEnd(classNode, contract.Meta.ColumnEnd + 1);
                     }

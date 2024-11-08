@@ -2,6 +2,12 @@
 {
     public interface ICompiler
     {
-        public void Compile(string assemblyName, List<CompilationUnit> files, bool intermediate);
+        public void Compile(
+            string assemblyName, 
+            List<CompilationUnit> files, 
+            bool intermediate, 
+            List<string> assemblyPaths,
+            List<string> assemblyRefs
+            );
     }
 }

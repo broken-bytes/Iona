@@ -6,11 +6,13 @@ using Symbols.Symbols;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Linq.Expressions;
+using System.Text;
 using Mono.Cecil.Rocks;
 using Generator.Types;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Shared;
 
 namespace Generator
 {
@@ -24,6 +26,7 @@ namespace Generator
         IInitVisitor,
         IFileVisitor,
         IFuncVisitor,
+        ILiteralVisitor,
         IModuleVisitor,
         IOperatorVisitor,
         IPropAccessVisitor,
@@ -42,24 +45,20 @@ namespace Generator
         private List<MetadataReference> references = new();
         private CompilationUnitSyntax freeFunctionsUnit;
 
+        private StringBuilder source = new StringBuilder();
+
         internal AssemblyBuilder(SymbolTable table)
         {
             this.table = table;
         }
 
-        internal CompilationUnitSyntax? Build(INode node, ref CompilationUnitSyntax freeFunctionsUnit)
+        internal CompilationUnitSyntax? Build(INode node)
         {
-            List<CompilationUnitSyntax> compilations = new();
-            this.freeFunctionsUnit = freeFunctionsUnit;
-
             if (node is FileNode file)
             {
                 file.Accept(this);
 
-               
-                freeFunctionsUnit = this.freeFunctionsUnit;
-
-                return compilationUnit;
+                return CSharpSyntaxTree.ParseText(source.ToString()).GetRoot() as CompilationUnitSyntax;
             }
 
             return null;
@@ -67,41 +66,39 @@ namespace Generator
 
         public void Visit(AssignmentNode node)
         {
-            if (currentMethod == null)
-            {
-                return;
-            }
-
-            ExpressionSyntax? left = null;
             if (node.Target is PropAccessNode propLeft)
             {
-                left = PropAccessToMemberAccess(propLeft);
+                propLeft.Accept(this);
             }
             else if (node.Target is IdentifierNode ident)
             {
-                left = SyntaxFactory.IdentifierName(ident.Value);
+                ident.Accept(this);
             }
 
-            ExpressionSyntax? right = null;
+            switch (node.AssignmentType)
+            {
+                case AssignmentType.Assign:
+                    source.Append(" = ");
+                    break;
+                case AssignmentType.AddAssign:
+                    source.Append(" += ");
+                    break;
+            }
+
             if (node.Value is PropAccessNode propRight)
             {
-                right = PropAccessToMemberAccess(propRight);
+                propRight.Accept(this);
             }
             else if (node.Value is IdentifierNode ident)
             {
-                right = SyntaxFactory.IdentifierName(ident.Value);
+               ident.Accept(this);
             }
             else if (node.Value is LiteralNode literal)
             {
-                right = LiteralToLiteralExpression(literal);
+                literal.Accept(this);
             }
 
-            if (left != null && right != null)
-            {
-                var expression = SyntaxFactory.AssignmentExpression(SyntaxKind.SimpleAssignmentExpression, left, right);
-                var statement = SyntaxFactory.ExpressionStatement(expression);
-                currentMethod = currentMethod.AddBodyStatements(statement);
-            }
+            source.Append(";\n");
         }
         
         public void Visit(BinaryExpressionNode node)
@@ -113,11 +110,11 @@ namespace Generator
             
             if (node.Left is IdentifierNode left)
             {
-                EmitGetIdentifier(left);
+                left.Accept(this);
             }
             else if (node.Left is PropAccessNode propAccess)
             {
-                EmitGetPropAccess(propAccess);
+                propAccess.Accept(this);
             }
             else
             {
@@ -126,16 +123,17 @@ namespace Generator
             
             if (node.Right is IdentifierNode right)
             {
-                EmitGetIdentifier(right);
+                right.Accept(this);
             }
             else if (node.Right is PropAccessNode propAccess)
             {
-                EmitGetPropAccess(propAccess);
+                propAccess.Accept(this);
             }
         }
 
         public void Visit(BlockNode node)
         {
+            source.Append("{\n");
             foreach (var child in node.Children)
             {
                 if (child is PropertyNode property)
@@ -175,157 +173,127 @@ namespace Generator
                     func.Accept(this);
                 }
             }
+            
+            source.Append("}");
         }
 
         public void Visit(ClassNode node)
         {
-            if (currentNamespace == null)
-            {
-                return;
-            }
-            
-            currentType = SyntaxFactory.ClassDeclaration(node.Name);
-            
             if (node.AccessLevel == AccessLevel.Public)
             {
-                currentType = currentType.AddModifiers(SyntaxFactory.Token(SyntaxKind.PublicKeyword));
+                source.Append("public ");
             }
             else if (node.AccessLevel == AccessLevel.Private)
             {
-                currentType = currentType.AddModifiers(SyntaxFactory.Token(SyntaxKind.PrivateKeyword));
+                source.Append("private ");
             }
             else
             {
-                currentType = currentType.AddModifiers(SyntaxFactory.Token(SyntaxKind.InternalKeyword));
+                source.Append("internal ");
+            }
+            
+            source.Append($"class {node.Name}");
+
+            if (node.BaseType != null || node.Contracts.Count > 0)
+            {
+                source.Append(":");
+            }
+            
+            if (node.BaseType != null)
+            {
+                var typeSymbol = table.FindTypeByFQN(node.BaseType.FullyQualifiedName);
+                if (typeSymbol != null)
+                {
+                    var type = GetBoxedName(typeSymbol.FullyQualifiedName);
+
+                    source.Append(type);
+                }
             }
 
-            // If the struct has a body, visit it
+            // If the class has a body, visit it
             if (node.Body != null)
             {
                 node.Body.Accept(this);
             }
-
-            currentNamespace = currentNamespace.AddMembers(currentType);
-
-            currentType = null;
         }
 
         public void Visit(FileNode node)
         {
-            compilationUnit = SyntaxFactory.CompilationUnit()
-                .AddUsings(
-                    SyntaxFactory.UsingDirective(
-                        SyntaxFactory.QualifiedName(
-                            SyntaxFactory.IdentifierName("Iona"),
-                            SyntaxFactory.IdentifierName("Builtins")
-                        )
-                    )
-                );
-            
             foreach (var child in node.Children)
             {
                 if (child is ModuleNode module)
                 {
                     module.Accept(this);
                 }
+                else if (child is ImportNode import)
+                {
+                    source.Append($"using {import.Name};\n");
+                }
             }
         }
 
         public void Visit(FuncNode node)
         {
-            // Functions may only exist in types or namespaces
-            if (currentType == null && currentNamespace == null)
-            {
-                return;
-            }
-
-            if (node.ReturnType == null)
-            {
-                return;
-            }
-
+            bool isFree = node?.Parent?.Parent is not ITypeNode;
             var returnType = GetBoxedName(node.ReturnType.FullyQualifiedName);
+            
+            // The function is not part of a type and thus a free function
+            if (isFree)
+            {
+                // C# does not support free functions, so we create a global "__free__" static class for each namespace
+                // First, check if the free functions unit contains a namespace named liked the current one
 
-            currentMethod = SyntaxFactory.MethodDeclaration(returnType, node.Name);
-
+                source.Append("public partial class __free__ {\n");
+                
+                source.Append(@"
+                /// <summary>
+                /// This function is defined in {node.Meta.File} at line {node.Meta.LineStart}
+                /// </summary>
+                \n");
+                source.Append("static ");
+            }
+            
             if (node.AccessLevel == AccessLevel.Public)
             {
-                currentMethod = currentMethod.AddModifiers(SyntaxFactory.Token(SyntaxKind.PublicKeyword));
+                source.Append("public ");
             }
             else if (node.AccessLevel == AccessLevel.Private)
             {
-                currentMethod = currentMethod.AddModifiers(SyntaxFactory.Token(SyntaxKind.PrivateKeyword));
+                source.Append("private ");
             }
             else
             {
-                currentMethod = currentMethod.AddModifiers(SyntaxFactory.Token(SyntaxKind.InternalKeyword));
+                source.Append("internal ");
             }
+            
+            source.Append(returnType);
+            
+            source.Append(" ");
+            source.Append(Utils.IonaToCSharpName(node.Name));
+            source.Append("(");
 
             // Add the parameters to the method
             foreach (var parameter in node.Parameters)
             {
-                var type = GetBoxedName(parameter.TypeNode.FullyQualifiedName);
-                var parameterSyntax = SyntaxFactory.Parameter(SyntaxFactory.Identifier(parameter.Name))
-                    .WithType(type);
-                
-                currentMethod = currentMethod.AddParameterListParameters(parameterSyntax);
+                var paramType = GetBoxedName(parameter.TypeNode.FullyQualifiedName);
+                source.Append($"{paramType} {parameter.Name}");
             }
+            source.Append(")");
             
             if (node.Body != null)
             {
-                currentMethod = currentMethod.WithBody(SyntaxFactory.Block());
                 node.Body.Accept(this);
             }
 
-            if (currentType != null)
+            if (isFree)
             {
-                currentType = currentType.AddMembers(currentMethod);
+                source.Append("}");
             }
-            else if (currentNamespace != null)
-            {
-                // C# does not support free functions, so we create a global "__free__" static class for each namespace
-                // First, check if the free functions unit contains a namespace named liked the current one
-                var freeNamespace = freeFunctionsUnit.Members.OfType<NamespaceDeclarationSyntax>()
-                    .FirstOrDefault(ns => ns.Name == currentNamespace.Name);
-
-                if (freeNamespace == null)
-                {
-                    freeNamespace = SyntaxFactory.NamespaceDeclaration(currentNamespace.Name);
-                }
-                else
-                {
-                    // Remove the namespace from the compialtion
-                    freeFunctionsUnit.Members.Remove(freeNamespace);
-                }
-                
-                var classDecl = freeNamespace.Members.OfType<ClassDeclarationSyntax>().FirstOrDefault();
-
-                if (classDecl == null)
-                {
-                    classDecl = SyntaxFactory.ClassDeclaration("__free__")
-                        .AddModifiers(SyntaxFactory.Token(SyntaxKind.PublicKeyword))
-                        .AddModifiers(SyntaxFactory.Token(SyntaxKind.StaticKeyword));
-                }
-
-                var doc = $@"
-                /// <summary>
-                /// This function is defined in {node.Meta.File} at line {node.Meta.LineStart}
-                /// </summary>
-                ";
-                currentMethod = currentMethod.AddModifiers(SyntaxFactory.Token(SyntaxKind.StaticKeyword))
-                    .WithLeadingTrivia(SyntaxFactory.ParseLeadingTrivia(doc));
-                classDecl = classDecl.AddMembers(currentMethod);
-                
-                freeNamespace = freeNamespace.AddMembers(classDecl);
-
-                freeFunctionsUnit = freeFunctionsUnit.AddMembers(freeNamespace);
-            }
-
-            currentMethod = null;
         }
 
         public void Visit(IdentifierNode node)
         {
+            source.Append(node.Value);
         }
 
         public void Visit(InitCallNode node)
@@ -372,79 +340,46 @@ namespace Generator
 
         public void Visit(InitNode node)
         {
-            if (currentType == null)
-            {
-                return;
-            }
-
-            var typeRef = new TypeReference(
-                "Void",
-                "Iona.Builtins",
-                "Iona.Builtins",
-                false
-            );
-
-            var method = new MethodDefinition(
-                ".ctor",
-                MethodAttributes.SpecialName | MethodAttributes.RTSpecialName, 
-                typeRef
-            );
-
-            switch (node.AccessLevel)
-            {
-                case AST.Types.AccessLevel.Public:
-                    method.Attributes |= MethodAttributes.Public;
-                    break;
-                case AST.Types.AccessLevel.Private:
-                    method.Attributes |= MethodAttributes.Private;
-                    break;
-                default:
-                    method.Attributes |= MethodAttributes.Private;
-                    break;
-            }
-
-            currentMethod = SyntaxFactory.ConstructorDeclaration(currentType.Identifier.Text);
-
             if (node.AccessLevel == AST.Types.AccessLevel.Private)
             {
-                currentMethod = currentMethod.AddModifiers(SyntaxFactory.Token(SyntaxKind.PrivateKeyword));
+                source.Append("private ");
             }
             else if (node.AccessLevel == AST.Types.AccessLevel.Public)
             {
-                currentMethod = currentMethod.AddModifiers(SyntaxFactory.Token(SyntaxKind.PublicKeyword));
+                source.Append("public ");
             }
             else
             {
-                currentMethod = currentMethod.AddModifiers(SyntaxFactory.Token(SyntaxKind.InternalKeyword));
+                source.Append("internal ");
             }
+
+            var type = node.Parent.Parent as ITypeNode;
+            
+            source.Append($"{type.Name}(");
             
             // Add the parameters to the method
             foreach (var parameter in node.Parameters)
             {
-                var type = GetBoxedName(parameter.TypeNode.FullyQualifiedName);
-                var parameterSyntax = SyntaxFactory.Parameter(SyntaxFactory.Identifier(parameter.Name))
-                    .WithType(type);
-                
-                currentMethod = currentMethod.AddParameterListParameters(parameterSyntax);
+                var paramType = GetBoxedName(parameter.TypeNode.FullyQualifiedName);
+                source.Append($"{paramType} {parameter.Name}");
             }
+            source.Append(")");
             
             if (node.Body != null)
             {
-                currentMethod = currentMethod.WithBody(SyntaxFactory.Block());
                 node.Body.Accept(this);
             }
-            
-            // Create the constructor
-            currentType = currentType.AddMembers(
-                currentMethod
-            );
+        }
+
+        public void Visit(LiteralNode node)
+        {
+            source.Append(node.Value);
         }
 
         public void Visit(ModuleNode node)
         {
-            var csModule = SyntaxFactory.NamespaceDeclaration(SyntaxFactory.IdentifierName(node.Name));
-            currentNamespace = csModule;
-            
+            source.Append($"namespace {node.Name}");
+            source.AppendLine("{");
             foreach (var child in node.Children)
             {
                 if (child is StructNode str)
@@ -461,7 +396,7 @@ namespace Generator
                 }
             }
             
-            compilationUnit = compilationUnit.AddMembers(currentNamespace);
+            source.Append("}");
         }
 
         public void Visit(OperatorNode node)
@@ -583,76 +518,93 @@ namespace Generator
 
         public void Visit(PropAccessNode node)
         {
-
+            if (node.Object is SelfNode self)
+            {
+                source.Append("this");
+            }
+            else
+            {
+                source.Append(node.Object.ToString());
+            }
+            source.Append(".");
+            
+            if (node.Property is IdentifierNode identifier)
+            {
+                identifier.Accept(this);
+            } 
+            else if (node.Property is PropAccessNode property)
+            {
+                property.Accept(this);
+            }
         }
 
         public void Visit(PropertyNode node)
         {
-            if (currentType == null)
-            {
-                return;
-            }
-            
             // Get the type of the prop
             var type = GetBoxedName(node.TypeNode.FullyQualifiedName);
+            
+            if (node.AccessLevel == AccessLevel.Public)
+            {
+                source.Append("public ");
+            }
+            else if (node.AccessLevel == AccessLevel.Private)
+            {
+                source.Append("private ");
+            }
+            else
+            {
+                source.Append("internal ");
+            }
             
             // We have two cases here:
             // - The property is an actual property, that is it has get/set Methods
             // - The property has no get or set, making it essentially a field
             var isField = node.Set is null && node.Get is null;
-
+            
             if (isField)
             {
-                var fieldDeclaration = SyntaxFactory.FieldDeclaration(
-                    SyntaxFactory.VariableDeclaration(type)
-                        .AddVariables(SyntaxFactory.VariableDeclarator($"{node.Name}")));
+                source.Append($"{type} {node.Name}");
 
-                if (node.AccessLevel != AccessLevel.Public)
+                if (node.Value is not null)
                 {
-                    fieldDeclaration = fieldDeclaration.AddModifiers(SyntaxFactory.Token(SyntaxKind.PrivateKeyword));
-                } else if (node.AccessLevel == AccessLevel.Private)
-                {
-                    fieldDeclaration = fieldDeclaration.AddModifiers(SyntaxFactory.Token(SyntaxKind.PrivateKeyword));
-                }
-                else
-                {
-                    fieldDeclaration = fieldDeclaration.AddModifiers(SyntaxFactory.Token(SyntaxKind.InternalKeyword));
+                    source.Append(" = ");
                 }
                 
-                currentType = currentType.AddMembers(fieldDeclaration);
+                if (node.Value is PropAccessNode prop)
+                {
+                    prop.Accept(this);
+                } 
+                else if (node.Value is IdentifierNode ident)
+                {
+                    ident.Accept(this);
+                }
+                else if (node.Value is LiteralNode literal)
+                {
+                    literal.Accept(this);
+                }
+                
+                source.Append(";");
             }
         }
 
         public void Visit(ReturnNode node)
         {
-            if (currentMethod == null)
-            {
-                return;
-            }
+            source.Append("return ");
 
-            ExpressionSyntax? value = null;
-            if (node.Value is PropAccessNode prop)
+            if (node.Value != null)
             {
-                value = PropAccessToMemberAccess(prop);
-            }
-            else if (node.Value is IdentifierNode ident)
-            {
-                value = SyntaxFactory.IdentifierName(ident.Value);
-            }
-            else if (node.Value is LiteralNode literal)
-            {
-                value = LiteralToLiteralExpression(literal);
-            }
-            else if (node.Value is BinaryExpressionNode binary)
-            {
-                value = BinaryExpressionToBinaryExpressionSyntax(binary);
-            }
-
-            if (value != null)
-            {
-                var returnSyntax = SyntaxFactory.ReturnStatement(value);
-
-                currentMethod = currentMethod.AddBodyStatements(returnSyntax);
+                if (node.Value is PropAccessNode prop)
+                {
+                    prop.Accept(this);
+                }
+                else if (node.Value is LiteralNode literal)
+                {
+                    literal.Accept(this);
+                }
+                else if (node.Value is BinaryExpressionNode binary)
+                {
+                    binary.Accept(this);
+                }
             }
         }
 
@@ -710,69 +662,48 @@ namespace Generator
             return null;
         }
 
-        private static NameSyntax ResolveQualifiedName(string name)
-        {
-            var fqnSplit = name.Split('.').ToList();
-            
-            NameSyntax nameSyntax = SyntaxFactory.IdentifierName(fqnSplit[0]);
-
-            fqnSplit.RemoveAt(0);
-            
-            while (fqnSplit.Count > 0)
-            {
-                nameSyntax = SyntaxFactory.QualifiedName(nameSyntax, SyntaxFactory.IdentifierName(fqnSplit[0]));
-
-                if (fqnSplit.Count > 0)
-                {
-                    fqnSplit.RemoveAt(0);
-                }
-            }
-
-            return nameSyntax;
-        }
-
         /// <summary>
         /// Used to get the boxed type. This automatically converts Iona's Builtin Types like `Int` to the C# primitive `int` etc.
         /// </summary>
         /// <param name="name">The Full name of the type</param>
         /// <returns></returns>
-        private static NameSyntax GetBoxedName(string fullName)
+        private static string GetBoxedName(string fullName)
         {
             switch (fullName)
             {
                 case "Iona.Builtins.Bool":
-                    return SyntaxFactory.IdentifierName("bool");
+                    return "bool";
                 case "Iona.Builtins.Double":
-                    return SyntaxFactory.IdentifierName("double");
+                    return "double";
                 case "Iona.Builtins.Float":
-                    return SyntaxFactory.IdentifierName("float");
+                    return "float";
                 case "Iona.Builtins.Int8":
-                    return SyntaxFactory.IdentifierName("sbyte");
+                    return "sbyte";
                 case "Iona.Builtins.Int16":
-                    return SyntaxFactory.IdentifierName("short");
+                    return "short";
                 case "Iona.Builtins.Int32":
-                    return SyntaxFactory.IdentifierName("int");
+                    return "int";
                 case "Iona.Builtins.Int64":
-                    return SyntaxFactory.IdentifierName("long");
+                    return "long";
                 case "Iona.Builtins.Int":
-                    return SyntaxFactory.IdentifierName("nint");
+                    return "nint";
                 case "Iona.Builtins.UInt8":
-                    return SyntaxFactory.IdentifierName("byte");
+                    return "byte";
                 case "Iona.Builtins.UInt16":
-                    return SyntaxFactory.IdentifierName("ushort");
+                    return "ushort";
                 case "Iona.Builtins.UInt32":
-                    return SyntaxFactory.IdentifierName("uint");
+                    return "uint";
                 case "Iona.Builtins.UInt64":
-                    return SyntaxFactory.IdentifierName("ulong");
+                    return "ulong";
                 case "Iona.Builtins.UInt":
-                    return SyntaxFactory.IdentifierName("nuint");
+                    return "nuint";
                 case "Iona.Builtins.String":
-                    return SyntaxFactory.IdentifierName("string");
+                    return "string";
                 case "Iona.Builtins.Void":
-                    return SyntaxFactory.IdentifierName("void");
+                    return "void";
             }
-            
-            return ResolveQualifiedName(fullName);
+
+            return fullName;
         }
         
         private MemberAccessExpressionSyntax PropAccessToMemberAccess(PropAccessNode node)

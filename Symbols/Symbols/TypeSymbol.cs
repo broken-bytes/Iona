@@ -28,7 +28,7 @@
             var name = symbol.Name;
             var parent = symbol.Parent;
 
-            while (parent != null && parent is not AssemblySymbol)
+            while (parent != null)
             {
                 name = $"{parent.Name}.{name}";
                 parent = parent.Parent;

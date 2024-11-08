@@ -7,11 +7,11 @@ namespace Symbols
 {
     public class SymbolTable
     {
-        public List<AssemblySymbol> Assemblies;
+        public List<ModuleSymbol> Modules;
 
         public SymbolTable()
         {
-            Assemblies = new List<AssemblySymbol>();
+            Modules = new List<ModuleSymbol>();
         }
 
         /// <summary>
@@ -139,8 +139,7 @@ namespace Symbols
 
             var currentNode = astHierarchy[0];
             // Get all modules from all assemblies and select the one that matches the current node
-            var modules = Assemblies.SelectMany(asm => asm.Symbols).OfType<ModuleSymbol>().ToList();
-            ISymbol? currentSymbol = modules.FirstOrDefault(mod => mod.Name == ((ModuleNode)currentNode).Name);
+            ISymbol? currentSymbol = Modules.FirstOrDefault(mod => mod.Name == ((ModuleNode)currentNode).Name);
 
             if (currentSymbol == null)
             {
@@ -278,21 +277,14 @@ namespace Symbols
                 }
 
                 var imports = ((FileNode)type.Root).Children.OfType<ImportNode>().Select(import => import.Name).ToList();
-                // Always add the current module to the list of imported modules if it's not already there (should be the case)
-                var moduleNode = ((FileNode)type.Root).Children.OfType<ModuleNode>().FirstOrDefault();
+                
+                var importedModules = new List<ModuleSymbol>();
 
-                if (moduleNode != null)
+                foreach (var import in imports)
                 {
-                    imports.Add(moduleNode.Name);
+                    importedModules.AddRange(Modules.Where(m => m.Name == import));
                 }
-                else
-                {
-                    return false;
-                }
-
-                var modules = Assemblies.SelectMany(asm => asm.Symbols).OfType<ModuleSymbol>().ToList();
-                var importedModules = modules.Where(module => imports.First(import => import == module.Name) != null);
-
+                
                 // If the fully qualified name doesn't match, we need to check in each module if the type is defined
                 foreach (var module in importedModules)
                 {
@@ -313,20 +305,14 @@ namespace Symbols
 
         public TypeSymbol? FindTypeByFQN(string name)
         {
-            // First, find the correct assembly
-            var assembly = FindAssemblyByFQN(name);
-
-            // Remove the assembly name from the fqn
-            var modulePart = name.Remove(0, assembly.Name.Length + 1);
-
-            var module = FindModuleByFQN(assembly, modulePart);
+            var module = FindModuleByFQN(name);
 
             if (module == null)
             {
                 return null;
             }
 
-            string typePart = modulePart.Remove(0, module.Name.Length + 1);
+            string typePart = name.Remove(0, module.Name.Length + 1);
 
             var typeSplit = typePart.Split(".");
 
@@ -362,39 +348,28 @@ namespace Symbols
             return type;
         }
 
-        public AssemblySymbol? FindAssemblyByFQN(string name)
+        public TypeSymbol? FindTypeBySimpleName(string name)
         {
-            // First, break the fully qualified name into parts
-            var parts = name.Split('.');
+            TypeSymbol? type = null;
+            foreach (var module in Modules)
+            {
+                var found = module.Symbols.OfType<TypeSymbol>().FirstOrDefault(sym => sym.Name == name);
 
-            if (parts.Length == 0)
+                if (found != null)
+                {
+                    type = found;
+                }
+            }
+
+            if (type == null)
             {
                 return null;
             }
 
-            // We need to find the assembly of the fqn first. 
-            // Edge case: Modules can also have multiple parts in their name (e.g. std.io)
-            // So we check the fqn minus the last part, then minus the second last part, etc. until we find a module
-            var assemblyName = parts.Aggregate((current, next) => current + "." + next);
-
-            AssemblySymbol? assembly = Assemblies.FirstOrDefault(assembly => assembly.Name == assemblyName);
-
-            while (assembly == null && parts.Length > 1)
-            {
-                parts = parts.Take(parts.Length - 1).ToArray();
-                assemblyName = parts.Aggregate((current, next) => current + "." + next);
-                assembly = Assemblies.FirstOrDefault(assembly => assembly.Name == assemblyName);
-            }
-
-            if (assembly == null)
-            {
-                return null;
-            }
-
-            return assembly;
+            return type;
         }
 
-        public ModuleSymbol? FindModuleByFQN(AssemblySymbol assembly, string name)
+        public ModuleSymbol? FindModuleByFQN(string name)
         {
             // First, break the fully qualified name into parts
             var parts = name.Split('.');
@@ -409,14 +384,13 @@ namespace Symbols
             // So we check the fqn minus the last part, then minus the second last part, etc. until we find a module
             var moduleName = parts.Aggregate((current, next) => current + "." + next);
 
-            var modules = assembly.Symbols.OfType<ModuleSymbol>();
-            ModuleSymbol? module = modules.FirstOrDefault(mod => mod.Name == moduleName);
+            ModuleSymbol? module = Modules.FirstOrDefault(mod => mod.Name == moduleName);
 
             while (module == null && parts.Length > 1)
             {
                 parts = parts.Take(parts.Length - 1).ToArray();
                 moduleName = parts.Aggregate((current, next) => current + "." + next);
-                module = modules.FirstOrDefault(mod => mod.Name == moduleName);
+                module = Modules.FirstOrDefault(mod => mod.Name == moduleName);
             }
 
             if (module == null)
@@ -425,20 +399,6 @@ namespace Symbols
             }
 
             return module;
-        }
-
-        public ModuleSymbol? FindModuleByFQN(string name)
-        {
-            // First, find the correct assembly
-            var assembly = FindAssemblyByFQN(name);
-            if (assembly == null)
-            {
-                return null;
-            }
-
-            var modulePart = name.Remove(0, assembly.Name.Length + 1);
-
-            return FindModuleByFQN(assembly, modulePart);
         }
     }
 }

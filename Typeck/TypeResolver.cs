@@ -87,6 +87,35 @@ namespace Typeck
 
         public void Visit(ClassNode node)
         {
+            
+            // For each contract this class conforms to, check if one of them is in fact a class and make it the base type
+            foreach (var contract in node.Contracts)
+            {
+                var symbol = _symbolTable.FindTypeByFQN(contract.Name);
+
+                if (symbol == null)
+                {
+                    symbol = _symbolTable.FindTypeBySimpleName(contract.Name);
+                }
+
+                if (symbol != null)
+                {
+                    contract.FullyQualifiedName = symbol.FullyQualifiedName;
+                    contract.TypeKind = Utils.SymbolKindToASTKind(symbol.TypeKind);
+                    contract.Assembly = symbol.Assembly;
+                    
+                    if (symbol.TypeKind == TypeKind.Class)
+                    {
+                        node.BaseType = contract;
+                    }
+                }
+            }
+
+            if (node.BaseType != null)
+            {
+                node.Contracts.Remove(node.BaseType);
+            }
+            
             if (node.Body != null)
             {
                 node.Body.Accept(this);
@@ -498,33 +527,7 @@ namespace Typeck
         // ---- Helper methods ----
         private ITypeReferenceNode? CheckTypeReferenceNode(TypeReferenceNode typeNode)
         {
-#if IONA_BOOTSTRAP
             TypeReferenceNode typeRef;
-            switch (typeNode.Name)
-            {
-                case "bool":
-                case "byte":
-                case "decimal":
-                case "double":
-                case "float":
-                case "int":
-                case "long":
-                case "nint":
-                case "nuint":
-                case "sbyte":
-                case "short":
-                case "string":
-                case "uint":
-                case "ulong":
-                case "ushort":
-                    typeRef = new TypeReferenceNode(typeNode.Name, typeNode.Parent);
-                    typeRef.FullyQualifiedName = $"Primitives.{typeNode.Name}";
-                    typeRef.Status = ResolutionStatus.Resolved;
-                    typeRef.TypeKind = AST.Types.Kind.Struct;
-
-                    return typeRef;
-            }
-#endif
 
             // We first need to find the scope this type reference is in(to find nested types, or the module)
             List<INode> nodeOrder = ((INode)typeNode).Hierarchy();
@@ -539,9 +542,8 @@ namespace Typeck
                 return null;
             }
 
-            var modules = _symbolTable.Assemblies.SelectMany(asm => asm.Symbols.OfType<ModuleSymbol>());
             // Now we know the model and the scopes in correct order, we can traverse both the ast and the symbol table to find the type
-            var types = modules.SelectMany(mod => mod.Symbols.OfType<TypeSymbol>());
+            var types = _symbolTable.Modules.SelectMany(mod => mod.Symbols.OfType<TypeSymbol>());
 
             var type = types.FirstOrDefault(symbol => symbol.FullyQualifiedName == typeNode.FullyQualifiedName);
 
@@ -581,9 +583,8 @@ namespace Typeck
                 return null;
             }
 
-            var modules = _symbolTable.Assemblies.SelectMany(asm => asm.Symbols.OfType<ModuleSymbol>());
             // Step 2: Find the module
-            var isModule = modules.Any(mod => mod.Name == target.Value);
+            var isModule = _symbolTable.Modules.Any(mod => mod.Name == target.Value);
 
             // Edge case: If the target is indeed a module, we still need to check if the module has a type with the same name
             // To do so we need to do the following:

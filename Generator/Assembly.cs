@@ -23,39 +23,37 @@ namespace Generator
             builder = new AssemblyBuilder(table);
         }
 
-        public Assembly Generate(INode node, bool intermediate)
+        public Assembly Generate(INode node, bool intermediate, List<string> assemblies, List<string> assemblyRefs)
         {
-            var freeFunctionsUnit = SyntaxFactory.CompilationUnit();
-            
-            var unit = builder.Build(node, ref freeFunctionsUnit);
+            var unit = builder.Build(node);
 
-            unit = WithFileHeader(node.ToString(), unit);
-            freeFunctionsUnit = WithFileHeader("GENERATED", freeFunctionsUnit);
+            unit = WithFileHeader(node.ToString(), unit)
+                .AddUsings(SyntaxFactory.UsingDirective(SyntaxFactory.ParseName("UnityEngine")));
             
-            var builtins = Environment.GetEnvironmentVariable("IONA_SDK_DIR") + "/Iona.Builtins.dll";
+            var references = new List<MetadataReference>();
+            foreach (var reference in assemblyRefs)
+            {
+                var ass = System.Reflection.Assembly.Load(reference);
+
+                if (ass != null)
+                {
+                    references.Add(MetadataReference.CreateFromFile(ass.Location));
+                }
+            }
             
             var options = new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary)
                 .WithPlatform(Platform.AnyCpu)
                 .WithNullableContextOptions(NullableContextOptions.Enable);
-            
-            var attribute = SyntaxFactory.Attribute(SyntaxFactory.ParseName("assembly:TargetFramework"))
-                .AddArgumentListArguments(
-                    SyntaxFactory.AttributeArgument(SyntaxFactory.ParseExpression("\".NET,Version=v8.0\", FrameworkDisplayName = \".NET, Version 8.0\"")));
-            
-            var attributeList = SyntaxFactory.AttributeList(
-                SyntaxFactory.SingletonSeparatedList(attribute)
-            );
 
             CSharpCompilation compilation = CSharpCompilation.Create(Name)
-                .AddSyntaxTrees(unit.SyntaxTree, freeFunctionsUnit.SyntaxTree, AssemblyInfo().SyntaxTree)
+                .WithOptions(options)
+                .AddSyntaxTrees(unit.SyntaxTree, AssemblyInfo().SyntaxTree)
                 .AddReferences(ReferenceAssemblies.Net80)
-                .AddReferences(MetadataReference.CreateFromFile(builtins))
-                .WithOptions(options);
+                .AddReferences(references);
 
             if (intermediate)
             {
                 File.WriteAllText(node.ToString() + ".cs", unit.NormalizeWhitespace().ToFullString());
-                File.WriteAllText(node.ToString() + "__free__.cs", freeFunctionsUnit.NormalizeWhitespace().ToFullString());
                 File.WriteAllText(node.ToString() + "__assembly.cs", AssemblyInfo().NormalizeWhitespace().ToFullString());
 
                 return null;

@@ -8,6 +8,11 @@ class Iona
         public IEnumerable<string> InputFiles { get; set; }
         [Option('i', "intermediate", Required = false, HelpText = "Compile to C# only. Do not emit assembly.")]
         public bool Intermediate { get; set; } = false;
+        [Option('a', "assemblies", Required = false, HelpText = "Additional paths to check for assemblies")]
+        public IEnumerable<string> AssemblyPaths { get; set; }
+        [Option('r', "references", Required = false, HelpText = "Assemblies that shall be referenced.")]
+
+        public IEnumerable<string> AssemblyRefs { get; set; }
     }
     
     static void Main(String[] args)
@@ -24,7 +29,13 @@ class Iona
         // Normalize the code(converting \r\n to \n)
         code = code.Replace("\r\n", "\n");
 
-        compiler.Compile("App", new List<CompilationUnit> { new CompilationUnit { Source = code, Name = fileName }}, options.Intermediate); 
+        compiler.Compile(
+            "App", 
+            new List<CompilationUnit> { new CompilationUnit { Source = code, Name = fileName }}, 
+            options.Intermediate, 
+            options.AssemblyPaths?.ToList() ?? new List<string>(),
+            options.AssemblyRefs?.ToList() ?? new List<string>()
+            ); 
     }
 
     static void OnError(IEnumerable<Error> errors)

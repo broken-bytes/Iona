@@ -44,7 +44,6 @@ namespace Typeck
         internal void ConstructSymbolTable(FileNode file, out SymbolTable table, string assembly)
         {
             _symbolTable = new SymbolTable();
-            _symbolTable.Assemblies.Add(new AssemblySymbol(assembly));
             _assembly = assembly;
             table = _symbolTable;
 
@@ -54,98 +53,103 @@ namespace Typeck
             file.Accept(this);
         }
 
-        internal void ConstructSymbolsForAssembly(string assemblyName)
+        internal void ConstructSymbolsForAssembly(Assembly assembly)
         {
-
-            Assembly assembly;
-            // First try loading it from the current working directory
             try
             {
-                var path = $"{Environment.GetEnvironmentVariable("IONA_SDK_DIR")}\\{assemblyName}.dll";
-                assembly = Assembly.LoadFrom(path);
-            }
-            catch
-            {
-                // If that fails, try loading it from the GAC
-                assembly = Assembly.Load(assemblyName);
-            }
-
-            var assemblySymbol = new AssemblySymbol(assemblyName);
-            _symbolTable.Assemblies.Add(assemblySymbol);
-
-            var types = assembly.GetTypes();
-
-            foreach (var type in assembly.GetTypes())
-            {
-                var nspace = type.Namespace;
-
-                if (nspace == null)
+                // Try Loading each of the dependencies 
+                foreach (var reference in assembly.GetReferencedAssemblies())
                 {
-                    continue;
-                }
-
-                var module = assemblySymbol.Symbols.OfType<ModuleSymbol>().ToList().Find(m => m.Name == nspace);
-                if (module == null)
-                {
-                    module = new ModuleSymbol(nspace, assemblyName);
-                    module.Parent = assemblySymbol;
-                    assemblySymbol.Symbols.Add(module);
-                }
-                TypeKind kind = TypeKind.Unknown;
-                if (type.IsClass)
-                {
-                    kind = TypeKind.Class;
-                }
-                else if (type.IsInterface)
-                {
-                    kind = TypeKind.Contract;
-                }
-                else if (type.IsEnum)
-                {
-                    kind = TypeKind.Enum;
-                }
-                else if (type.IsValueType)
-                {
-                    kind = TypeKind.Struct;
-                }
-
-                var symbol = new TypeSymbol(type.Name, kind);
-                symbol.Parent = module;
-                module.Symbols.Add(symbol);
-
-                foreach (var member in type.GetMembers())
-                {
-                    if (member.MemberType == MemberTypes.Method)
+                    try
                     {
-                        var method = member as MethodInfo;
-                        var funcSymbol = new FuncSymbol(method.Name);
-                        funcSymbol.Parent = symbol;
-                        symbol.Symbols.Add(funcSymbol);
+                        Assembly.Load(reference);
+                    }
+                    catch
+                    {
+                        continue;
+                    }
+                }
+                var types = assembly.GetTypes();
 
-                        foreach (var param in method.GetParameters())
+                foreach (var type in types)
+                {
+                    var nspace = type.Namespace;
+
+                    if (nspace == null)
+                    {
+                        continue;
+                    }
+
+                    var module = _symbolTable.Modules.Find(m => m.Name == nspace);
+                    if (module == null)
+                    {
+                        module = new ModuleSymbol(nspace, assembly.FullName);
+                        _symbolTable.Modules.Add(module);
+                    }
+
+                    TypeKind kind = TypeKind.Unknown;
+                    if (type.IsClass)
+                    {
+                        kind = TypeKind.Class;
+                    }
+                    else if (type.IsInterface)
+                    {
+                        kind = TypeKind.Contract;
+                    }
+                    else if (type.IsEnum)
+                    {
+                        kind = TypeKind.Enum;
+                    }
+                    else if (type.IsValueType)
+                    {
+                        kind = TypeKind.Struct;
+                    }
+
+                    var symbol = new TypeSymbol(type.Name, kind);
+                    symbol.Parent = module;
+                    module.Symbols.Add(symbol);
+
+                    foreach (var member in type.GetMembers())
+                    {
+                        if (member.MemberType == MemberTypes.Method)
                         {
-                            var paramSymbol = new ParameterSymbol(param.Name, new TypeSymbol(param.ParameterType.Name, TypeKind.Unknown), funcSymbol);
-                            funcSymbol.Symbols.Add(paramSymbol);
-                        }
+                            var method = member as MethodInfo;
+                            var funcSymbol = new FuncSymbol(method.Name);
+                            funcSymbol.Parent = symbol;
+                            symbol.Symbols.Add(funcSymbol);
 
-                        var returnType = new TypeSymbol(method.ReturnType.Name, TypeKind.Unknown);
-                        funcSymbol.ReturnType = returnType;
-                    }
-                    else if (member.MemberType == MemberTypes.Field)
-                    {
-                        var field = member as FieldInfo;
-                        var fieldSymbol = new VariableSymbol(field.Name, new TypeSymbol(field.FieldType.Name, TypeKind.Unknown));
-                        fieldSymbol.Parent = symbol;
-                        symbol.Symbols.Add(fieldSymbol);
-                    }
-                    else if (member.MemberType == MemberTypes.Property)
-                    {
-                        var property = member as PropertyInfo;
-                        var propertySymbol = new PropertySymbol(property.Name, new TypeSymbol(property.PropertyType.Name, TypeKind.Unknown));
-                        propertySymbol.Parent = symbol;
-                        symbol.Symbols.Add(propertySymbol);
+                            foreach (var param in method.GetParameters())
+                            {
+                                var paramSymbol = new ParameterSymbol(param.Name,
+                                    new TypeSymbol(param.ParameterType.Name, TypeKind.Unknown), funcSymbol);
+                                funcSymbol.Symbols.Add(paramSymbol);
+                            }
+
+                            var returnType = new TypeSymbol(method.ReturnType.Name, TypeKind.Unknown);
+                            funcSymbol.ReturnType = returnType;
+                        }
+                        else if (member.MemberType == MemberTypes.Field)
+                        {
+                            var field = member as FieldInfo;
+                            var fieldSymbol = new VariableSymbol(field.Name,
+                                new TypeSymbol(field.FieldType.Name, TypeKind.Unknown));
+                            fieldSymbol.Parent = symbol;
+                            symbol.Symbols.Add(fieldSymbol);
+                        }
+                        else if (member.MemberType == MemberTypes.Property)
+                        {
+                            var property = member as PropertyInfo;
+                            var propertySymbol = new PropertySymbol(property.Name,
+                                new TypeSymbol(property.PropertyType.Name, TypeKind.Unknown));
+                            propertySymbol.Parent = symbol;
+                            symbol.Symbols.Add(propertySymbol);
+                        }
                     }
                 }
+            }
+            catch(Exception ex)
+            {
+                Console.WriteLine(ex);
             }
         }
 
@@ -372,14 +376,12 @@ namespace Typeck
         {
             ModuleSymbol? symbol = null;
 
-            var assembly = _symbolTable.Assemblies.FirstOrDefault(assembly => assembly.Name == _assembly);
-            var modules = assembly.Symbols.OfType<ModuleSymbol>().ToList();
-            symbol = modules.Find(module => module.Name == node.Name);
+            symbol = _symbolTable.Modules.Find(module => module.Name == node.Name);
 
             if (symbol == null)
             {
                 symbol = new ModuleSymbol(node.Name, _assembly);
-                assembly.Symbols.Add(symbol);
+                _symbolTable.Modules.Add(symbol);
             }
 
             _currentSymbol = symbol;

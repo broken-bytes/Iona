@@ -105,6 +105,24 @@ namespace Parser.Parsers
                 return variableParser.Parse(stream, parent);
             }
 
+            if (token.Type == TokenType.Use)
+            {
+                token = stream.Consume();
+
+                var moduleImport = "";
+                
+                token = stream.Peek();
+                
+                // While the next token is an identifier or dot, keep adding and peeking
+                while (token.Type is TokenType.Identifier or TokenType.Dot)
+                {
+                    moduleImport += stream.Peek().Value;
+                    token = stream.Consume();
+                }
+
+                return new ImportNode(moduleImport, parent);
+            }
+
             return ParseReturn(stream, parent);
         }
 
@@ -187,6 +205,8 @@ namespace Parser.Parsers
             var value = expressionParser.Parse(stream, parent);
 
             var assignment = new AssignmentNode(compoundOperation.Value, identifierNode, value, parent);
+            assignment.Value.Parent = assignment;
+            assignment.Target.Parent = assignment;
             Utils.SetMeta(assignment, target);
 
             return assignment;

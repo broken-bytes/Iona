@@ -1,4 +1,5 @@
-﻿using AST.Nodes;
+﻿using System.Reflection;
+using AST.Nodes;
 using AST.Types;
 using Symbols;
 
@@ -79,18 +80,30 @@ namespace Typeck
             }
         }
 
-        public SymbolTable MergeTables(List<SymbolTable> tables)
+        public SymbolTable MergeTables(List<SymbolTable> tables, List<string> assemblies)
         {
             var mergedTable = new SymbolTable();
+            
+            foreach (var path in assemblies)
+            {
+                Assembly? assembly = null;
+                try
+                {
+                    assembly = Assembly.Load(path);
+                    _tableConstructor.ConstructSymbolsForAssembly(assembly);
 
-            _tableConstructor.ConstructSymbolsForAssembly("Iona.Builtins");
-            _tableConstructor.ConstructSymbolsForAssembly("System.Private.CoreLib");
+                }
+                catch
+                {
+                    continue;
+                }
+            }
 
             foreach (var table in tables)
             {
-                foreach (var assembly in table.Assemblies)
+                foreach (var module in table.Modules)
                 {
-                    mergedTable.Assemblies.Add(assembly);
+                    mergedTable.Modules.Add(module);
                 }
             }
 

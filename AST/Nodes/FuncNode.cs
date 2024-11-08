@@ -20,6 +20,7 @@ namespace AST.Nodes
         public BlockNode? Body { get; set; }
         public ResolutionStatus Status { get; set; } = ResolutionStatus.Unresolved;
         public Metadata Meta { get; set; }
+        public bool IsFree { get; set; } = false;
 
         public FuncNode(
             string name,
