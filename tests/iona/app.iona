@@ -14,3 +14,7 @@ public class Test: MonoBehaviour {
         value += 1
     }
 }
+
+public fn freeFunc() {
+    
+}

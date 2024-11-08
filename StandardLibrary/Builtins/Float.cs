@@ -11,7 +11,7 @@
             this.value = value;
         }
 
-        public Float(Int value)
+        public Float(NInt value)
         {
             this.value = value.value;
         }

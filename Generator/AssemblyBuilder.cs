@@ -243,14 +243,14 @@ namespace Generator
                 // C# does not support free functions, so we create a global "__free__" static class for each namespace
                 // First, check if the free functions unit contains a namespace named liked the current one
 
-                source.Append("public partial class __free__ {\n");
+                source.Append("public static partial class Module {\n");
                 
                 source.Append(@"
                 /// <summary>
                 /// This function is defined in {node.Meta.File} at line {node.Meta.LineStart}
                 /// </summary>
-                \n");
-                source.Append("static ");
+                ");
+                source.Append("\nstatic ");
             }
             
             if (node.AccessLevel == AccessLevel.Public)
