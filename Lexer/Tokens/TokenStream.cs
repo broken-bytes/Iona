@@ -285,7 +285,7 @@
         /// Panics until a token of the given type is found
         /// </summary>
         /// <param name="type"></param>
-        private void Panic(TokenType type)
+        public void Panic(TokenType type)
         {
             while (!IsEmpty())
             {
@@ -301,7 +301,7 @@
         /// </summary>
         /// <param name="family"></param>
         /// <exception cref="TokenStreamEmptyException"></exception>
-        private void Panic(TokenFamily family)
+        public void Panic(TokenFamily family)
         {
             while (!IsEmpty())
             {

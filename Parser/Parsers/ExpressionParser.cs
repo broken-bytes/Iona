@@ -9,6 +9,158 @@ namespace Parser.Parsers
 {
     public class ExpressionParser
     {
+        private enum ExpressionState
+        {
+            Any,
+            StartGroup,
+            EndGroup,
+            MemberAccess,
+            Operand,
+            Operator,
+            Invalid,
+            Finish,
+            Skip
+        }
+
+        private ExpressionState NextState(ExpressionState currentState, Token token)
+        {
+            if (token.Type == TokenType.Linebreak)
+            {
+                // If linebreak is not following operator, end expression
+                if (currentState is ExpressionState.Operator or ExpressionState.Any)
+                {
+                    return ExpressionState.Skip;
+                }
+                
+                return ExpressionState.Finish;
+            }
+            switch (currentState)
+            {
+                case ExpressionState.Any:
+                {
+                    if (IsBinaryOperator(token))
+                    {
+                        return ExpressionState.Operator;
+                    }
+
+                    if (token.Type is TokenType.Dot)
+                    {
+                        return ExpressionState.MemberAccess;
+                    }
+
+                    if (token.Family is TokenFamily.Literal || token.Type is TokenType.Identifier)
+                    {
+                        return ExpressionState.Operand;
+                    }
+
+                    if (token.Type is TokenType.ParenLeft)
+                    {
+                        return ExpressionState.StartGroup;
+                    }
+
+                    return ExpressionState.Invalid;
+                }
+                case ExpressionState.Operand:
+                {
+                    if (token.Type is TokenType.ParenLeft)
+                    {
+                        return ExpressionState.StartGroup;
+                    }
+
+                    if (token.Type is TokenType.ParenRight)
+                    {
+                        return ExpressionState.EndGroup;
+                    }
+
+                    if (token.Type is TokenType.Dot)
+                    {
+                        return ExpressionState.MemberAccess;
+                    }
+
+                    if (IsBinaryOperator(token))
+                    {
+                        return ExpressionState.Operator;
+                    }
+                    else if (token.Family is TokenFamily.Operator)
+                    {
+                        // Any operator that is NOT a binaru or unary operator ends the expression (=, +=, etc.)
+                        return ExpressionState.Finish;
+                    }
+                    
+                    return ExpressionState.Invalid;
+                }
+                case ExpressionState.Operator:
+                {
+                    if (token.Type is TokenType.ParenLeft)
+                    {
+                        return ExpressionState.StartGroup;
+                    }
+
+                    if (token.Type is TokenType.Identifier || token.Family is TokenFamily.Literal)
+                    {
+                        return ExpressionState.Operand;
+                    }
+
+                    return ExpressionState.Invalid;
+                }
+
+                case ExpressionState.StartGroup:
+                {
+                    if (token.Type is TokenType.ParenLeft)
+                    {
+                        return ExpressionState.StartGroup;
+                    }
+
+                    if (token.Type is TokenType.Identifier || token.Family is TokenFamily.Literal)
+                    {
+                        return ExpressionState.Operand;
+                    }
+
+                    if (token.Type is TokenType.ParenRight)
+                    {
+                        return ExpressionState.EndGroup;
+                    }
+
+                    if (IsBinaryOperator(token))
+                    {
+                        return ExpressionState.Operator;
+                    }
+                    
+                    return ExpressionState.Invalid;
+                }
+                case ExpressionState.EndGroup:
+                {
+                    if (token.Type is TokenType.ParenRight)
+                    {
+                        return ExpressionState.EndGroup;
+                    }
+
+                    if (token.Type is TokenType.Identifier || token.Family is TokenFamily.Literal)
+                    {
+                        return ExpressionState.Operand;
+                    }
+
+                    if (token.Type is TokenType.Dot)
+                    {
+                        return ExpressionState.MemberAccess;
+                    }
+                    
+                    return ExpressionState.Invalid;
+                }
+                case ExpressionState.MemberAccess:
+                {
+                    if (token.Type is TokenType.Identifier)
+                    {
+                        return ExpressionState.Operand;
+                    }
+
+                    return ExpressionState.Invalid;
+                }
+            }
+
+            return ExpressionState.Invalid;
+        }
+        
         FuncCallParser funcCallParser;
         MemberAccessParser memberAccessParser;
         TypeParser typeParser;
@@ -55,120 +207,47 @@ namespace Parser.Parsers
         {
             var tokens = new List<Token>();
             var token = stream.Peek();
-
-            tokens.Add(token);
-
-            while (
-                token.Type == TokenType.ParenLeft ||
-                token.Type == TokenType.ParenRight ||
-                token.Family == TokenFamily.Operator ||
-                token.Family == TokenFamily.Literal ||
-                token.Family == TokenFamily.Identifier ||
-                token.Type == TokenType.BracketLeft ||
-                token.Type == TokenType.BracketRight ||
-                token.Type == TokenType.CurlyLeft ||
-                token.Type == TokenType.CurlyRight ||
-                token.Type == TokenType.Dot
-            )
+            
+            // Track if the last token was an operator. Only `(`, `identifier`, `literal` may follow after an operator 
+            // Likewise, if the last token was not an operator, we end the expression if something other than an operator occurs 
+            var nextState = NextState(ExpressionState.Any, token);
+            while (!stream.IsEmpty())
             {
-                stream.Consume();
-                var nextToken = stream.Peek();
-
-                while (nextToken.Type == TokenType.Linebreak)
-                {
-                    stream.Consume();
-                    nextToken = stream.Peek();
-                }
-
-                // If we encounter any operator that is not a binary operator, we stop parsing as we found the end of the expression
-                if (
-                    nextToken.Family is TokenFamily.Operator &&
-                    (!IsBinaryOperator(nextToken) && nextToken.Type != TokenType.Dot)
-                )
+                if (nextState is ExpressionState.Finish)
                 {
                     break;
                 }
-
-                // If we encounter a keyword or curly bracket, we stop parsing as we found the end of the expression
-                if (
-                    nextToken.Family is TokenFamily.Keyword ||
-                    nextToken.Type == TokenType.CurlyRight
-                )
+                switch (nextState)
                 {
-                    break;
-                }
-
-                // If the token is unary it needs to be followed by an identifier
-                if (IsUnaryOperator(token) && nextToken.Type is not TokenType.Identifier)
-                {
-                    var meta = new Metadata
-                    {
-                        ColumnEnd = nextToken.ColumnEnd,
-                        ColumnStart = nextToken.ColumnStart,
-                        LineStart = nextToken.Line,
-                        LineEnd = nextToken.Line,
-                        File = nextToken.File
-                    };
-                    errorCollector.Collect(CompilerErrorFactory.SyntaxError("Unary operations are only allowed on symbols", meta));
-
-                    return null;
-                }
-
-                if (
-                    IsBinaryOperator(token) && (
-                        nextToken.Type != TokenType.Identifier &&
-                        nextToken.Family is not TokenFamily.Literal
-                    )
-                )
-                {
-                    var meta = new Metadata
-                    {
-                        ColumnEnd = nextToken.ColumnEnd,
-                        ColumnStart = nextToken.ColumnStart,
-                        LineStart = nextToken.Line,
-                        LineEnd = nextToken.Line,
-                        File = nextToken.File
-                    };
-                    errorCollector.Collect(CompilerErrorFactory.SyntaxError("Binary operations are only allowed on symbols and literals", meta));
-
-                    return null;
-                }
-
-                if (
-                    token.Family is TokenFamily.Identifier ||
-                    token.Family is TokenFamily.Literal
-                )
-                {
-                    if (
-                        nextToken.Type != TokenType.Dot &&
-                        nextToken.Type != TokenType.ParenLeft &&
-                        !IsBinaryOperator(nextToken)
-                    )
+                    case ExpressionState.Invalid:
                     {
                         var meta = new Metadata
                         {
-                            ColumnEnd = nextToken.ColumnEnd,
-                            ColumnStart = nextToken.ColumnStart,
-                            LineStart = nextToken.Line,
-                            LineEnd = nextToken.Line,
-                            File = nextToken.File
+                            File = token.File,
+                            ColumnStart = token.ColumnStart,
+                            ColumnEnd = token.ColumnEnd,
+                            LineStart = token.Line,
+                            LineEnd = token.Line,
                         };
-                        errorCollector.Collect(CompilerErrorFactory.SyntaxError("Expected operator", meta));
+
+                        var error = CompilerErrorFactory.SyntaxError($"Unexpected token '{token.Value}'", meta);
+
+                        errorCollector.Collect(error);
 
                         return null;
                     }
+                    case ExpressionState.Skip:
+                        stream.Consume();
+                        break;
+                    default:
+                        tokens.Add(token);
+                        break;
                 }
 
-                // If we encounter a right parenthesis that isn't followed by a binary operator,
-                // we stop parsing as we found the end of the expression
-                if (token.Type is TokenType.ParenRight && !IsBinaryOperator(nextToken))
-                {
-                    break;
-                }
-
-                token = nextToken;
-
-                tokens.Add(nextToken);
+                stream.Consume();
+                token = stream.Peek();
+                
+                nextState = NextState(nextState, token);
             }
 
             var tokenStream = new TokenStream(tokens);
@@ -199,7 +278,6 @@ namespace Parser.Parsers
 
                 return null;
             }
-
 
             var typeName = stream.Peek();
             // Get the type of the object

@@ -5,16 +5,16 @@ use UnityEngine
 public class Test: MonoBehaviour {
     public var value: Int32 = 0
 
-
     public fn start() {
         value = 1
     }
 
     public fn update() {
         value += 1
+        Debug.log(gameobject)
     }
 }
 
 public fn freeFunc() {
-    
+
 }
