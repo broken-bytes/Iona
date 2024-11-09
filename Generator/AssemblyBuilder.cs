@@ -500,17 +500,17 @@ namespace Generator
             // Get the type of the prop
             var type = GetBoxedName(node.TypeNode.FullyQualifiedName);
             
-            if (node.AccessLevel == AccessLevel.Public)
+            switch (node.AccessLevel)
             {
-                source.Append("public ");
-            }
-            else if (node.AccessLevel == AccessLevel.Private)
-            {
-                source.Append("private ");
-            }
-            else
-            {
-                source.Append("internal ");
+                case AccessLevel.Public:
+                    source.Append("public ");
+                    break;
+                case AccessLevel.Private:
+                    source.Append("private ");
+                    break;
+                default:
+                    source.Append("internal ");
+                    break;
             }
             
             // We have two cases here:
@@ -527,23 +527,23 @@ namespace Generator
                     source.Append(" = ");
                 }
                 
-                if (node.Value is PropAccessNode prop)
+                switch (node.Value)
                 {
-                    prop.Accept(this);
-                } 
-                else if (node.Value is IdentifierNode ident)
-                {
-                    ident.Accept(this);
-                }
-                else if (node.Value is LiteralNode literal)
-                {
-                    literal.Accept(this);
+                    case PropAccessNode prop:
+                        prop.Accept(this);
+                        break;
+                    case IdentifierNode ident:
+                        ident.Accept(this);
+                        break;
+                    case LiteralNode literal:
+                        literal.Accept(this);
+                        break;
                 }
                 
-                source.Append(";");
+                source.Append(';');
             }
         }
-
+        
         public void Visit(ReturnNode node)
         {
             source.Append("return ");

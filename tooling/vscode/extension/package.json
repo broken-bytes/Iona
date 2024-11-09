@@ -1,0 +1,29 @@
+{
+  "name": "iona-lang",
+  "displayName": "Iona Language",
+  "description": "Provides the required tooling to edit Iona code from vscode",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.84.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "contributes": {
+    "languages": [{
+      "id": "iona",
+      "aliases": ["Iona", "iona"],
+      "extensions": [".iona"],
+      "configuration": "./language-configuration.json",
+      "icon": {
+        "light": "./images/logo.png",
+        "dark": "./images/logo.png"
+      }
+    }],
+    "grammars": [{
+      "language": "iona",
+      "scopeName": "source.iona",
+      "path": "./syntaxes/iona.tmLanguage.json"
+    }]
+  }
+}
