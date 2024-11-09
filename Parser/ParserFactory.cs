@@ -1,5 +1,5 @@
 ﻿using Parser.Parsers;
-using Parser.Parsers.Parser.Parsers;
+using Parser.Parsers;
 using Shared;
 
 namespace Parser

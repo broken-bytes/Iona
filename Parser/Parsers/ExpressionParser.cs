@@ -1,7 +1,7 @@
 ﻿using AST.Nodes;
 using AST.Types;
 using Lexer.Tokens;
-using Parser.Parsers.Parser.Parsers;
+using Parser.Parsers;
 using Shared;
 using System.Xml.Linq;
 
@@ -19,7 +19,8 @@ namespace Parser.Parsers
             Operator,
             Invalid,
             Finish,
-            Skip
+            Skip,
+            Param
         }
 
         private ExpressionState NextState(ExpressionState currentState, Token token)
@@ -81,7 +82,13 @@ namespace Parser.Parsers
                     {
                         return ExpressionState.Operator;
                     }
-                    else if (token.Family is TokenFamily.Operator)
+                    
+                    if (token.Type is TokenType.Colon)
+                    {
+                        return ExpressionState.Param;
+                    }
+                    
+                    if (token.Family is TokenFamily.Operator)
                     {
                         // Any operator that is NOT a binaru or unary operator ends the expression (=, +=, etc.)
                         return ExpressionState.Finish;
@@ -156,6 +163,18 @@ namespace Parser.Parsers
 
                     return ExpressionState.Invalid;
                 }
+                case ExpressionState.Param:
+                    if (token.Type is TokenType.Identifier)
+                    {
+                        return ExpressionState.Operand;
+                    }
+
+                    if (token.Type is TokenType.Colon)
+                    {
+                        return ExpressionState.Param;
+                    }
+                    
+                    return ExpressionState.Invalid;
             }
 
             return ExpressionState.Invalid;
@@ -256,172 +275,6 @@ namespace Parser.Parsers
             var expression = BuildBinaryExpressionNode(postfix, parent);
 
             return (IExpressionNode)expression;
-        }
-
-        private IExpressionNode? ParseObjectLiteral(TokenStream stream, INode? parent)
-        {
-            if (!IsObjectLiteral(stream))
-            {
-                var errorToken = stream.Peek();
-
-                var meta = new Metadata
-                {
-                    ColumnEnd = errorToken.ColumnEnd,
-                    ColumnStart = errorToken.ColumnStart,
-                    LineStart = errorToken.Line,
-                    LineEnd = errorToken.Line,
-                    File = errorToken.File
-                };
-
-
-                errorCollector.Collect(CompilerErrorFactory.SyntaxError("Invalid object literal", meta));
-
-                return null;
-            }
-
-            var typeName = stream.Peek();
-            // Get the type of the object
-            var objectType = typeParser.Parse(stream, null);
-
-            // Parse the object literal
-            var token = stream.Consume(TokenType.CurlyLeft, TokenFamily.Keyword);
-
-            var objectLiteral = new ObjectLiteralNode(objectType, parent);
-            Utils.SetStart(objectLiteral, typeName);
-
-            objectType.Parent = objectLiteral;
-
-            // Parse the arguments
-            while (token.Type != TokenType.CurlyRight)
-            {
-                var identifier = stream.Consume(TokenType.Identifier, TokenFamily.Identifier).Value;
-                stream.Consume(TokenType.Colon, TokenFamily.Operator);
-                var expression = Parse(stream, objectLiteral);
-
-                // Add the argument to the object literal
-                var arg = new ObjectLiteralNode.Argument { Name = identifier, Value = (IExpressionNode)expression };
-                objectLiteral.Arguments.Add(arg);
-
-                token = stream.Peek();
-
-                if (token.Type == TokenType.Comma)
-                {
-                    stream.Consume(TokenType.Comma, TokenFamily.Operator);
-                }
-            }
-
-            token = stream.Consume(TokenType.CurlyRight, TokenFamily.Keyword);
-            Utils.SetEnd(objectLiteral, token);
-
-            return objectLiteral;
-        }
-
-        private IExpressionNode ParseUnaryExpression(TokenStream stream, INode? parent)
-        {
-            var op = stream.Consume(TokenFamily.Operator, TokenFamily.Keyword);
-            var right = ParsePrimaryExpression(stream, parent);
-
-            // Get the operation for the token
-            UnaryOperation? operation = GetUnaryOperation(op);
-
-            return new UnaryExpressionNode(right, operation ?? UnaryOperation.Noop, null, parent);
-        }
-
-        private IExpressionNode? ParsePrimaryExpression(TokenStream stream, INode? parent)
-        {
-            // Check if literal or identifier
-            var token = stream.Peek();
-
-            if (IsMemberAccess(stream))
-            {
-                return memberAccessParser.Parse(stream, parent);
-            }
-
-            if (token.Family == TokenFamily.Literal)
-            {
-                token = stream.Consume(TokenFamily.Literal, TokenFamily.Keyword);
-                LiteralType type = LiteralType.Unknown;
-                switch (token.Type)
-                {
-                    case TokenType.Integer:
-                        type = LiteralType.Integer;
-                        break;
-                    case TokenType.Float:
-                        type = LiteralType.Float;
-                        break;
-                    case TokenType.String:
-                        type = LiteralType.String;
-                        break;
-                    case TokenType.Boolean:
-                        type = LiteralType.Boolean;
-                        break;
-                }
-
-                var literal = new LiteralNode(token.Value, type, parent);
-                Utils.SetMeta(literal, token);
-
-                return literal;
-            }
-            else if (token.Family == TokenFamily.Identifier)
-            {
-                var identifier = stream.Consume(TokenType.Identifier, TokenFamily.Identifier);
-                IExpressionNode identifierNode;
-
-                if (identifier.Value == "self")
-                {
-                    identifierNode = new SelfNode(parent);
-                }
-                else
-                {
-                    identifierNode = new IdentifierNode(identifier.Value, parent);
-                }
-
-                Utils.SetMeta(identifierNode, identifier);
-
-                return identifierNode;
-            }
-            else if (token.Type == TokenType.BracketLeft)
-            {
-                // Could be an array literal
-                var array = new ArrayLiteralNode(parent);
-                stream.Consume(TokenType.BracketLeft, TokenFamily.Operator);
-                Utils.SetStart(array, token);
-
-                while (stream.Peek().Type != TokenType.BracketRight)
-                {
-                    var expression = Parse(stream, parent);
-                    array.Values.Add((IExpressionNode)expression);
-
-                    if (stream.Peek().Type == TokenType.Comma)
-                    {
-                        stream.Consume(TokenType.Comma, TokenFamily.Operator);
-                    }
-                }
-
-                token = stream.Consume(TokenType.BracketRight, TokenFamily.Keyword);
-                Utils.SetEnd(array, token);
-
-                return array;
-            }
-            else
-            {
-                var errorToken = stream.Peek();
-
-                var meta = new Metadata
-                {
-                    ColumnEnd = errorToken.ColumnEnd,
-                    ColumnStart = errorToken.ColumnStart,
-                    LineStart = errorToken.Line,
-                    LineEnd = errorToken.Line,
-                    File = errorToken.File
-                };
-
-                var error = CompilerErrorFactory.SyntaxError("Unexpected token in expression", meta);
-
-                errorCollector.Collect(error);
-
-                return null;
-            }
         }
 
         private BinaryOperation GetBinaryOperation(Token token)
@@ -530,7 +383,7 @@ namespace Parser.Parsers
             var tokens = stream.Peek(2);
 
             if (
-                (tokens[0].Family == TokenFamily.Identifier || tokens[0].Family == TokenFamily.Literal) &&
+                (tokens[0].Family is TokenFamily.Identifier or TokenFamily.Literal) &&
                 IsUnaryOperator(tokens[1])
             )
             {
@@ -583,7 +436,7 @@ namespace Parser.Parsers
             while (!stream.IsEmpty())
             {
                 var token = stream.Consume();
-                if (token.Family == TokenFamily.Identifier || token.Family == TokenFamily.Literal)
+                if (token.Family is TokenFamily.Identifier or TokenFamily.Literal)
                 {
                     output.Add(token);
                 }
@@ -591,7 +444,7 @@ namespace Parser.Parsers
                 {
                     // When we have an identifier followed by a parenthesis without any operator
                     // we have a function call and parse until the closing parenthesis
-                    if (output[output.Count - 1].Type is TokenType.Identifier)
+                    if (output[^1].Type is TokenType.Identifier)
                     {
                         output.Add(token);
 
@@ -635,6 +488,14 @@ namespace Parser.Parsers
                     {
                         output.Add(stack.Pop());
                     }
+                    
+                    // No opening paren that matches closing one
+                    if (stack.Count == 0)
+                    {
+                        // TODO: Generate an error
+                        break;
+                    }
+                    
                     stack.Pop(); // Pop the '('
                 }
                 else // The token is an operator

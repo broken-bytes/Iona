@@ -25,16 +25,11 @@
 
     public class TokenStream : IEnumerable<Token>
     {
-        private readonly Queue<Token> tokens;
+        private readonly Queue<Token> _tokens;
 
         public TokenStream(List<Token> tokens)
         {
-            this.tokens = new Queue<Token>(tokens);
-        }
-
-        public void PushBack(Token token)
-        {
-            tokens.Enqueue(token);
+            _tokens = new Queue<Token>(tokens);
         }
 
         public Token Consume()
@@ -57,7 +52,7 @@
                 );
             }
 
-            Token token = tokens.Dequeue();
+            Token token = _tokens.Dequeue();
             return token;
         }
 
@@ -239,12 +234,12 @@
 
         public Token Peek()
         {
-            return tokens.FirstOrDefault(); // Returns null if empty
+            return _tokens.FirstOrDefault(); // Returns null if empty
         }
 
         public List<Token> Peek(int count)
         {
-            if (count > tokens.Count)
+            if (count > _tokens.Count)
             {
                 var errorToken = new Token
                 {
@@ -261,24 +256,23 @@
                 throw new TokenStreamEmptyException(errorToken, $"Expected {count} tokens, got EOF");
             }
 
-            return tokens.Skip(0).Take(count).ToList();
+            return _tokens.Skip(0).Take(count).ToList();
         }
 
         public bool IsEmpty()
         {
-            return tokens.Count <= 0;
+            return _tokens.Count <= 0;
         }
 
         // Iterator interface implementation
         public IEnumerator<Token> GetEnumerator()
         {
-            return tokens.GetEnumerator();
+            return _tokens.GetEnumerator();
         }
 
         System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator()
         {
             return GetEnumerator();
-
         }
 
         /// <summary>
@@ -310,6 +304,16 @@
                     return;
                 }
             }
+        }
+
+        public void Append(Token token)
+        {
+            _tokens.Enqueue(token);
+        }
+
+        public TokenStream Copy()
+        {
+            return new TokenStream(_tokens.ToList());
         }
     }
 }

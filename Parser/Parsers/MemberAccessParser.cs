@@ -1,6 +1,6 @@
 ﻿using AST.Nodes;
 using Lexer.Tokens;
-using Parser.Parsers.Parser.Parsers;
+using Parser.Parsers;
 using System.IO;
 
 namespace Parser.Parsers

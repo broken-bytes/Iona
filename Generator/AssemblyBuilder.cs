@@ -25,6 +25,7 @@ namespace Generator
         IInitCallVisitor,
         IInitVisitor,
         IFileVisitor,
+        IFuncCallVisitor,
         IFuncVisitor,
         ILiteralVisitor,
         IModuleVisitor,
@@ -91,7 +92,7 @@ namespace Generator
             }
             else if (node.Value is IdentifierNode ident)
             {
-               ident.Accept(this);
+                ident.Accept(this);
             }
             else if (node.Value is LiteralNode literal)
             {
@@ -100,14 +101,14 @@ namespace Generator
 
             source.Append(";\n");
         }
-        
+
         public void Visit(BinaryExpressionNode node)
         {
             if (currentMethod == null)
             {
                 return;
             }
-            
+
             if (node.Left is IdentifierNode left)
             {
                 left.Accept(this);
@@ -120,7 +121,7 @@ namespace Generator
             {
                 return;
             }
-            
+
             if (node.Right is IdentifierNode right)
             {
                 right.Accept(this);
@@ -172,8 +173,16 @@ namespace Generator
                 {
                     func.Accept(this);
                 }
+                else if (child is FuncCallNode funcCall)
+                {
+                    funcCall.Accept(this);
+                }
+                else if (child is PropAccessNode propAccess)
+                {
+                    propAccess.Accept(this);
+                }
             }
-            
+
             source.Append("}");
         }
 
@@ -191,14 +200,14 @@ namespace Generator
             {
                 source.Append("internal ");
             }
-            
+
             source.Append($"class {node.Name}");
 
             if (node.BaseType != null || node.Contracts.Count > 0)
             {
                 source.Append(":");
             }
-            
+
             if (node.BaseType != null)
             {
                 var typeSymbol = table.FindTypeByFQN(node.BaseType.FullyQualifiedName);
@@ -230,6 +239,22 @@ namespace Generator
                     source.Append($"using {import.Name};\n");
                 }
             }
+        }
+
+        public void Visit(FuncCallNode node)
+        {
+            // First, print the name of the function
+            source.Append(Shared.Utils.IonaToCSharpName(node.Target.Value));
+            source.Append("(");
+            foreach (var arg in node.Args)
+            {
+                source.Append(arg.Value.ToString());
+                source.Append(", ");
+            }
+            
+            source.Remove(source.Length - 2, 2);
+            source.Append(")");
+            source.Append(";");
         }
 
         public void Visit(FuncNode node)
@@ -535,6 +560,10 @@ namespace Generator
             else if (node.Property is PropAccessNode property)
             {
                 property.Accept(this);
+            }
+            else if (node.Property is FuncCallNode funcCall)
+            {
+                funcCall.Accept(this);
             }
         }
 

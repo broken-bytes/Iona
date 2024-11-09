@@ -11,7 +11,7 @@ public class Test: MonoBehaviour {
 
     public fn update() {
         value += 1
-        Debug.log(gameobject)
+        Debug.log(message: gameObject)
     }
 }
 
