@@ -206,7 +206,7 @@ namespace Generator
                 var typeSymbol = _table.FindTypeByFQN(node.BaseType.FullyQualifiedName);
                 if (typeSymbol != null)
                 {
-                    var type = GetBoxedName(typeSymbol.FullyQualifiedName);
+                    var type = Utils.GetBoxedName(typeSymbol.FullyQualifiedName);
 
                     source.Append(type);
                 }
@@ -257,7 +257,7 @@ namespace Generator
             }
             
             var isFree = node.Parent?.Parent is not ITypeNode;
-            var returnType = GetBoxedName(type.FullyQualifiedName);
+            var returnType = Utils.GetBoxedName(type.FullyQualifiedName);
             
             // The function is not part of a type and thus a free function
             if (isFree)
@@ -286,7 +286,7 @@ namespace Generator
             // Add the parameters to the method
             foreach (var parameter in node.Parameters)
             {
-                var paramType = GetBoxedName(parameter.TypeNode.FullyQualifiedName);
+                var paramType = Utils.GetBoxedName(parameter.TypeNode.FullyQualifiedName);
                 source.Append($"{paramType} {parameter.Name}");
             }
             source.Append(")");
@@ -352,7 +352,7 @@ namespace Generator
             // Add the parameters to the method
             foreach (var parameter in node?.Parameters ?? [])
             {
-                var paramType = GetBoxedName(parameter.TypeNode.FullyQualifiedName);
+                var paramType = Utils.GetBoxedName(parameter.TypeNode.FullyQualifiedName);
                 source.Append($"{paramType} {parameter.Name}");
             }
             source.Append(')');
@@ -498,7 +498,7 @@ namespace Generator
         public void Visit(PropertyNode node)
         {
             // Get the type of the prop
-            var type = GetBoxedName(node.TypeNode.FullyQualifiedName);
+            var type = Utils.GetBoxedName(node.TypeNode.FullyQualifiedName);
             
             switch (node.AccessLevel)
             {
@@ -617,50 +617,6 @@ namespace Generator
         private TypeReference? GetTypeReference(TypeSymbol type)
         {
             return null;
-        }
-
-        /// <summary>
-        /// Used to get the boxed type. This automatically converts Iona's Builtin Types like `Int` to the C# primitive `int` etc.
-        /// </summary>
-        /// <param name="name">The Full name of the type</param>
-        /// <returns></returns>
-        private static string GetBoxedName(string fullName)
-        {
-            switch (fullName)
-            {
-                case "Iona.Builtins.Bool":
-                    return "bool";
-                case "Iona.Builtins.Double":
-                    return "double";
-                case "Iona.Builtins.Float":
-                    return "float";
-                case "Iona.Builtins.Int8":
-                    return "sbyte";
-                case "Iona.Builtins.Int16":
-                    return "short";
-                case "Iona.Builtins.Int32":
-                    return "int";
-                case "Iona.Builtins.Int64":
-                    return "long";
-                case "Iona.Builtins.Int":
-                    return "nint";
-                case "Iona.Builtins.UInt8":
-                    return "byte";
-                case "Iona.Builtins.UInt16":
-                    return "ushort";
-                case "Iona.Builtins.UInt32":
-                    return "uint";
-                case "Iona.Builtins.UInt64":
-                    return "ulong";
-                case "Iona.Builtins.UInt":
-                    return "nuint";
-                case "Iona.Builtins.String":
-                    return "string";
-                case "Iona.Builtins.Void":
-                    return "void";
-            }
-
-            return fullName;
         }
         
         private MemberAccessExpressionSyntax PropAccessToMemberAccess(PropAccessNode node)

@@ -1,6 +1,7 @@
-module App
-
 use UnityEngine
+use Foo 
+
+module App
 
 public class Test: MonoBehaviour {
     public var value: Int32 = 0

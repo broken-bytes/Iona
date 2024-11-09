@@ -57,10 +57,6 @@ namespace Compiler
             // - Type checking
             // - Code generation
             // - Assembly building
-            AppDomain.CurrentDomain.AssemblyLoad += (sender, args) =>
-            {
-                Console.WriteLine("Loading assembly " + args.LoadedAssembly.FullName);
-            };
             AppDomain.CurrentDomain.AssemblyResolve += (sender, args) =>
             {
                 // Get the assembly name that failed to load
@@ -117,16 +113,26 @@ namespace Compiler
             Parallel.ForEach(asts, ast => typeck.CheckTopLevelScopes(ast, globalTable));
             Parallel.ForEach(asts, ast => typeck.TypeCheck(ast, globalTable));
             Parallel.ForEach(asts, ast => typeck.CheckExpressions(ast, globalTable));
-            Parallel.ForEach(asts, ast => logger.Log(ast));
             Parallel.ForEach(asts, ast => {
                 File.WriteAllText(((FileNode)ast.Root).Name + ".ast", visualizer.Visualize(ast));
             });
-
-            foreach(var error in errorCollector.Errors)
+            
+            if (errorCollector.Errors.Any())
             {
-                Console.WriteLine(error);
+                foreach(var error in errorCollector.Errors)
+                {
+                    error.Log();
+                }
+                
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("Compilation failed. See above errors for details.");
+                
+                Console.ResetColor();
+                
+                return;
             }
             
+            Console.ForegroundColor = ConsoleColor.Green;
             GenerateCode(assemblyName, asts.ToList(), globalTable, intermediate, assemblyPaths, assemblyRefs);
         }
 

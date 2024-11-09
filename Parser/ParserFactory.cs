@@ -54,7 +54,7 @@ namespace Parser
             propertyParser.Setup(statementParser);
             structParser.Setup(statementParser);
 
-            return new Parser(statementParser);
+            return new Parser(statementParser, errorCollector);
         }
     }
 }

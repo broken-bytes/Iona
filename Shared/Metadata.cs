@@ -10,7 +10,7 @@
 
         public override string ToString()
         {
-            return $"File: {File}(Line: {LineStart}-{LineEnd}, Column: {ColumnStart}-{ColumnEnd})";
+            return $"{File}:{LineStart}:{ColumnStart}";
         }
     }
 }
