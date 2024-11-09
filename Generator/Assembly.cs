@@ -58,6 +58,8 @@ namespace Generator
 
                 return null;
             }
+            
+            Console.WriteLine(unit.NormalizeWhitespace().ToFullString());
 
             using (var stream = new MemoryStream())
             {

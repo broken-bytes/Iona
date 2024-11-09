@@ -1,4 +1,5 @@
-﻿using AST.Nodes;
+﻿using System.Diagnostics.CodeAnalysis;
+using AST.Nodes;
 using AST.Types;
 using AST.Visitors;
 using Symbols;
@@ -37,12 +38,7 @@ namespace Generator
         ITypeReferenceVisitor,
         IVariableVisitor
     {
-        private readonly SymbolTable table;
-        private CompilationUnitSyntax compilationUnit;
-        private AssemblyDefinition? assembly;
-        private TypeDeclarationSyntax? currentType;
-        private BaseMethodDeclarationSyntax? currentMethod;
-        private NamespaceDeclarationSyntax? currentNamespace;
+        private readonly SymbolTable _table;
         private List<MetadataReference> references = new();
         private CompilationUnitSyntax freeFunctionsUnit;
 
@@ -50,7 +46,7 @@ namespace Generator
 
         internal AssemblyBuilder(SymbolTable table)
         {
-            this.table = table;
+            this._table = table;
         }
 
         internal CompilationUnitSyntax? Build(INode node)
@@ -86,7 +82,11 @@ namespace Generator
                     break;
             }
 
-            if (node.Value is PropAccessNode propRight)
+            if (node.Value is BinaryExpressionNode binaryExpression)
+            {
+                binaryExpression.Accept(this);
+            }
+            else if (node.Value is PropAccessNode propRight)
             {
                 propRight.Accept(this);
             }
@@ -104,14 +104,13 @@ namespace Generator
 
         public void Visit(BinaryExpressionNode node)
         {
-            if (currentMethod == null)
-            {
-                return;
-            }
-
             if (node.Left is IdentifierNode left)
             {
                 left.Accept(this);
+            }
+            else if (node.Left is LiteralNode literal)
+            {
+                literal.Accept(this);    
             }
             else if (node.Left is PropAccessNode propAccess)
             {
@@ -121,10 +120,16 @@ namespace Generator
             {
                 return;
             }
-
+            
+            source.Append(node.Operation.CSharpOperator());
+            
             if (node.Right is IdentifierNode right)
             {
                 right.Accept(this);
+            }
+            else if (node.Right is LiteralNode literal)
+            {
+                literal.Accept(this);
             }
             else if (node.Right is PropAccessNode propAccess)
             {
@@ -188,19 +193,7 @@ namespace Generator
 
         public void Visit(ClassNode node)
         {
-            if (node.AccessLevel == AccessLevel.Public)
-            {
-                source.Append("public ");
-            }
-            else if (node.AccessLevel == AccessLevel.Private)
-            {
-                source.Append("private ");
-            }
-            else
-            {
-                source.Append("internal ");
-            }
-
+            source.Append(AccessLevelString(node.AccessLevel));
             source.Append($"class {node.Name}");
 
             if (node.BaseType != null || node.Contracts.Count > 0)
@@ -210,7 +203,7 @@ namespace Generator
 
             if (node.BaseType != null)
             {
-                var typeSymbol = table.FindTypeByFQN(node.BaseType.FullyQualifiedName);
+                var typeSymbol = _table.FindTypeByFQN(node.BaseType.FullyQualifiedName);
                 if (typeSymbol != null)
                 {
                     var type = GetBoxedName(typeSymbol.FullyQualifiedName);
@@ -244,23 +237,27 @@ namespace Generator
         public void Visit(FuncCallNode node)
         {
             // First, print the name of the function
-            source.Append(Shared.Utils.IonaToCSharpName(node.Target.Value));
-            source.Append("(");
+            source.Append(Utils.IonaToCSharpName(node.Target.Value));
+            source.Append('(');
             foreach (var arg in node.Args)
             {
-                source.Append(arg.Value.ToString());
+                source.Append(arg.Value);
                 source.Append(", ");
             }
             
             source.Remove(source.Length - 2, 2);
-            source.Append(")");
-            source.Append(";");
+            source.Append(");");
         }
 
         public void Visit(FuncNode node)
         {
-            bool isFree = node?.Parent?.Parent is not ITypeNode;
-            var returnType = GetBoxedName(node.ReturnType.FullyQualifiedName);
+            if (node.ReturnType is not TypeReferenceNode type)
+            {
+                return;
+            }
+            
+            var isFree = node.Parent?.Parent is not ITypeNode;
+            var returnType = GetBoxedName(type.FullyQualifiedName);
             
             // The function is not part of a type and thus a free function
             if (isFree)
@@ -270,26 +267,15 @@ namespace Generator
 
                 source.Append("public static partial class Module {\n");
                 
-                source.Append(@"
+                source.Append("""
                 /// <summary>
                 /// This function is defined in {node.Meta.File} at line {node.Meta.LineStart}
                 /// </summary>
-                ");
+                """);
                 source.Append("\nstatic ");
             }
-            
-            if (node.AccessLevel == AccessLevel.Public)
-            {
-                source.Append("public ");
-            }
-            else if (node.AccessLevel == AccessLevel.Private)
-            {
-                source.Append("private ");
-            }
-            else
-            {
-                source.Append("internal ");
-            }
+
+            source.Append(AccessLevelString(node.AccessLevel));
             
             source.Append(returnType);
             
@@ -323,22 +309,19 @@ namespace Generator
 
         public void Visit(InitCallNode node)
         {
-            if (assembly == null || currentMethod == null)
+            if (node.ResultType is not TypeReferenceNode resultType)
             {
                 return;
             }
+            
+            var typeSymbol = _table.FindTypeByFQN(resultType.FullyQualifiedName);
 
-            var type = (TypeReferenceNode)node.ResultType;
-
-            if (type == null)
+            if (typeSymbol is null)
             {
                 return;
             }
-
-            var module = ((INode)type).Module;
-
-
-            var init = table.FindTypeByFQN(type.FullyQualifiedName)
+            
+            var init = typeSymbol
                 .Symbols
                 .OfType<BlockSymbol>()
                 .First()
@@ -351,49 +334,30 @@ namespace Generator
                         return false;
                     }
 
-                    for (int i = 0; i < parameters.Count; i++)
-                    {
-                        if (parameters[i].Type.FullyQualifiedName != node.Args[i].Value.ResultType?.FullyQualifiedName)
-                        {
-                            return false;
-                        }
-                    }
-
-                    return true;
+                    return !parameters.Where((t, i) => t.Type.FullyQualifiedName != node.Args[i].Value.ResultType?.FullyQualifiedName).Any();
                 });
         }
 
         public void Visit(InitNode node)
         {
-            if (node.AccessLevel == AST.Types.AccessLevel.Private)
-            {
-                source.Append("private ");
-            }
-            else if (node.AccessLevel == AST.Types.AccessLevel.Public)
-            {
-                source.Append("public ");
-            }
-            else
-            {
-                source.Append("internal ");
-            }
+            source.Append(AccessLevelString(node.AccessLevel));
 
-            var type = node.Parent.Parent as ITypeNode;
+            if (node?.Parent?.Parent is not ITypeNode type)
+            {
+                return;
+            }
             
             source.Append($"{type.Name}(");
             
             // Add the parameters to the method
-            foreach (var parameter in node.Parameters)
+            foreach (var parameter in node?.Parameters ?? [])
             {
                 var paramType = GetBoxedName(parameter.TypeNode.FullyQualifiedName);
                 source.Append($"{paramType} {parameter.Name}");
             }
-            source.Append(")");
-            
-            if (node.Body != null)
-            {
-                node.Body.Accept(this);
-            }
+            source.Append(')');
+
+            node?.Body?.Accept(this);
         }
 
         public void Visit(LiteralNode node)
@@ -421,28 +385,22 @@ namespace Generator
                 }
             }
             
-            source.Append("}");
+            source.Append('}');
         }
 
         public void Visit(OperatorNode node)
         {
-            if (currentType == null)
-            {
-                return;
-            }
-
             // Get the type of the operator and generate the CIL operator overload
             var opType = node.Op;
             // Get the return type of the operator
-            var returnType = (TypeReferenceNode)node.ReturnType;
 
-            // Get the reference to the return type
-            TypeReference? reference = null;
-
-            if (returnType == null)
+            if (node.ReturnType is not TypeReferenceNode returnType)
             {
                 return;
             }
+
+            // Get the reference to the return type
+            TypeReference? reference = null;
 
             reference = new TypeReference(
                 returnType.Name,
@@ -458,54 +416,24 @@ namespace Generator
                 false
             );
 
-            MethodAttributes methodAttributes = MethodAttributes.Public | MethodAttributes.Static;
+            var methodAttributes = MethodAttributes.Public | MethodAttributes.Static;
 
-            MethodDefinition? method = null;
-
-            if (opType == OperatorType.Add)
+            MethodDefinition? method = opType switch
             {
-                method = new MethodDefinition("op_Addition", methodAttributes, reference);
-            }
-            else if (opType == OperatorType.Subtract)
-            {
-                method = new MethodDefinition("op_Subtraction", methodAttributes, reference);
-            }
-            else if (opType == OperatorType.Multiply)
-            {
-                method = new MethodDefinition("op_Multiply", methodAttributes, reference);
-            }
-            else if (opType == OperatorType.Divide)
-            {
-                method = new MethodDefinition("op_Division", methodAttributes, reference);
-            }
-            else if (opType == OperatorType.Modulo)
-            {
-                method = new MethodDefinition("op_Modulus", methodAttributes, reference);
-            }
-            else if (opType == OperatorType.Equal)
-            {
-                method = new MethodDefinition("op_Equality", methodAttributes, boolRef);
-            }
-            else if (opType == OperatorType.NotEqual)
-            {
-                method = new MethodDefinition("op_Inequality", methodAttributes, boolRef);
-            }
-            else if (opType == OperatorType.GreaterThan)
-            {
-                method = new MethodDefinition("op_GreaterThan", methodAttributes, boolRef);
-            }
-            else if (opType == OperatorType.GreaterThanOrEqual)
-            {
-                method = new MethodDefinition("op_GreaterThanOrEqual", methodAttributes, boolRef);
-            }
-            else if (opType == OperatorType.LessThan)
-            {
-                method = new MethodDefinition("op_LessThan", methodAttributes, boolRef);
-            }
-            else if (opType == OperatorType.LessThanOrEqual)
-            {
-                method = new MethodDefinition("op_LessThanOrEqual", methodAttributes, boolRef);
-            }
+                OperatorType.Add => new MethodDefinition("op_Addition", methodAttributes, reference),
+                OperatorType.Subtract => new MethodDefinition("op_Subtraction", methodAttributes, reference),
+                OperatorType.Multiply => new MethodDefinition("op_Multiply", methodAttributes, reference),
+                OperatorType.Divide => new MethodDefinition("op_Division", methodAttributes, reference),
+                OperatorType.Modulo => new MethodDefinition("op_Modulus", methodAttributes, reference),
+                OperatorType.Equal => new MethodDefinition("op_Equality", methodAttributes, boolRef),
+                OperatorType.NotEqual => new MethodDefinition("op_Inequality", methodAttributes, boolRef),
+                OperatorType.GreaterThan => new MethodDefinition("op_GreaterThan", methodAttributes, boolRef),
+                OperatorType.GreaterThanOrEqual => new MethodDefinition("op_GreaterThanOrEqual", methodAttributes,
+                    boolRef),
+                OperatorType.LessThan => new MethodDefinition("op_LessThan", methodAttributes, boolRef),
+                OperatorType.LessThanOrEqual => new MethodDefinition("op_LessThanOrEqual", methodAttributes, boolRef),
+                _ => null
+            };
 
             if (method == null)
             {
@@ -866,6 +794,16 @@ namespace Generator
             }
             
             return null;
+        }
+
+        private static string AccessLevelString(AccessLevel accessLevel)
+        {
+            return accessLevel switch
+            {
+                AccessLevel.Public => "public ",
+                AccessLevel.Private => "private ",
+                _ => "internal "
+            };
         }
     }
 }
