@@ -39,7 +39,8 @@ namespace Parser
                 operatorParser,
                 propertyParser,
                 structParser,
-                variableParser
+                variableParser,
+                errorCollector
             );
 
             classParser.Setup(statementParser);

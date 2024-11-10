@@ -59,8 +59,6 @@ namespace Generator
                 return null;
             }
             
-            Console.WriteLine(unit.NormalizeWhitespace().ToFullString());
-
             using (var stream = new MemoryStream())
             {
                 EmitResult result = compilation.Emit(stream);
@@ -71,9 +69,10 @@ namespace Generator
                 }
                 else
                 {
+                    Console.ForegroundColor = ConsoleColor.Red;
                     foreach (var diagnostic in result.Diagnostics)
                     {
-                        Console.Error.WriteLine(diagnostic);
+                        Console.Error.WriteLine($"Roslyn: {diagnostic}");
                     }
                 }
             }
@@ -136,8 +135,6 @@ namespace Generator
 
         private CompilationUnitSyntax AssemblyInfo()
         {
-
-            
             var assemblyInfo = SyntaxFactory.CompilationUnit()
                 .AddUsings(SyntaxFactory.UsingDirective(SyntaxFactory.ParseName("System.Runtime.Versioning")))
                 .AddUsings(SyntaxFactory.UsingDirective(SyntaxFactory.ParseName("System.Reflection")))

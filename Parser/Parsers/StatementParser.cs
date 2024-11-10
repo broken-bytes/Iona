@@ -1,6 +1,7 @@
 ﻿using AST.Nodes;
 using AST.Types;
 using Lexer.Tokens;
+using Shared;
 
 namespace Parser.Parsers
 {
@@ -17,6 +18,7 @@ namespace Parser.Parsers
         private readonly PropertyParser propertyParser;
         private readonly StructParser structParser;
         private readonly VariableParser variableParser;
+        private readonly IErrorCollector _errorCollector;
 
         internal StatementParser(
             ClassParser classParser,
@@ -29,7 +31,8 @@ namespace Parser.Parsers
             OperatorParser operatorParser,
             PropertyParser propertyParser,
             StructParser structParser,
-            VariableParser variableParser
+            VariableParser variableParser,
+            IErrorCollector errorCollector
         )
         {
             this.classParser = classParser;
@@ -43,9 +46,10 @@ namespace Parser.Parsers
             this.propertyParser = propertyParser;
             this.structParser = structParser;
             this.variableParser = variableParser;
+            _errorCollector = errorCollector;
         }
 
-        public INode Parse(TokenStream stream, INode? parent)
+        public INode? Parse(TokenStream stream, INode? parent)
         {
             var token = stream.Peek();
 
@@ -123,7 +127,32 @@ namespace Parser.Parsers
                 return new ImportNode(moduleImport, parent);
             }
 
-            return ParseReturn(stream, parent);
+            if (token.Type == TokenType.Return)
+            {
+                return ParseReturn(stream, parent);
+            }
+            
+            // Invalid token
+            var meta = new Metadata
+            {
+                File = token.File,
+                ColumnStart = token.ColumnStart,
+                ColumnEnd = token.ColumnEnd,
+                LineStart = token.Line,
+                LineEnd = token.Line,
+            };
+            
+            // We have an edge case here. When we find a bad token but an access modifier before it, skip the access token
+            if (token.Type is TokenType.Public or TokenType.Internal or TokenType.Private)
+            {
+            }
+            
+            var error = CompilerErrorFactory.ExpectedMember(token.Value, meta);
+            _errorCollector.Collect(error);
+            
+            stream.Panic(TokenFamily.Keyword);
+
+            return null;
         }
 
         public bool IsStatement(TokenStream stream)

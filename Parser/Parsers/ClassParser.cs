@@ -121,7 +121,11 @@ namespace Parser.Parsers
                 // Parse the contract body
                 while (token.Type != TokenType.CurlyRight)
                 {
-                    classNode.Body.AddChild(statementParser.Parse(stream, classNode.Body));
+                    var statement = statementParser.Parse(stream, classNode.Body);
+                    if (statement != null)
+                    {
+                        classNode.Body.AddChild(statement);
+                    }
 
                     token = stream.Peek();
 

@@ -283,10 +283,12 @@
         {
             while (!IsEmpty())
             {
-                if (Consume().Type == type)
+                if (Peek().Type == type)
                 {
                     return;
                 }
+
+                Consume();
             }
         }
 
@@ -299,10 +301,12 @@
         {
             while (!IsEmpty())
             {
-                if (Consume().Family == family)
+                if (Peek().Family == family)
                 {
                     return;
                 }
+
+                Consume();
             }
         }
 

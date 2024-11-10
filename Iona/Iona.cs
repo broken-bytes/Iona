@@ -27,30 +27,51 @@ class Iona
     static void OnCompile(Options options)
     {
         var compiler = CompilerFactory.Create();
-        // Read the second arg from the command line
-        var fileName = options.InputFiles.FirstOrDefault();
-        var code = File.ReadAllText(fileName);
-        // Normalize the code(converting \r\n to \n)
-        code = code.Replace("\r\n", "\n");
-        
-        Console.WriteLine("Options:");
 
+        Console.ForegroundColor = ConsoleColor.DarkCyan;
+        
+        if (options.Intermediate || options.AssemblyPaths.Any())
+        {
+            Console.WriteLine("Options:");
+        }
+        
+        Console.ForegroundColor = ConsoleColor.White;
         if (options.Intermediate)
         {
-            Console.WriteLine("- Intermediate");
+            Console.WriteLine(" - Intermediate");
         }
 
-        Console.ForegroundColor = ConsoleColor.Green;
-        Console.WriteLine("Compiling {0}", fileName);
-        Console.ForegroundColor = ConsoleColor.White;
+        foreach (var path in options.AssemblyPaths)
+        {
+            Console.WriteLine(" - Search Path " + path);
+        }
         
-        compiler.Compile(
-            "App", 
-            new List<CompilationUnit> { new CompilationUnit { Source = code, Name = fileName }}, 
-            options.Intermediate, 
-            options.AssemblyPaths?.ToList() ?? new List<string>(),
-            options.AssemblyRefs?.ToList() ?? new List<string>()
+        foreach (var reference in options.AssemblyRefs)
+        {
+            Console.WriteLine(" - Link " + reference);
+        }
+        
+        Console.WriteLine();
+
+        foreach (var file in options.InputFiles)
+        {
+            // Read the second arg from the command line
+            var code = File.ReadAllText(file);
+            // Normalize the code(converting \r\n to \n)
+            code = code.Replace("\r\n", "\n");
+            
+            Console.ForegroundColor = ConsoleColor.Green;
+            Console.WriteLine("Compiling {0}", file);
+            Console.ForegroundColor = ConsoleColor.White;
+        
+            compiler.Compile(
+                "App", 
+                new List<CompilationUnit> { new CompilationUnit { Source = code, Name = file }}, 
+                options.Intermediate, 
+                options.AssemblyPaths?.ToList() ?? new List<string>(),
+                options.AssemblyRefs?.ToList() ?? new List<string>()
             ); 
+        }
     }
 
     static void OnError(IEnumerable<Error> errors)

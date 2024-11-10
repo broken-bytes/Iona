@@ -15,5 +15,7 @@
         TypeDoesNotContainMethod,
         /// Used when a symbol is ambiguous (e.g. two functions with the same name, or two types from different modules)
         AmbiguousTypes,
+        /// Used when a token was found inside a top level type that does not start any member (func, op, prop)
+        ExpectedMember,
     }
 }

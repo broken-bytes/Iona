@@ -61,5 +61,14 @@ namespace Shared
                 meta
             );
         }
+
+        public static CompilerError ExpectedMember(string token, Metadata meta)
+        {
+            return new CompilerError(
+                CompilerErrorCode.ExpectedMember,
+                $"Expected function or property declaration, but got `{token}`",
+                meta
+            );
+        }
     }
 }

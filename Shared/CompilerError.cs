@@ -137,6 +137,8 @@
                     return "C0006";
                 case CompilerErrorCode.AmbiguousTypes:
                     return "C0007";
+                case CompilerErrorCode.ExpectedMember:
+                    return "C0008";
                 default:
                     return "UnknownError";
             }
