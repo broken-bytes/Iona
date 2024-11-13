@@ -28,6 +28,7 @@ namespace ASTLogger
         IPropAccessVisitor,
         IPropertyVisitor,
         IReturnVisitor,
+        IScopeResolutionVisitor,
         ISelfVisitor,
         IStructVisitor,
         ITypeReferenceVisitor,
@@ -512,6 +513,30 @@ namespace ASTLogger
             Spacer();
         }
 
+        public void Visit(ScopeResolutionNode node)
+        {
+            Log("> SCOPE RESOLUTION:");
+            LogMeta(node);
+            if (node.ResultType != null)
+            {
+                Log("- Type: ");
+                _indentLevel++;
+                GetAndLogNode(node.ResultType);
+                _indentLevel--;
+            }
+
+            Log($"- Object:");
+            _indentLevel++;
+            GetAndLogNode(node.Scope);
+            _indentLevel--;
+
+            Log($"- Property:");
+            _indentLevel++;
+            GetAndLogNode(node.Property);
+            _indentLevel--;
+            Spacer();
+        }
+
         public void Visit(SelfNode node)
         {
             Log("> SELF:");
@@ -666,6 +691,9 @@ namespace ASTLogger
                     break;
                 case ReturnNode returnNode:
                     returnNode.Accept(this);
+                    break;
+                case ScopeResolutionNode scopeNode:
+                    scopeNode.Accept(this);
                     break;
                 case SelfNode selfNode:
                     selfNode.Accept(this);

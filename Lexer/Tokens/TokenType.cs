@@ -114,6 +114,7 @@
         Optional,
         Pipe,
         HardUnwrap,
+        Scope,
         SoftUnwrap,
 
         // Literals

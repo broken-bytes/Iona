@@ -24,6 +24,8 @@ namespace Symbols
         /// <returns></returns>
         public ISymbol? FindBy(INode node)
         {
+            // Before anything else, we check if node is a type
+            var typeSymbol = Modules.SelectMany(module => module.Symbols).Where(symbol => symbol is TypeSymbol && symbol.Name == node.ToString());
             // First, get the tree hierarchy of the node
             var hierarchy = node.Hierarchy();
 

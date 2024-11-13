@@ -516,7 +516,8 @@ namespace Typeck
             {
                 return CheckTypeReferenceNode(typeNode);
             }
-            else if (node is PropAccessNode propAccess)
+            
+            if (node is PropAccessNode propAccess)
             {
                 return CheckPropAccessNode(propAccess);
             }
@@ -751,7 +752,7 @@ namespace Typeck
         private TypeReferenceNode? GetTypeOfPropAccess(PropAccessNode propAccess, TypeSymbol? parent = null)
         {
             TypeSymbol? typeSymbol = null;
-
+            
             if (propAccess.Object is IdentifierNode target)
             {
                 ISymbol? symbol = null;

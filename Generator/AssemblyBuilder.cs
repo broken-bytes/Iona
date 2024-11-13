@@ -34,6 +34,7 @@ namespace Generator
         IPropAccessVisitor,
         IPropertyVisitor,
         IReturnVisitor,
+        IScopeResolutionVisitor,
         IStructVisitor,
         ITypeReferenceVisitor,
         IVariableVisitor
@@ -63,14 +64,7 @@ namespace Generator
 
         public void Visit(AssignmentNode node)
         {
-            if (node.Target is PropAccessNode propLeft)
-            {
-                propLeft.Accept(this);
-            }
-            else if (node.Target is IdentifierNode ident)
-            {
-                ident.Accept(this);
-            }
+            HandleNode(node.Target);
 
             switch (node.AssignmentType)
             {
@@ -82,59 +76,18 @@ namespace Generator
                     break;
             }
 
-            if (node.Value is BinaryExpressionNode binaryExpression)
-            {
-                binaryExpression.Accept(this);
-            }
-            else if (node.Value is PropAccessNode propRight)
-            {
-                propRight.Accept(this);
-            }
-            else if (node.Value is IdentifierNode ident)
-            {
-                ident.Accept(this);
-            }
-            else if (node.Value is LiteralNode literal)
-            {
-                literal.Accept(this);
-            }
+            HandleNode(node.Value);
 
             source.Append(";\n");
         }
 
         public void Visit(BinaryExpressionNode node)
         {
-            if (node.Left is IdentifierNode left)
-            {
-                left.Accept(this);
-            }
-            else if (node.Left is LiteralNode literal)
-            {
-                literal.Accept(this);    
-            }
-            else if (node.Left is PropAccessNode propAccess)
-            {
-                propAccess.Accept(this);
-            }
-            else
-            {
-                return;
-            }
+            HandleNode(node.Left);
             
             source.Append(node.Operation.CSharpOperator());
             
-            if (node.Right is IdentifierNode right)
-            {
-                right.Accept(this);
-            }
-            else if (node.Right is LiteralNode literal)
-            {
-                literal.Accept(this);
-            }
-            else if (node.Right is PropAccessNode propAccess)
-            {
-                propAccess.Accept(this);
-            }
+            HandleNode(node.Right);
         }
 
         public void Visit(BlockNode node)
@@ -185,6 +138,10 @@ namespace Generator
                 else if (child is PropAccessNode propAccess)
                 {
                     propAccess.Accept(this);
+                }
+                else if (child is ScopeResolutionNode scope)
+                {
+                    scope.Accept(this);
                 }
             }
 
@@ -565,6 +522,32 @@ namespace Generator
             }
         }
 
+        public void Visit(ScopeResolutionNode node)
+        {
+            if (node.Scope is SelfNode self)
+            {
+                source.Append("this");
+            }
+            else
+            {
+                source.Append(node.Scope.ToString());
+            }
+            source.Append(".");
+            
+            if (node.Property is IdentifierNode identifier)
+            {
+                identifier.Accept(this);
+            } 
+            else if (node.Property is PropAccessNode property)
+            {
+                property.Accept(this);
+            }
+            else if (node.Property is FuncCallNode funcCall)
+            {
+                funcCall.Accept(this);
+            }
+        }
+
         public void Visit(StructNode node)
         {
         }
@@ -760,6 +743,28 @@ namespace Generator
                 AccessLevel.Private => "private ",
                 _ => "internal "
             };
+        }
+
+        private void HandleNode(INode node)
+        {
+            switch (node)
+            {
+                case BinaryExpressionNode binaryExpression:
+                    binaryExpression.Accept(this);
+                    break;
+                case IdentifierNode identifier:
+                    identifier.Accept(this);
+                       break;
+                case LiteralNode literalNode:
+                    literalNode.Accept(this);
+                    break;
+                case PropAccessNode propAccessNode:
+                    propAccessNode.Accept(this);
+                    break;
+                case ScopeResolutionNode scopeNode:
+                    scopeNode.Accept(this);
+                    break;
+            }
         }
     }
 }

@@ -13,6 +13,7 @@ namespace Typeck
         IInitVisitor,
         IModuleVisitor,
         IOperatorVisitor,
+        IPropAccessVisitor,
         IStructVisitor
     {
         private SymbolTable table;
@@ -101,6 +102,11 @@ namespace Typeck
             }
         }
 
+        public void Visit(PropAccessNode node)
+        {
+            
+        }
+        
         public void Visit(StructNode node)
         {
             if (node.Body == null)

@@ -15,6 +15,7 @@ namespace Parser.Parsers
             StartGroup,
             EndGroup,
             MemberAccess,
+            ScopeResolution,
             Operand,
             Operator,
             Invalid,
@@ -22,178 +23,24 @@ namespace Parser.Parsers
             Skip,
             Param
         }
-
-        private ExpressionState NextState(ExpressionState currentState, Token token)
-        {
-            if (token.Type == TokenType.Linebreak)
-            {
-                // If linebreak is not following operator, end expression
-                if (currentState is ExpressionState.Operator or ExpressionState.Any)
-                {
-                    return ExpressionState.Skip;
-                }
-                
-                return ExpressionState.Finish;
-            }
-            switch (currentState)
-            {
-                case ExpressionState.Any:
-                {
-                    if (IsBinaryOperator(token))
-                    {
-                        return ExpressionState.Operator;
-                    }
-
-                    if (token.Type is TokenType.Dot)
-                    {
-                        return ExpressionState.MemberAccess;
-                    }
-
-                    if (token.Family is TokenFamily.Literal || token.Type is TokenType.Identifier)
-                    {
-                        return ExpressionState.Operand;
-                    }
-
-                    if (token.Type is TokenType.ParenLeft)
-                    {
-                        return ExpressionState.StartGroup;
-                    }
-
-                    return ExpressionState.Invalid;
-                }
-                case ExpressionState.Operand:
-                {
-                    if (token.Type is TokenType.ParenLeft)
-                    {
-                        return ExpressionState.StartGroup;
-                    }
-
-                    if (token.Type is TokenType.ParenRight)
-                    {
-                        return ExpressionState.EndGroup;
-                    }
-
-                    if (token.Type is TokenType.Dot)
-                    {
-                        return ExpressionState.MemberAccess;
-                    }
-
-                    if (IsBinaryOperator(token))
-                    {
-                        return ExpressionState.Operator;
-                    }
-                    
-                    if (token.Type is TokenType.Colon)
-                    {
-                        return ExpressionState.Param;
-                    }
-                    
-                    if (token.Family is TokenFamily.Operator)
-                    {
-                        // Any operator that is NOT a binaru or unary operator ends the expression (=, +=, etc.)
-                        return ExpressionState.Finish;
-                    }
-                    
-                    return ExpressionState.Invalid;
-                }
-                case ExpressionState.Operator:
-                {
-                    if (token.Type is TokenType.ParenLeft)
-                    {
-                        return ExpressionState.StartGroup;
-                    }
-
-                    if (token.Type is TokenType.Identifier || token.Family is TokenFamily.Literal)
-                    {
-                        return ExpressionState.Operand;
-                    }
-
-                    return ExpressionState.Invalid;
-                }
-
-                case ExpressionState.StartGroup:
-                {
-                    if (token.Type is TokenType.ParenLeft)
-                    {
-                        return ExpressionState.StartGroup;
-                    }
-
-                    if (token.Type is TokenType.Identifier || token.Family is TokenFamily.Literal)
-                    {
-                        return ExpressionState.Operand;
-                    }
-
-                    if (token.Type is TokenType.ParenRight)
-                    {
-                        return ExpressionState.EndGroup;
-                    }
-
-                    if (IsBinaryOperator(token))
-                    {
-                        return ExpressionState.Operator;
-                    }
-                    
-                    return ExpressionState.Invalid;
-                }
-                case ExpressionState.EndGroup:
-                {
-                    if (token.Type is TokenType.ParenRight)
-                    {
-                        return ExpressionState.EndGroup;
-                    }
-
-                    if (token.Type is TokenType.Identifier || token.Family is TokenFamily.Literal)
-                    {
-                        return ExpressionState.Operand;
-                    }
-
-                    if (token.Type is TokenType.Dot)
-                    {
-                        return ExpressionState.MemberAccess;
-                    }
-                    
-                    return ExpressionState.Invalid;
-                }
-                case ExpressionState.MemberAccess:
-                {
-                    if (token.Type is TokenType.Identifier)
-                    {
-                        return ExpressionState.Operand;
-                    }
-
-                    return ExpressionState.Invalid;
-                }
-                case ExpressionState.Param:
-                    if (token.Type is TokenType.Identifier)
-                    {
-                        return ExpressionState.Operand;
-                    }
-
-                    if (token.Type is TokenType.Colon)
-                    {
-                        return ExpressionState.Param;
-                    }
-                    
-                    return ExpressionState.Invalid;
-            }
-
-            return ExpressionState.Invalid;
-        }
         
         FuncCallParser funcCallParser;
         MemberAccessParser memberAccessParser;
+        ScopeResolutionParser scopeResolutionParser;
         TypeParser typeParser;
         private readonly IErrorCollector errorCollector;
 
         internal ExpressionParser(
             FuncCallParser funcCallParser,
             MemberAccessParser memberAccessParser,
+            ScopeResolutionParser scopeResolutionParser,
             TypeParser typeParser,
             IErrorCollector errorCollector
         )
         {
             this.funcCallParser = funcCallParser;
             this.memberAccessParser = memberAccessParser;
+            this.scopeResolutionParser = scopeResolutionParser;
             this.typeParser = typeParser;
             this.errorCollector = errorCollector;
         }
@@ -362,6 +209,11 @@ namespace Parser.Parsers
         {
             return memberAccessParser.IsMemberAccess(stream);
         }
+        
+        private bool IsScopeResolution(TokenStream stream)
+        {
+            return scopeResolutionParser.IsScopeResolution(stream);
+        }
 
         private bool IsObjectLiteral(TokenStream stream)
         {
@@ -501,7 +353,7 @@ namespace Parser.Parsers
                 else // The token is an operator
                 {
                     // We need to check if the operator is just a dot for property access
-                    if (token.Type == TokenType.Dot)
+                    if (token.Type is TokenType.Dot or TokenType.Scope)
                     {
                         output.Add(token);
                         continue;
@@ -549,6 +401,11 @@ namespace Parser.Parsers
                     {
                         var memberAccess = memberAccessParser.Parse(stream, parent);
                         stack.Push(memberAccess);
+                    }
+                    else if (IsScopeResolution(stream))
+                    {
+                        var scopeResolution = scopeResolutionParser.Parse(stream, parent);
+                        stack.Push(scopeResolution);
                     }
                     else
                     {
@@ -625,6 +482,182 @@ namespace Parser.Parsers
             upperMost.Parent = parent;
 
             return upperMost;
+        }
+        
+        private ExpressionState NextState(ExpressionState currentState, Token token)
+        {
+            if (token.Type == TokenType.Linebreak)
+            {
+                // If linebreak is not following operator, end expression
+                if (currentState is ExpressionState.Operator or ExpressionState.Any)
+                {
+                    return ExpressionState.Skip;
+                }
+                
+                return ExpressionState.Finish;
+            }
+            switch (currentState)
+            {
+                case ExpressionState.Any:
+                {
+                    if (IsBinaryOperator(token))
+                    {
+                        return ExpressionState.Operator;
+                    }
+
+                    if (token.Type is TokenType.Dot)
+                    {
+                        return ExpressionState.MemberAccess;
+                    }
+
+                    if (token.Type is TokenType.Scope)
+                    {
+                        return ExpressionState.ScopeResolution;
+                    }
+
+                    if (token.Family is TokenFamily.Literal || token.Type is TokenType.Identifier)
+                    {
+                        return ExpressionState.Operand;
+                    }
+
+                    if (token.Type is TokenType.ParenLeft)
+                    {
+                        return ExpressionState.StartGroup;
+                    }
+
+                    return ExpressionState.Invalid;
+                }
+                case ExpressionState.Operand:
+                {
+                    if (token.Type is TokenType.ParenLeft)
+                    {
+                        return ExpressionState.StartGroup;
+                    }
+
+                    if (token.Type is TokenType.ParenRight)
+                    {
+                        return ExpressionState.EndGroup;
+                    }
+
+                    if (token.Type is TokenType.Dot)
+                    {
+                        return ExpressionState.MemberAccess;
+                    }
+
+                    if (token.Type is TokenType.Scope)
+                    {
+                        return ExpressionState.ScopeResolution;
+                    }
+
+                    if (IsBinaryOperator(token))
+                    {
+                        return ExpressionState.Operator;
+                    }
+                    
+                    if (token.Type is TokenType.Colon)
+                    {
+                        return ExpressionState.Param;
+                    }
+                    
+                    if (token.Family is TokenFamily.Operator)
+                    {
+                        // Any operator that is NOT a binaru or unary operator ends the expression (=, +=, etc.)
+                        return ExpressionState.Finish;
+                    }
+                    
+                    return ExpressionState.Invalid;
+                }
+                case ExpressionState.Operator:
+                {
+                    if (token.Type is TokenType.ParenLeft)
+                    {
+                        return ExpressionState.StartGroup;
+                    }
+
+                    if (token.Type is TokenType.Identifier || token.Family is TokenFamily.Literal)
+                    {
+                        return ExpressionState.Operand;
+                    }
+
+                    return ExpressionState.Invalid;
+                }
+
+                case ExpressionState.StartGroup:
+                {
+                    if (token.Type is TokenType.ParenLeft)
+                    {
+                        return ExpressionState.StartGroup;
+                    }
+
+                    if (token.Type is TokenType.Identifier || token.Family is TokenFamily.Literal)
+                    {
+                        return ExpressionState.Operand;
+                    }
+
+                    if (token.Type is TokenType.ParenRight)
+                    {
+                        return ExpressionState.EndGroup;
+                    }
+
+                    if (IsBinaryOperator(token))
+                    {
+                        return ExpressionState.Operator;
+                    }
+                    
+                    return ExpressionState.Invalid;
+                }
+                case ExpressionState.EndGroup:
+                {
+                    if (token.Type is TokenType.ParenRight)
+                    {
+                        return ExpressionState.EndGroup;
+                    }
+
+                    if (token.Type is TokenType.Identifier || token.Family is TokenFamily.Literal)
+                    {
+                        return ExpressionState.Operand;
+                    }
+
+                    if (token.Type is TokenType.Dot)
+                    {
+                        return ExpressionState.MemberAccess;
+                    }
+                    
+                    return ExpressionState.Invalid;
+                }
+                case ExpressionState.MemberAccess:
+                {
+                    if (token.Type is TokenType.Identifier)
+                    {
+                        return ExpressionState.Operand;
+                    }
+
+                    return ExpressionState.Invalid;
+                }
+                case ExpressionState.ScopeResolution:
+                {
+                    if (token.Type is TokenType.Identifier)
+                    {
+                        return ExpressionState.Operand;
+                    }
+                    
+                    return ExpressionState.Invalid;
+                }
+                case ExpressionState.Param:
+                    if (token.Type is TokenType.Identifier)
+                    {
+                        return ExpressionState.Operand;
+                    }
+
+                    if (token.Type is TokenType.Colon)
+                    {
+                        return ExpressionState.Param;
+                    }
+                    
+                    return ExpressionState.Invalid;
+            }
+
+            return ExpressionState.Invalid;
         }
     }
 }

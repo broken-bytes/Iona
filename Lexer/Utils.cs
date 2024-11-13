@@ -40,7 +40,7 @@ namespace Lexer
                 case TokenType.LessEqual:
                 case TokenType.Minus:
                 case TokenType.MinusAssign:
-
+                case TokenType.Scope:
                 case TokenType.Modulo:
                 case TokenType.ModAssign:
                 case TokenType.Multiply:
@@ -290,6 +290,7 @@ namespace Lexer
                 case Operator.Ternary: return "?";
                 case Operator.Arrow: return "->";
                 case Operator.Dot: return ".";
+                case Operator.Scope: return "::";
                 default:
                     // Handle invalid/unsupported operators appropriately 
                     // (e.g., throw an exception, return an error string, etc.)

@@ -122,6 +122,7 @@ namespace Lexer.Processors
         {
             switch (source)
             {
+                case "::": return Utils.MakeToken(TokenType.Scope, Operator.Scope.AsString());
                 case "++": return Utils.MakeToken(TokenType.Increment, Operator.Inc.AsString());
                 case "--": return Utils.MakeToken(TokenType.Decrement, Operator.Dec.AsString());
                 case "->": return Utils.MakeToken(TokenType.Arrow, Operator.Arrow.AsString());

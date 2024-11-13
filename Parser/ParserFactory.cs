@@ -17,7 +17,14 @@ namespace Parser
             var typeParser = new TypeParser();
             var funcCallParser = new FuncCallParser();
             var memberAccessParser = new MemberAccessParser();
-            var expressionParser = new ExpressionParser(funcCallParser, memberAccessParser, typeParser, errorCollector);
+            var scopeResolutionParser = new ScopeResolutionParser();
+            var expressionParser = new ExpressionParser(
+                funcCallParser, 
+                memberAccessParser, 
+                scopeResolutionParser, 
+                typeParser, 
+                errorCollector
+            );
             var propertyParser = new PropertyParser(accessLevelParser, expressionParser, typeParser);
             var variableParser = new VariableParser(expressionParser);
             var blockParser = new BlockParser();
@@ -50,6 +57,7 @@ namespace Parser
             funcParser.Setup(expressionParser, statementParser);
             initParser.Setup(statementParser);
             memberAccessParser.Setup(expressionParser, funcCallParser, statementParser);
+            scopeResolutionParser.Setup(expressionParser, funcCallParser, statementParser);
             moduleParser.Setup(statementParser);
             operatorParser.Setup(expressionParser, statementParser);
             propertyParser.Setup(statementParser);

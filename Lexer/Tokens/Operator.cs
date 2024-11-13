@@ -33,6 +33,7 @@
         Greater,
         LessEqual,
         GreaterEqual,
+        Scope,
         ShiftLeft,
         ShiftRight,
         ShiftLeftAssign,

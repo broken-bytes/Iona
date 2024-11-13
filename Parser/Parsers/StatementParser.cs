@@ -131,6 +131,15 @@ namespace Parser.Parsers
             {
                 return ParseReturn(stream, parent);
             }
+
+
+            if (token.Type is TokenType.Public or TokenType.Private or TokenType.Internal)
+            {
+                // Consume the current token (because it could be a keyword like public)
+                stream.Consume();
+                
+                token = stream.Peek();
+            }
             
             // Invalid token
             var meta = new Metadata
@@ -142,14 +151,10 @@ namespace Parser.Parsers
                 LineEnd = token.Line,
             };
             
-            // We have an edge case here. When we find a bad token but an access modifier before it, skip the access token
-            if (token.Type is TokenType.Public or TokenType.Internal or TokenType.Private)
-            {
-            }
-            
             var error = CompilerErrorFactory.ExpectedMember(token.Value, meta);
             _errorCollector.Collect(error);
             
+            // Panic until a new keyword is hit
             stream.Panic(TokenFamily.Keyword);
 
             return null;

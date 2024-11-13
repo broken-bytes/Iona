@@ -9,8 +9,8 @@ public class Test: MonoBehaviour {
     }
 
     public fn update() {
-        value += 1 * Time.deltaTime
-        Debug.log(message: gameObject)
+        value += 1 * Time::deltaTime
+        Debug::log(message: gameObject)
     }
 }
 

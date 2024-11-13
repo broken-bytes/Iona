@@ -58,7 +58,7 @@
             Console.ForegroundColor = ConsoleColor.White;
             Console.Write(":");
             Console.ForegroundColor = ConsoleColor.Yellow;
-            Console.Write($"{Meta.LineEnd}");
+            Console.Write($"{Meta.ColumnStart}");
             Console.ResetColor();
             Console.ForegroundColor = ConsoleColor.White;
             Console.Write(" - ");
