@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:content="http://purl.org/rss/1.0/modules/content/">
+    <channel>
+        <title>Iona-lang Blog</title>
+        <link>https://ionalang.org/blog</link>
+        <description>Iona-lang Blog</description>
+        <lastBuildDate>Sun, 07 Jan 2024 00:00:00 GMT</lastBuildDate>
+        <docs>https://validator.w3.org/feed/docs/rss2.html</docs>
+        <generator>https://github.com/jpmonette/feed</generator>
+        <language>en</language>
+        <item>
+            <title><![CDATA[Iona is now under active development]]></title>
+            <link>https://ionalang.org/blog/start-of-development</link>
+            <guid>https://ionalang.org/blog/start-of-development</guid>
+            <pubDate>Sun, 07 Jan 2024 00:00:00 GMT</pubDate>
+            <description><![CDATA[Iona is an exciting project that has entered the active development phase. I am thrilled to announce that I am working hard to bring you the best features and functionalities.]]></description>
+            <content:encoded><![CDATA[<p>Iona is an exciting project that has entered the active development phase. I am thrilled to announce that I am working hard to bring you the best features and functionalities.</p>
+<p>Stay tuned for updates and follow the progress on GitHub!</p>
+<p>Happy coding!</p>]]></content:encoded>
+            <category>announcement</category>
+        </item>
+    </channel>
+</rss>

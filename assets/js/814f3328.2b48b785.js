@@ -1,0 +1,1 @@
+"use strict";(self.webpackChunkIona_lang=self.webpackChunkIona_lang||[]).push([[472],{5513:e=>{e.exports=JSON.parse('{"title":"Recent posts","items":[{"title":"Iona is now under active development","permalink":"/blog/start-of-development","unlisted":false}]}')}}]);

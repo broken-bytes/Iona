@@ -1,0 +1,1 @@
+"use strict";(self.webpackChunkIona_lang=self.webpackChunkIona_lang||[]).push([[903],{1912:a=>{a.exports=JSON.parse('{"blogBasePath":"/blog","blogTitle":"Blog"}')}}]);

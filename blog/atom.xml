@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+    <id>https://ionalang.org/blog</id>
+    <title>Iona-lang Blog</title>
+    <updated>2024-01-07T00:00:00.000Z</updated>
+    <generator>https://github.com/jpmonette/feed</generator>
+    <link rel="alternate" href="https://ionalang.org/blog"/>
+    <subtitle>Iona-lang Blog</subtitle>
+    <icon>https://ionalang.org/img/favicon.ico</icon>
+    <entry>
+        <title type="html"><![CDATA[Iona is now under active development]]></title>
+        <id>https://ionalang.org/blog/start-of-development</id>
+        <link href="https://ionalang.org/blog/start-of-development"/>
+        <updated>2024-01-07T00:00:00.000Z</updated>
+        <summary type="html"><![CDATA[Iona is an exciting project that has entered the active development phase. I am thrilled to announce that I am working hard to bring you the best features and functionalities.]]></summary>
+        <content type="html"><![CDATA[<p>Iona is an exciting project that has entered the active development phase. I am thrilled to announce that I am working hard to bring you the best features and functionalities.</p>
+<p>Stay tuned for updates and follow the progress on GitHub!</p>
+<p>Happy coding!</p>]]></content>
+        <author>
+            <name>broken-bytes</name>
+        </author>
+        <category label="announcement" term="announcement"/>
+    </entry>
+</feed>

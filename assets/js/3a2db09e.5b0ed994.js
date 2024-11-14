@@ -1,0 +1,1 @@
+"use strict";(self.webpackChunkIona_lang=self.webpackChunkIona_lang||[]).push([[121],{8070:n=>{n.exports=JSON.parse('{"tags":[{"label":"announcement","permalink":"/blog/tags/announcement","description":"Announcement tag description","count":1}]}')}}]);
