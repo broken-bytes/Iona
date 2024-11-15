@@ -24,8 +24,6 @@ namespace Symbols
         /// <returns></returns>
         public ISymbol? FindBy(INode node)
         {
-            // Before anything else, we check if node is a type
-            var typeSymbol = Modules.SelectMany(module => module.Symbols).Where(symbol => symbol is TypeSymbol && symbol.Name == node.ToString());
             // First, get the tree hierarchy of the node
             var hierarchy = node.Hierarchy();
 
@@ -68,8 +66,61 @@ namespace Symbols
 
                 currentSymbol = currentSymbol.Parent;
             }
-
+            
+            // Not in the current hierarchy. This means we can have three cases:
+            // - Does in fact not exist
+            // - Is a type in another module
+            // - Is another module name
+            
             return null;
+        }
+
+        public TypeSymbol? FindTypeBy(TypeReferenceNode node, ModuleSymbol? module)
+        {
+            TypeSymbol? symbol = null;
+
+            if (module != null)
+            {
+                symbol = module.Symbols.OfType<TypeSymbol>().FirstOrDefault(symbol => symbol.Name == node.Name);
+
+                if (symbol == null)
+                {
+                    foreach (var type in module.Symbols.OfType<ModuleSymbol>())
+                    {
+                        symbol = FindTypeBy(node, type);
+
+                        if (symbol != null)
+                        {
+                            return symbol;
+                        }
+                    }
+                }
+
+                return symbol;
+            }
+            else
+            {
+                symbol = Modules
+                    .SelectMany(module => module.Symbols)
+                    .OfType<TypeSymbol>()
+                    .ToList()
+                    .FirstOrDefault(symbol => symbol.Name == node.Name);
+
+                if (symbol == null)
+                {
+                    foreach (var mod in Modules)
+                    {
+                        symbol = FindTypeBy(node, mod);
+
+                        if (symbol != null)
+                        {
+                            return symbol;
+                        }
+                    }
+                }
+
+                return symbol;
+            }
         }
 
         /// <summary>
@@ -402,5 +453,6 @@ namespace Symbols
 
             return module;
         }
+        
     }
 }

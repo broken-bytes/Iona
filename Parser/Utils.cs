@@ -110,7 +110,7 @@ namespace Parser
         {
             var meta = new Metadata
             {
-                File = node.Meta.File,
+                File = node.Meta.File ?? token.File,
                 LineStart = token.Line,
                 LineEnd = node.Meta.LineEnd,
                 ColumnStart = token.ColumnStart,

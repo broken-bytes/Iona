@@ -13,7 +13,7 @@ namespace Parser.Parsers
         {
         }
 
-        public ITypeReferenceNode? Parse(TokenStream stream, INode? parent)
+        public TypeReferenceNode? Parse(TokenStream stream, INode? parent)
         {
             // The type may be an array type([T])
             var token = stream.Peek();

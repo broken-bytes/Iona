@@ -134,7 +134,7 @@ namespace Typeck
 
             if (node.ReturnType is not null)
             {
-                var symbol = FindTypeSymbol(node.ReturnType.Name);
+                var symbol = FindTypeSymbol(node.ReturnType);
 
                 if (symbol.IsSuccess)
                 {
@@ -298,7 +298,7 @@ namespace Typeck
 
             if (node.ReturnType is not null)
             {
-                var symbol = FindTypeSymbol(node.ReturnType.Name);
+                var symbol = FindTypeSymbol(node.ReturnType);
 
                 if (symbol.IsSuccess)
                 {
@@ -335,10 +335,10 @@ namespace Typeck
             {
                 HandleNode(node.Value);
             }
-
-            if (node.TypeNode.Name != "Unknown")
+            
+            if (node.TypeNode != null)
             {
-                var symbol = FindTypeSymbol(node.TypeNode.Name);
+                var symbol = FindTypeSymbol(node.TypeNode);
 
                 if (symbol.IsSuccess)
                 {
@@ -348,6 +348,7 @@ namespace Typeck
                 }
                 else
                 {
+                    node.Status = INode.ResolutionStatus.Failed;
                     errorCollector.Collect(CompilerErrorFactory.TopLevelDefinitionError(node.TypeNode.Name, node.Meta));
                 }
             }
@@ -444,52 +445,19 @@ namespace Typeck
         private void ResolveParameter(ParameterNode param)
         {
             var type = param.TypeNode;
+            
+            var result = FindTypeSymbol(type);
 
-            if (type is TypeReferenceNode typeNode)
+            if (result.IsError)
             {
-                var result = FindTypeSymbol(typeNode.Name);
+                param.Status = INode.ResolutionStatus.Failed;
 
-                if (result.IsError)
-                {
-                    param.Status = INode.ResolutionStatus.Failed;
+                var error = CompilerErrorFactory.TopLevelDefinitionError(
+                    type.Name,
+                    type.Meta
+                );
 
-                    var error = CompilerErrorFactory.TopLevelDefinitionError(
-                        typeNode.Name,
-                        typeNode.Meta
-                    );
-
-                    errorCollector.Collect(error);
-
-                    return;
-                } 
-                else
-                {
-                    typeNode.FullyQualifiedName = result.Success!.FullyQualifiedName;
-
-                    if (param.TypeNode.Name != "Unknown")
-                    {
-                        var symbol = FindTypeSymbol(param.TypeNode.Name);
-
-                        if (symbol.IsSuccess)
-                        {
-                            param.TypeNode.FullyQualifiedName = symbol.Success!.FullyQualifiedName;
-                            param.TypeNode.TypeKind = Utils.SymbolKindToASTKind(symbol.Success!.TypeKind);
-                            param.TypeNode.Assembly = symbol.Success!.Assembly;
-
-                            // Also update the symbol in the symbol table
-                            var parameterSymbol = (ParameterSymbol)table.FindBy(param);
-
-                            if (parameterSymbol != null)
-                            {
-                                parameterSymbol.Type = symbol.Success;
-                            }
-                        }
-                        else
-                        {
-                            errorCollector.Collect(CompilerErrorFactory.TopLevelDefinitionError(param.TypeNode.Name, param.Meta));
-                        }
-                    }
-                }
+                errorCollector.Collect(error);
             }
         }
 
@@ -498,32 +466,20 @@ namespace Typeck
         /// </summary>
         /// <param name="name"></param>
         /// <returns></returns>
-        private Result<TypeSymbol, SymbolError> FindTypeSymbol(string name)
+        private Result<TypeSymbol, SymbolError> FindTypeSymbol(TypeReferenceNode? typeNode)
         {
-            List<TypeSymbol> types = new List<TypeSymbol>();
-
-            // Check in each module for the type
-            foreach (var module in table.Modules)
+            if (typeNode == null)
             {
-                var found = FindTypeSymbolIn(name, module);
-
-                if (found != null)
-                {
-                    types.Add(found);
-                }
+                return Result<TypeSymbol, SymbolError>.Err(new SymbolError("Unknown type"));
             }
+            var symbol = table.FindTypeBy(typeNode, null);
 
-            // If we found more than one type with the same name, we have an ambiguity error
-            if (types.Count > 1)
+            if (symbol == null)
             {
-                return Result<TypeSymbol, SymbolError>.Err(new SymbolError($"Ambiguous type name `{name}`"));
+                return Result<TypeSymbol, SymbolError>.Err(new SymbolError("Unknown type"));
             }
-            else if (types.Count == 0)
-            {
-                return Result<TypeSymbol, SymbolError>.Err(new SymbolError($"Type `{name}` not found"));
-            }
-
-            return Result<TypeSymbol, SymbolError>.Ok(types[0]);
+            
+            return Result<TypeSymbol, SymbolError>.Ok(symbol);
         }
 
         private TypeSymbol? FindTypeSymbolIn(string name, ISymbol symbol)
@@ -568,7 +524,7 @@ namespace Typeck
             // Check 2: -> Member functions in current type
             var hierachy = ((INode)funcCallNode).Hierarchy();
             hierachy.Reverse();
-            var currentType = hierachy.OfType<ITypeNode>().FirstOrDefault();
+            var currentType = hierachy.OfType<TypeReferenceNode>().FirstOrDefault();
 
             // Check if the current type is a type node
             if (currentType == null)
@@ -577,7 +533,7 @@ namespace Typeck
             }
 
             // Check if the current type has a method with the name of the function call
-            var typeSymbol = FindTypeSymbol(currentType.FullyQualifiedName);
+            var typeSymbol = FindTypeSymbol(currentType);
 
             if (typeSymbol.IsError)
             {
@@ -608,7 +564,7 @@ namespace Typeck
             // Check 2: -> Member functions in current type
             var hierachy = ((INode)node).Hierarchy();
             hierachy.Reverse();
-            var currentType = hierachy.OfType<ITypeNode>().FirstOrDefault();
+            var currentType = hierachy.OfType<TypeReferenceNode>().FirstOrDefault();
 
             // Check if the current type is a type node
             if (currentType == null)
@@ -617,7 +573,7 @@ namespace Typeck
             }
 
             // Check if the current type has a method with the name of the function call
-            var typeSymbol = FindTypeSymbol(currentType.FullyQualifiedName);
+            var typeSymbol = FindTypeSymbol(currentType);
 
             if (typeSymbol.IsError)
             {

@@ -80,17 +80,38 @@ namespace Typeck
                         continue;
                     }
 
-                    var module = _symbolTable.Modules.Find(m => m.Name == nspace);
+                    var split = nspace.Split('.');
+                    
+                    var module = _symbolTable.Modules.Find(m => m.Name == split.First());
                     if (module == null)
                     {
-                        module = new ModuleSymbol(nspace, assembly.FullName);
+                        module = new ModuleSymbol(split.First(), assembly.FullName);
                         _symbolTable.Modules.Add(module);
+                    }
+                    
+                    foreach (var name in split.Skip(1))
+                    {
+                        var nextModule = module.Symbols.OfType<ModuleSymbol>()
+                            .ToList()
+                            .FirstOrDefault(m => m.Name == name);
+                        if (nextModule == null)
+                        {
+                            var newModule = new ModuleSymbol(name, assembly.FullName);
+                            newModule.Parent = module;
+                            module.Symbols.Add(newModule);
+                            module = newModule;
+                        }
+                        else
+                        {
+                            module = nextModule;
+                        }
                     }
 
                     TypeKind kind = TypeKind.Unknown;
                     if (type.IsClass)
                     {
                         kind = TypeKind.Class;
+                        
                     }
                     else if (type.IsInterface)
                     {

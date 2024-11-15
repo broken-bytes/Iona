@@ -32,6 +32,7 @@ namespace Typeck
         IPropAccessVisitor,
         IPropertyVisitor,
         IReturnVisitor,
+        IScopeResolutionVisitor,
         IStructVisitor,
         ITypeReferenceVisitor,
         IUnaryExpressionVisitor,
@@ -153,23 +154,11 @@ namespace Typeck
             // Check the parameters if they have a (known) type
             foreach (var param in node.Parameters)
             {
-                if (param.TypeNode is TypeReferenceNode type)
-                {
-                    var actualType = CheckNodeType(type);
+                var actualType = CheckNodeType(param.TypeNode);
 
-                    if (actualType != null)
-                    {
-                        param.TypeNode = actualType;
-                    }
-                }
-                else if (param.TypeNode is MemberAccessNode memberAccess)
+                if (actualType != null)
                 {
-                    var actualType = CheckNodeType(memberAccess);
-
-                    if (actualType != null)
-                    {
-                        param.TypeNode = actualType;
-                    }
+                    param.TypeNode = actualType;
                 }
             }
 
@@ -428,20 +417,25 @@ namespace Typeck
 
         public void Visit(PropertyNode node)
         {
-            if (node.TypeNode is TypeReferenceNode type)
+            if (node.Status is not ResolutionStatus.Resolving)
             {
-                var actualType = CheckNodeType(type);
-                node.TypeNode = actualType;
-
-                // Update the symbol in the symbol table
-                var symbol = _symbolTable.FindBy(node);
-                var typeSymbol = _symbolTable.FindTypeByFQN(node.TypeNode.FullyQualifiedName);
-
-                if (symbol is PropertySymbol prop && typeSymbol is not null)
-                {
-                    prop.Type = typeSymbol;
-                }
+                return;
             }
+            
+            // If the value is a literal we can parse it right away. Otherwise, we need to check the name of the TypeNode
+
+            var actualType = CheckNodeType(node.TypeNode);
+            node.TypeNode = actualType;
+
+            // Update the symbol in the symbol table
+            var symbol = _symbolTable.FindBy(node);
+            var typeSymbol = _symbolTable.FindTypeByFQN(node.TypeNode.FullyQualifiedName);
+
+            if (symbol is PropertySymbol prop && typeSymbol is not null)
+            {
+                prop.Type = typeSymbol;
+            }
+            
         }
 
         public void Visit(ReturnNode node)
@@ -456,6 +450,14 @@ namespace Typeck
             {
                 CheckNodeType(node.Value);
             }
+        }
+
+        public void Visit(ScopeResolutionNode node)
+        {
+            // Find the first symbol
+            var symbol = _symbolTable.FindBy(node.Scope);
+            
+            Console.Write(symbol);
         }
 
         public void Visit(StructNode node)
@@ -510,7 +512,7 @@ namespace Typeck
             }
         }
 
-        private ITypeReferenceNode? CheckNodeType(INode node)
+        private TypeReferenceNode? CheckNodeType(INode node)
         {
             if (node is TypeReferenceNode typeNode)
             {
@@ -526,7 +528,7 @@ namespace Typeck
         }
 
         // ---- Helper methods ----
-        private ITypeReferenceNode? CheckTypeReferenceNode(TypeReferenceNode typeNode)
+        private TypeReferenceNode? CheckTypeReferenceNode(TypeReferenceNode typeNode)
         {
             TypeReferenceNode typeRef;
 
@@ -544,10 +546,8 @@ namespace Typeck
             }
 
             // Now we know the model and the scopes in correct order, we can traverse both the ast and the symbol table to find the type
-            var types = _symbolTable.Modules.SelectMany(mod => mod.Symbols.OfType<TypeSymbol>());
-
-            var type = types.FirstOrDefault(symbol => symbol.FullyQualifiedName == typeNode.FullyQualifiedName);
-
+            var type = _symbolTable.FindTypeBy(typeNode, null);
+            
             if (type != null)
             {
                 typeNode.FullyQualifiedName = type.FullyQualifiedName;
@@ -567,7 +567,7 @@ namespace Typeck
             return null;
         }
 
-        private ITypeReferenceNode? CheckPropAccessNode(PropAccessNode propAccess)
+        private TypeReferenceNode? CheckPropAccessNode(PropAccessNode propAccess)
         {
             // We first need to find the scope this type reference is in(to find nested types, or the module)
             // Step 1: Check if the leftmost node is a module
@@ -667,6 +667,9 @@ namespace Typeck
                     break;
                 case ReturnNode returnNode:
                     returnNode.Accept(this);
+                    break;
+                case ScopeResolutionNode scopeNode:
+                    scopeNode.Accept(this);
                     break;
                 case StructNode structNode:
                     structNode.Accept(this);

@@ -147,6 +147,7 @@ namespace Parser.Parsers
                     func.ReturnType = new TypeReferenceNode("Void", func);
                     func.ReturnType.FullyQualifiedName = "Iona.Builtins.Void";
                     func.ReturnType.Assembly = "Iona.Builtins";
+                    func.ReturnType.Meta = func.Meta;
                 }
 
                 token = stream.Peek();

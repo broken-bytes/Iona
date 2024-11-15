@@ -14,7 +14,7 @@ namespace AST.Nodes
         public AccessLevel AccessLevel { get; set; }
         bool IsMutable { get; set; }
         public StatementType StatementType { get; set; }
-        public ITypeReferenceNode TypeNode { get; set; }
+        public TypeReferenceNode? TypeNode { get; set; }
         public IExpressionNode? Value { get; set; }
         bool IsAssigned { get; set; } = false;
         public FuncNode? Get { get; set; }
@@ -28,7 +28,7 @@ namespace AST.Nodes
             string name,
             AccessLevel accessLevel,
             bool isMutable,
-            ITypeReferenceNode? type = null,
+            TypeReferenceNode? type = null,
             IExpressionNode? value = null,
             INode? parent = null
         )
@@ -43,10 +43,6 @@ namespace AST.Nodes
             {
                 TypeNode = type;
             } 
-            else
-            {
-                TypeNode = new TypeReferenceNode("Unknown", this);
-            }
             StatementType = StatementType.PropertyDeclaration;
             IsAssigned = value != null;
         }

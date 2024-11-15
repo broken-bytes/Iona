@@ -3,7 +3,7 @@ module App
 use UnityEngine
 
 public class Test: MonoBehaviour {
-    public var value: Int32 = 0
+    public var value = 0
 
     public fn start() {
     }
