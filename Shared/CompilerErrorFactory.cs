@@ -80,11 +80,25 @@ namespace Shared
                 );
         }
 
-        public static CompilerError NoBinaryOverload(string method, string left, string right, Metadata meta)
+        public static CompilerError NoBinaryOverload(
+            string method, 
+            string left, 
+            string right,
+            string? returnType,
+            Metadata meta
+            )
         {
+            var msg =
+                $"Neither `{left}` nor `{right}` implements binary operation `{method}` taking [lhs: `{left}`, rhs: `{right}`]";
+
+            if (returnType != null)
+            {
+                msg += $", returning `{returnType}`";
+            }
+            
             return new CompilerError(
                 CompilerErrorCode.MissingTypeAnnotation,
-                $"Neither `{left}` nor `{right}` implements binary operation `{method}` taking [lhs: {left}, rhs: {right}]", 
+                msg, 
                 meta
             );
         }

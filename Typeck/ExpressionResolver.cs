@@ -27,7 +27,7 @@ namespace Typeck
         private SymbolTable table;
         private IErrorCollector _errorCollector;
         /// The type an expression shall resolve to. Used in stuff liek assignments or parameters
-        private TypeReference? _contextualType;
+        private string? _contextualTypeFqn;
 
         internal ExpressionResolver(IErrorCollector errorCollector)
         {
@@ -43,7 +43,21 @@ namespace Typeck
 
         public void Visit(AssignmentNode node)
         {
+            if (node.Target is PropAccessNode propAccess)
+            {
+                _contextualTypeFqn = propAccess.ResultType.FullyQualifiedName;
+            }
+            else if (node.Target is IdentifierNode ident)
+            {
+                _contextualTypeFqn = ident.ResultType.FullyQualifiedName;
+            }
+            else if (node.Target is ScopeResolutionNode scope)
+            {
+                _contextualTypeFqn = scope.ResultType.FullyQualifiedName;
+            }
+            
             CheckNode(node.Value);
+            _contextualTypeFqn = null;
         }
 
         public void Visit(BinaryExpressionNode node)
@@ -71,8 +85,8 @@ namespace Typeck
                 return;
             }
             
-            var leftOp = FindMatchingOperator(leftType, leftType.FullyQualifiedName, rightType.FullyQualifiedName);
-            var rightOp = FindMatchingOperator(rightType, leftType.FullyQualifiedName, rightType.FullyQualifiedName);
+            var leftOp = FindMatchingOperator(leftType, leftType.FullyQualifiedName, rightType.FullyQualifiedName, _contextualTypeFqn);
+            var rightOp = FindMatchingOperator(rightType, leftType.FullyQualifiedName, rightType.FullyQualifiedName,  _contextualTypeFqn);
 
             if (leftOp is not null)
             {
@@ -94,6 +108,7 @@ namespace Typeck
                 node.Operation.CSharpOperator(),
                 node.Left.ResultType.Name,
                 node.Right.ResultType.Name,
+                _contextualTypeFqn,
                 node.Meta
             );
             
@@ -295,7 +310,15 @@ namespace Typeck
             }
         }
 
-        private OperatorSymbol? FindMatchingOperator(TypeSymbol type, string leftFqn, string rightFqn)
+        /// <summary>
+        /// Tries to find an
+        /// </summary>
+        /// <param name="type"></param>
+        /// <param name="leftFqn"></param>
+        /// <param name="rightFqn"></param>
+        /// <param name="reference"></param>
+        /// <returns></returns>
+        private OperatorSymbol? FindMatchingOperator(TypeSymbol type, string leftFqn, string rightFqn, string? reference)
         {
             var leftOp = type
                 .Symbols
@@ -314,6 +337,13 @@ namespace Typeck
                             parameters[1].Type.FullyQualifiedName == rightFqn
                         )
                         {
+                            // We need to check if we have a required return type and match against it if so
+
+                            if (reference is not null)
+                            {
+                                return op.ReturnType.FullyQualifiedName == reference;
+                            }
+                            
                             return true;
                         }
 
