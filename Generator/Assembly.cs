@@ -27,8 +27,7 @@ namespace Generator
         {
             var unit = builder.Build(node);
 
-            unit = WithFileHeader(node.ToString(), unit)
-                .AddUsings(SyntaxFactory.UsingDirective(SyntaxFactory.ParseName("UnityEngine")));
+            unit = WithFileHeader(node.ToString(), unit);
             
             var references = new List<MetadataReference>();
             foreach (var reference in assemblyRefs)
@@ -47,15 +46,13 @@ namespace Generator
 
             CSharpCompilation compilation = CSharpCompilation.Create(Name)
                 .WithOptions(options)
-                .AddSyntaxTrees(unit.SyntaxTree, AssemblyInfo().SyntaxTree)
+                .AddSyntaxTrees(unit.SyntaxTree)
                 .AddReferences(ReferenceAssemblies.Net80)
                 .AddReferences(references);
 
             if (intermediate)
             {
                 File.WriteAllText(node.ToString() + ".cs", unit.NormalizeWhitespace().ToFullString());
-                File.WriteAllText(node.ToString() + "__assembly.cs", AssemblyInfo().NormalizeWhitespace().ToFullString());
-
                 return null;
             }
             

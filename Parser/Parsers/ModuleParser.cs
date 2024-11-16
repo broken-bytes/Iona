@@ -71,7 +71,20 @@ namespace Parser.Parsers
                 // Parse classes, contracts, structs, etc.
                 while (token.Type != TokenType.EndOfFile)
                 {
-                    module.AddChild(statementParser.Parse(stream, module));
+                    var child = statementParser.Parse(stream, module);
+                    
+                    // TODO: Rework this so the file parser handles this.
+                    // For now, add `use` nodes to the parent of Module which is always the file
+
+                    if (child is ImportNode import)
+                    {
+                        var file = module.Parent as FileNode;
+                        file.Children.Add(import);
+                    }
+                    else if (child is not null)
+                    {
+                        module.AddChild(child);
+                    }
 
                     token = stream.Peek();
 
