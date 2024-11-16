@@ -89,12 +89,17 @@ namespace Shared
             )
         {
             var msg =
-                $"Neither `{left}` nor `{right}` implements binary operation `{method}` taking [lhs: `{left}`, rhs: `{right}`]";
+                $"Neither `{left}` nor `{right}` implements binary operation `{method}`";
 
             if (returnType != null)
             {
-                msg += $", returning `{returnType}`";
+                msg += $" returning `{returnType}`";
             }
+
+            msg += "\n\n";
+            msg += $"Left operand: `{left}`\n";
+            msg += $"Right operand: `{right}`\n";
+            msg += $"Expected return type: `{returnType}`\n";
             
             return new CompilerError(
                 CompilerErrorCode.MissingTypeAnnotation,

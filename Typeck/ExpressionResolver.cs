@@ -16,12 +16,14 @@ namespace Typeck
         IClassVisitor,
         IFileVisitor,
         IFuncVisitor,
+        IIdentifierVisitor,
         IInitVisitor,
         ILiteralVisitor,
         IModuleVisitor,
         IOperatorVisitor,
         IPropAccessVisitor,
         IPropertyVisitor,
+        IScopeResolutionVisitor,
         IStructVisitor
     {
         private SymbolTable table;
@@ -43,20 +45,18 @@ namespace Typeck
 
         public void Visit(AssignmentNode node)
         {
-            if (node.Target is PropAccessNode propAccess)
+            CheckNode(node.Target);
+
+            _contextualTypeFqn = node.Target switch
             {
-                _contextualTypeFqn = propAccess.ResultType.FullyQualifiedName;
-            }
-            else if (node.Target is IdentifierNode ident)
-            {
-                _contextualTypeFqn = ident.ResultType.FullyQualifiedName;
-            }
-            else if (node.Target is ScopeResolutionNode scope)
-            {
-                _contextualTypeFqn = scope.ResultType.FullyQualifiedName;
-            }
+                PropAccessNode propAccess => propAccess.ResultType.FullyQualifiedName,
+                IdentifierNode ident => ident.ResultType.FullyQualifiedName,
+                ScopeResolutionNode scope => scope.ResultType.FullyQualifiedName,
+                _ => _contextualTypeFqn
+            };
             
             CheckNode(node.Value);
+
             _contextualTypeFqn = null;
         }
 
@@ -106,8 +106,8 @@ namespace Typeck
             
             var error = CompilerErrorFactory.NoBinaryOverload(
                 node.Operation.CSharpOperator(),
-                node.Left.ResultType.Name,
-                node.Right.ResultType.Name,
+                node.Left.ResultType.FullyQualifiedName,
+                node.Right.ResultType.FullyQualifiedName,
                 _contextualTypeFqn,
                 node.Meta
             );
@@ -150,6 +150,37 @@ namespace Typeck
             {
                 CheckNode(child);
             }
+        }
+
+        public void Visit(IdentifierNode node)
+        {
+            if (node.Status == INode.ResolutionStatus.Resolved)
+            {
+                return;
+            }
+
+            // Find the type
+            var symbol = table.FindBy(node);
+            TypeSymbol? type = symbol switch
+            {
+                PropertySymbol prop => prop.Type,
+                VariableSymbol var => var.Type,
+                _ => null
+            };
+
+            if (type is null)
+            {
+                var error = CompilerErrorFactory.TopLevelDefinitionError(node.Value, node.Meta);
+                _errorCollector.Collect(error);
+                
+                return;
+            }
+
+            node.ResultType = new TypeReferenceNode(type.Name, node)
+            {
+                FullyQualifiedName = type.FullyQualifiedName,
+                Assembly = type.Assembly,
+            };
         }
 
         public void Visit(InitNode node)
@@ -205,32 +236,18 @@ namespace Typeck
 
         public void Visit(PropertyNode node)
         {
+            if (node.Status == INode.ResolutionStatus.Resolved)
+            {
+                return;
+            }
+            
+            // Type inference
             if (node.Value != null)
             {
                 // Resolve the value
                 CheckNode(node.Value);
-                
-                // Two cases:
-                // - The node does not have a type defined -> Use value as inferred type
-                // - The node has a fixed type -> Compare type and assigned expression
-                if (node.TypeNode is TypeReferenceNode typeNode)
-                {
-                    if (typeNode.FullyQualifiedName == node.Value.ResultType.FullyQualifiedName)
-                    {
-                        node.Status = INode.ResolutionStatus.Resolved;
-                        
-                        return;
-                    }
-                    
-                    node.Status = INode.ResolutionStatus.Failed;
-                    // TODO: Print assignment error
-                    
-                    return;
-                }
 
                 node.TypeNode = node.Value.ResultType;
-                
-                return;
             }
 
             if (node.TypeNode is null)
@@ -242,8 +259,25 @@ namespace Typeck
             }
             else
             {
+                // Also update the symbol table
+                var symbol = table.FindBy(node) as PropertySymbol;
+                var type = table.FindTypeByFQN(node.TypeNode.FullyQualifiedName);
+                symbol.Type = type;
                 node.Status = INode.ResolutionStatus.Resolved;
             }
+        }
+
+        public void Visit(ScopeResolutionNode node)
+        {
+            var type = ResolveScopeResolutionType(node, null);
+
+            if (type is null)
+            {
+                return;
+            }
+            
+            node.ResultType = type;
+            node.Status = INode.ResolutionStatus.Resolved;
         }
         
         public void Visit(StructNode node)
@@ -286,6 +320,9 @@ namespace Typeck
                 case FuncNode funcNode:
                     funcNode.Accept(this);
                     break;
+                case IdentifierNode identifier:
+                    identifier.Accept(this);
+                    break;
                 case InitNode initNode:
                     initNode.Accept(this);
                     break;
@@ -303,6 +340,9 @@ namespace Typeck
                     break;
                 case PropertyNode propertyNode:
                     propertyNode.Accept(this);
+                    break;
+                case ScopeResolutionNode scopeResolution:
+                    scopeResolution.Accept(this);
                     break;
                 case StructNode structNode:
                     structNode.Accept(this);
@@ -352,6 +392,58 @@ namespace Typeck
                 );
 
             return leftOp;
+        }
+        
+        private TypeReferenceNode? ResolveScopeResolutionType(ScopeResolutionNode node, ISymbol? parent)
+        {
+            // Find the first symbol
+            ISymbol? symbol;
+            if (parent == null)
+            {
+                symbol = table.FindTypeBy(node.Scope.Value, null);
+            }
+            else
+            {
+                symbol = parent.Symbols.FirstOrDefault(symbolSymbol => symbolSymbol.Name == node.Scope.Value);
+            }
+
+            if (symbol is null)
+            {
+                node.Status = INode.ResolutionStatus.Failed;
+                var error = CompilerErrorFactory.TopLevelDefinitionError(node.Scope.Value, node.Meta);
+                _errorCollector.Collect(error);
+
+                return null;
+            }
+
+            if (node.Property is IdentifierNode property)
+            {
+                var propSymbol = symbol.Symbols.OfType<PropertySymbol>().FirstOrDefault(member => member.Name == property.Value);
+
+                if (propSymbol is null)
+                {
+                    node.Status = INode.ResolutionStatus.Failed;
+                    var error = CompilerErrorFactory.TypeDoesNotContainProperty(node.Scope.Value, property.Value, property.Meta);
+                    _errorCollector.Collect(error);
+                    
+                    return null;
+                }
+
+                var type = new TypeReferenceNode(propSymbol.Type.Name, node)
+                {
+                    FullyQualifiedName = propSymbol.Type.FullyQualifiedName,
+                    Assembly = propSymbol.Type.Assembly
+                };
+
+                return type;
+            }
+            
+            if (node.Property is ScopeResolutionNode scope)
+            {
+                return ResolveScopeResolutionType(scope, symbol);
+            }
+
+            return null;
         }
     }
 }
