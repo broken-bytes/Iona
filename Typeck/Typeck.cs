@@ -90,8 +90,21 @@ namespace Typeck
                 try
                 {
                     assembly = Assembly.Load(path);
-                    _tableConstructor.ConstructSymbolsForAssembly(assembly);
-
+                    _tableConstructor.ConstructTypesForAssembly(assembly);
+                }
+                catch
+                {
+                    continue;
+                }
+            }
+            
+            foreach (var path in assemblies)
+            {
+                Assembly? assembly = null;
+                try
+                {
+                    assembly = Assembly.Load(path);
+                    _tableConstructor.PopulateMembersForAssembly(assembly);
                 }
                 catch
                 {

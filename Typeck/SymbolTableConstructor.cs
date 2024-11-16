@@ -53,7 +53,7 @@ namespace Typeck
             file.Accept(this);
         }
 
-        internal void ConstructSymbolsForAssembly(Assembly assembly)
+        internal void ConstructTypesForAssembly(Assembly assembly)
         {
             try
             {
@@ -81,14 +81,14 @@ namespace Typeck
                     }
 
                     var split = nspace.Split('.');
-                    
+
                     var module = _symbolTable.Modules.Find(m => m.Name == split.First());
                     if (module == null)
                     {
                         module = new ModuleSymbol(split.First(), assembly.FullName);
                         _symbolTable.Modules.Add(module);
                     }
-                    
+
                     foreach (var name in split.Skip(1))
                     {
                         var nextModule = module.Symbols.OfType<ModuleSymbol>()
@@ -111,7 +111,7 @@ namespace Typeck
                     if (type.IsClass)
                     {
                         kind = TypeKind.Class;
-                        
+
                     }
                     else if (type.IsInterface)
                     {
@@ -129,14 +129,49 @@ namespace Typeck
                     var symbol = new TypeSymbol(type.Name, kind);
                     symbol.Parent = module;
                     module.Symbols.Add(symbol);
+                }
+            }
+            catch(Exception ex)
+            {
+                Console.WriteLine(ex);
+            }
+        }
+        
+        internal void PopulateMembersForAssembly(Assembly assembly)
+        {
+            try
+            {
+                // Try Loading each of the dependencies 
+                foreach (var reference in assembly.GetReferencedAssemblies())
+                {
+                    try
+                    {
+                        Assembly.Load(reference);
+                    }
+                    catch
+                    {
+                        continue;
+                    }
+                }
+                var types = assembly.GetTypes();
+                
+                foreach (var type in types) {
+                    var typeSymbol = _symbolTable.FindTypeByFQN(type.FullName);
+                    
+                    Console.WriteLine($"Assembly: {type.Assembly} Name: {type.FullName}");
 
+                    if (typeSymbol == null)
+                    {
+                        continue;
+                    }
+                    
                     foreach (var member in type.GetMembers())
                     {
                         if (member.MemberType == MemberTypes.Method)
                         {
                             var method = member as MethodInfo;
                             var funcSymbol = new FuncSymbol(method.Name);
-                            funcSymbol.Parent = symbol;
+                            funcSymbol.Parent = typeSymbol;
 
                             var returnType = new TypeSymbol(method.ReturnType.Name, TypeKind.Unknown);
                             funcSymbol.ReturnType = returnType;
@@ -204,13 +239,14 @@ namespace Typeck
                                 
                                 foreach (var param in method.GetParameters())
                                 {
-                                    var paramSymbol = new ParameterSymbol(param.Name,
-                                        new TypeSymbol(param.ParameterType.Name, TypeKind.Unknown), opSymbol);
-                                    opSymbol.Parent = symbol;
+                                    var paramType = _symbolTable.FindTypeByFQN(param?.ParameterType.FullName ?? param?.ParameterType.Name);
+
+                                    var paramSymbol = new ParameterSymbol(param.Name, paramType, opSymbol);
+                                    opSymbol.Parent = typeSymbol;
                                     opSymbol.Symbols.Add(paramSymbol);
                                 }
                                 
-                                symbol.Symbols.Add(opSymbol);
+                                typeSymbol.Symbols.Add(opSymbol);
                                 
                                 continue;
                             }
@@ -218,20 +254,27 @@ namespace Typeck
                             // If the func is a regular func and not an operator, add it
                             foreach (var param in method.GetParameters())
                             {
-                                var paramSymbol = new ParameterSymbol(param.Name,
-                                    new TypeSymbol(param.ParameterType.Name, TypeKind.Unknown), funcSymbol);
-                                funcSymbol.Parent = symbol;
+                                var paramType = _symbolTable.FindTypeByFQN(param?.ParameterType.FullName ?? param?.ParameterType.Name);
+
+                                if (paramType == null)
+                                {
+                                    continue;
+                                }
+                                
+                                var paramSymbol = new ParameterSymbol(param.Name, paramType, funcSymbol);
+                                funcSymbol.Parent = typeSymbol;
                                 funcSymbol.Symbols.Add(paramSymbol);
                             }
-                            symbol.Symbols.Add(funcSymbol);
+                            typeSymbol.Symbols.Add(funcSymbol);
                         }
                         else if (member.MemberType == MemberTypes.Field)
                         {
                             var field = member as FieldInfo;
-                            var fieldSymbol = new VariableSymbol(field.Name,
-                                new TypeSymbol(field.FieldType.Name, TypeKind.Unknown));
-                            fieldSymbol.Parent = symbol;
-                            symbol.Symbols.Add(fieldSymbol);
+                            var fieldType = _symbolTable.FindTypeByFQN(field?.FieldType.FullName ?? field.FieldType.Name);
+
+                            var fieldSymbol = new VariableSymbol(field.Name, fieldType);
+                            fieldSymbol.Parent = typeSymbol;
+                            typeSymbol.Symbols.Add(fieldSymbol);
                         }
                         else if (member.MemberType == MemberTypes.Property)
                         {
@@ -256,16 +299,21 @@ namespace Typeck
                                 setterAccessLevel = AccessLevel.Private;
                             }
                             
-                            var property = member as PropertyInfo;
+                            // Get the boxed name 
+                            var unboxed = Shared.Utils.GetUnboxedName(
+                                prop?.PropertyType.FullName ??
+                                prop.PropertyType.Name
+                                );
+                            var propType = _symbolTable.FindTypeByFQN(unboxed);
                             var propertySymbol = new PropertySymbol(
-                                property.Name,
-                                new TypeSymbol(Shared.Utils.GetUnboxedName(property.PropertyType.FullName ?? property.PropertyType.Name), TypeKind.Unknown),
+                                prop.Name,
+                                propType,
                                 getterAccessLevel,
                                 setterAccessLevel,
                                 prop.GetGetMethod()?.IsStatic ?? false
                                 );
-                            propertySymbol.Parent = symbol;
-                            symbol.Symbols.Add(propertySymbol);
+                            propertySymbol.Parent = typeSymbol;
+                            typeSymbol.Symbols.Add(propertySymbol);
                         }
                     }
                 }

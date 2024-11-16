@@ -361,14 +361,14 @@ namespace Symbols
 
         public TypeSymbol? FindTypeByFQN(string name)
         {
-            var module = FindModuleByFQN(name);
+            ISymbol? symbol = FindModuleByFQN(name);
 
-            if (module == null)
+            if (symbol == null)
             {
                 return null;
             }
 
-            string typePart = name.Remove(0, module.Name.Length + 1);
+            string typePart = name.Remove(0, symbol.Name.Length + 1);
 
             var typeSplit = typePart.Split(".");
 
@@ -377,31 +377,24 @@ namespace Symbols
                 return null;
             }
 
-            TypeSymbol? type = module.Symbols.OfType<TypeSymbol>().FirstOrDefault(sym => sym.Name == typeSplit[0]);
-
-            if (type == null)
-            {
-                return null;
-            }
-
-            typeSplit = typeSplit.Skip(1).ToArray();
-
             while (typeSplit.Length > 0)
             {
-                var foundSymbol = type.Symbols.Find(sym => sym.Name == typeSplit[0]);
+                symbol = symbol.Symbols.FirstOrDefault(sym => sym.Name == typeSplit[0]);
 
-                if (foundSymbol is TypeSymbol foundType)
-                {
-                    type = foundType;
-                    typeSplit = typeSplit.Skip(1).ToArray();
-                }
-                else
+                if (symbol == null)
                 {
                     return null;
                 }
+
+                typeSplit = typeSplit.Skip(1).ToArray();
             }
 
-            return type;
+            if (symbol is TypeSymbol typeSymbol)
+            {
+                return typeSymbol;
+            }
+
+            return null;
         }
 
         public TypeSymbol? FindTypeBySimpleName(string name)

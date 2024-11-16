@@ -1,4 +1,5 @@
-﻿using AST;
+﻿using System.Reflection.Metadata;
+using AST;
 using AST.Nodes;
 using AST.Types;
 using AST.Visitors;
@@ -25,6 +26,8 @@ namespace Typeck
     {
         private SymbolTable table;
         private IErrorCollector _errorCollector;
+        /// The type an expression shall resolve to. Used in stuff liek assignments or parameters
+        private TypeReference? _contextualType;
 
         internal ExpressionResolver(IErrorCollector errorCollector)
         {
@@ -68,8 +71,8 @@ namespace Typeck
                 return;
             }
             
-            var leftOp = FindMatchingOperator(leftType, leftType.Name, rightType.FullyQualifiedName);
-            var rightOp = FindMatchingOperator(rightType, rightType.Name, leftType.FullyQualifiedName);
+            var leftOp = FindMatchingOperator(leftType, leftType.FullyQualifiedName, rightType.FullyQualifiedName);
+            var rightOp = FindMatchingOperator(rightType, leftType.FullyQualifiedName, rightType.FullyQualifiedName);
 
             if (leftOp is not null)
             {

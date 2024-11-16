@@ -38,5 +38,19 @@ namespace Typeck
 
             return TypeKind.Unknown;
         }
+        
+        internal static string GetFullyQualifiedName(ISymbol symbol)
+        {
+            var name = symbol.Name;
+            var parent = symbol.Parent;
+
+            while (parent != null)
+            {
+                name = $"{parent.Name}.{name}";
+                parent = parent.Parent;
+            }
+
+            return name;
+        }
     }
 }
