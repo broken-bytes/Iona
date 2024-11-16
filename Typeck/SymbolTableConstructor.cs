@@ -138,13 +138,6 @@ namespace Typeck
                             var funcSymbol = new FuncSymbol(method.Name);
                             funcSymbol.Parent = symbol;
 
-                            foreach (var param in method.GetParameters())
-                            {
-                                var paramSymbol = new ParameterSymbol(param.Name,
-                                    new TypeSymbol(param.ParameterType.Name, TypeKind.Unknown), funcSymbol);
-                                funcSymbol.Symbols.Add(paramSymbol);
-                            }
-
                             var returnType = new TypeSymbol(method.ReturnType.Name, TypeKind.Unknown);
                             funcSymbol.ReturnType = returnType;
 
@@ -152,52 +145,52 @@ namespace Typeck
                             {
                                 OperatorType op;
                                 // Check every C# builtin op_ and assign the operator accordingly
-                                if (member.Name == "op_addition")
+                                if (member.Name == "op_Addition")
                                 {
                                     op = OperatorType.Add;
                                 }
-                                else if (member.Name == "op_subtraction")
+                                else if (member.Name == "op_Subtraction")
                                 {
                                     op = OperatorType.Subtract;
                                 }
-                                else if (member.Name == "op_multiply")
+                                else if (member.Name == "op_Multiply")
                                 {
                                     op = OperatorType.Multiply;
                                 }
-                                else if (member.Name == "op_division")
+                                else if (member.Name == "op_Division")
                                 {
                                     op = OperatorType.Divide;
                                 }
-                                else if (member.Name == "op_modulus")
+                                else if (member.Name == "op_Modulus")
                                 {
                                     op = OperatorType.Multiply;
                                 }
-                                else if (member.Name == "op_exponent")
+                                else if (member.Name == "op_Exponent")
                                 {
                                     // TODO: Iona does not yet have a proper syntax for this
                                     continue;
                                 }
-                                else if (member.Name == "op_equals")
+                                else if (member.Name == "op_Equals")
                                 {
                                     op = OperatorType.Equal;
                                 }
-                                else if (member.Name == "op_lessThan")
+                                else if (member.Name == "op_LessThan")
                                 {
                                     op = OperatorType.LessThan;
                                 }
-                                else if (member.Name == "op_greaterThan")
+                                else if (member.Name == "op_GreaterThan")
                                 {
                                     op = OperatorType.GreaterThan;
                                 }
-                                else if (member.Name == "op_greaterThanOrEqual")
+                                else if (member.Name == "op_GreaterThanOrEqual")
                                 {
                                     op = OperatorType.GreaterThanOrEqual;
                                 }
-                                else if (member.Name == "op_lessThan")
+                                else if (member.Name == "op_LessThan")
                                 {
                                     op = OperatorType.LessThan;
                                 }
-                                else if (member.Name == "op_greaterThanOrEqual")
+                                else if (member.Name == "op_GreaterThanOrEqual")
                                 {
                                     op = OperatorType.GreaterThanOrEqual;
                                 }
@@ -207,8 +200,15 @@ namespace Typeck
                                 }
                                 
                                 var opSymbol = new OperatorSymbol(op);
-                                opSymbol.Symbols.AddRange(funcSymbol.Symbols.OfType<ParameterSymbol>());
                                 opSymbol.ReturnType = returnType;
+                                
+                                foreach (var param in method.GetParameters())
+                                {
+                                    var paramSymbol = new ParameterSymbol(param.Name,
+                                        new TypeSymbol(param.ParameterType.Name, TypeKind.Unknown), opSymbol);
+                                    opSymbol.Parent = symbol;
+                                    opSymbol.Symbols.Add(paramSymbol);
+                                }
                                 
                                 symbol.Symbols.Add(opSymbol);
                                 
@@ -216,6 +216,13 @@ namespace Typeck
                             }
                             
                             // If the func is a regular func and not an operator, add it
+                            foreach (var param in method.GetParameters())
+                            {
+                                var paramSymbol = new ParameterSymbol(param.Name,
+                                    new TypeSymbol(param.ParameterType.Name, TypeKind.Unknown), funcSymbol);
+                                funcSymbol.Parent = symbol;
+                                funcSymbol.Symbols.Add(paramSymbol);
+                            }
                             symbol.Symbols.Add(funcSymbol);
                         }
                         else if (member.MemberType == MemberTypes.Field)
