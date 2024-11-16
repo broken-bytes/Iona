@@ -24,6 +24,11 @@ namespace AST.Nodes
             Target = target;
         }
 
+        public override string ToString()
+        {
+            return Target.ToString();
+        }
+
         public void Accept(IFuncCallVisitor visitor)
         {
             visitor.Visit(this);

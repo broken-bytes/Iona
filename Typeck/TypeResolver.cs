@@ -19,7 +19,6 @@ namespace Typeck
         IClassVisitor,
         IContractVisitor,
         IFileVisitor,
-        IFuncCallVisitor,
         IFuncVisitor,
         IIdentifierVisitor,
         IImportVisitor,
@@ -142,11 +141,6 @@ namespace Typeck
                     module.Accept(this);
                 }
             }
-        }
-
-        public void Visit(FuncCallNode node)
-        {
-            throw new NotImplementedException();
         }
 
         public void Visit(FuncNode node)
@@ -627,9 +621,6 @@ namespace Typeck
                     break;
                 case FileNode fileNode:
                     fileNode.Accept(this);
-                    break;
-                case FuncCallNode funcCallNode:
-                    funcCallNode.Accept(this);
                     break;
                 case FuncNode funcNode:
                     funcNode.Accept(this);

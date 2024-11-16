@@ -43,7 +43,7 @@ namespace Compiler
             this.fixItCollector = fixItCollector;
         }
 
-        public void Compile(string assemblyName, List<CompilationUnit> files, bool intermediate, List<string> assemblyPaths, List<string> assemblyRefs)
+        public bool Compile(string assemblyName, List<CompilationUnit> files, bool intermediate, List<string> assemblyPaths, List<string> assemblyRefs)
         {
             // Add IONA SDK to the references
             assemblyRefs.Add("Iona.Builtins");
@@ -113,10 +113,6 @@ namespace Compiler
             Parallel.ForEach(asts, ast => typeck.CheckTopLevelScopes(ast, globalTable));
             Parallel.ForEach(asts, ast => typeck.CheckExpressions(ast, globalTable));
             Parallel.ForEach(asts, ast => typeck.TypeCheck(ast, globalTable));
-            Parallel.ForEach(asts, ast => {
-                logger.Log(ast);
-                File.WriteAllText(((FileNode)ast.Root).Name + ".ast", visualizer.Visualize(ast));
-            });
             
             if (errorCollector.Errors.Any())
             {
@@ -130,11 +126,13 @@ namespace Compiler
                 
                 Console.ResetColor();
                 
-                return;
+                return false;
             }
             
             Console.ForegroundColor = ConsoleColor.Green;
             GenerateCode(assemblyName, asts.ToList(), globalTable, intermediate, assemblyPaths, assemblyRefs);
+
+            return true;
         }
 
         private void GenerateCode(

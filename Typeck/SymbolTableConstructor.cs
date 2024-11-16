@@ -69,7 +69,7 @@ namespace Typeck
                         continue;
                     }
                 }
-                var types = assembly.GetTypes();
+                var types = assembly.GetExportedTypes();
 
                 foreach (var type in types)
                 {
@@ -153,13 +153,11 @@ namespace Typeck
                         continue;
                     }
                 }
-                var types = assembly.GetTypes();
+                var types = assembly.GetExportedTypes();
                 
                 foreach (var type in types) {
                     var typeSymbol = _symbolTable.FindTypeByFQN(type.FullName);
                     
-                    Console.WriteLine($"Assembly: {type.Assembly} Name: {type.FullName}");
-
                     if (typeSymbol == null)
                     {
                         continue;
