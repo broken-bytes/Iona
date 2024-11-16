@@ -112,6 +112,11 @@ namespace Parser.Parsers
 
                 stream.Consume();
                 token = stream.Peek();
+
+                if (stream.IsEmpty())
+                {
+                    break;
+                }
                 
                 nextState = NextState(nextState, token);
             }
@@ -561,7 +566,7 @@ namespace Parser.Parsers
                     
                     if (token.Family is TokenFamily.Operator)
                     {
-                        // Any operator that is NOT a binaru or unary operator ends the expression (=, +=, etc.)
+                        // Any operator that is NOT a binary or unary operator ends the expression (=, +=, etc.)
                         return ExpressionState.Finish;
                     }
                     
@@ -644,7 +649,7 @@ namespace Parser.Parsers
                     return ExpressionState.Invalid;
                 }
                 case ExpressionState.Param:
-                    if (token.Type is TokenType.Identifier)
+                    if (token.Type is TokenType.Identifier || token.Family is TokenFamily.Literal)
                     {
                         return ExpressionState.Operand;
                     }

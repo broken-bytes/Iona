@@ -99,8 +99,11 @@ namespace Shared
             msg += "\n\n";
             msg += $"Left operand: `{left}`\n";
             msg += $"Right operand: `{right}`\n";
-            msg += $"Expected return type: `{returnType}`\n";
-            
+            if (returnType != null)
+            {
+                msg += $"Expected return type: `{returnType}`\n";
+            }
+
             return new CompilerError(
                 CompilerErrorCode.MissingTypeAnnotation,
                 msg, 

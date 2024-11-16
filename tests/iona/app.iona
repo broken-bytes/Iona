@@ -9,7 +9,7 @@ public class Test: MonoBehaviour {
     }
 
     public fn update() {
-        value += 1 * Time::deltaTime
+        value += Int32(value: 1 * Time::deltaTime)
         Debug::log(message: gameObject)
     }
 }
