@@ -143,6 +143,8 @@
                     return "C0009";
                 case CompilerErrorCode.NoBinaryOverload:
                     return "C0010";
+                case CompilerErrorCode.AmbigiousOperatorOverload:
+                    return "C0011";
                 default:
                     return "UnknownError";
             }

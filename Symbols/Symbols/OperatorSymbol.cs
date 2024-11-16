@@ -2,7 +2,7 @@
 
 namespace Symbols.Symbols
 {
-    public  class OperatorSymbol : ISymbol
+    public class OperatorSymbol : ISymbol
     {
         public string Name { get; set; }
         public OperatorType Operator { get; set; }

@@ -84,7 +84,16 @@ namespace Shared
         {
             return new CompilerError(
                 CompilerErrorCode.MissingTypeAnnotation,
-                $"Neither `{left}` nor `{right}` implements a binary operation `{method}` taking [lhs: {left}, rhs: {right}]", 
+                $"Neither `{left}` nor `{right}` implements binary operation `{method}` taking [lhs: {left}, rhs: {right}]", 
+                meta
+            );
+        }
+        
+        public static CompilerError AmbigiousOperatorOverload(string thisType, string otherType, string method, string left, string right, Metadata meta)
+        {
+            return new CompilerError(
+                CompilerErrorCode.AmbigiousOperatorOverload,
+                $"Both `{thisType}` and `{otherType}` implement binary operation `{method}` taking [lhs: {left}, rhs: {right}]", 
                 meta
             );
         }

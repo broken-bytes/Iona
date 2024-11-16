@@ -137,7 +137,6 @@ namespace Typeck
                             var method = member as MethodInfo;
                             var funcSymbol = new FuncSymbol(method.Name);
                             funcSymbol.Parent = symbol;
-                            symbol.Symbols.Add(funcSymbol);
 
                             foreach (var param in method.GetParameters())
                             {
@@ -148,6 +147,76 @@ namespace Typeck
 
                             var returnType = new TypeSymbol(method.ReturnType.Name, TypeKind.Unknown);
                             funcSymbol.ReturnType = returnType;
+
+                            if (method.IsSpecialName)
+                            {
+                                OperatorType op;
+                                // Check every C# builtin op_ and assign the operator accordingly
+                                if (member.Name == "op_addition")
+                                {
+                                    op = OperatorType.Add;
+                                }
+                                else if (member.Name == "op_subtraction")
+                                {
+                                    op = OperatorType.Subtract;
+                                }
+                                else if (member.Name == "op_multiply")
+                                {
+                                    op = OperatorType.Multiply;
+                                }
+                                else if (member.Name == "op_division")
+                                {
+                                    op = OperatorType.Divide;
+                                }
+                                else if (member.Name == "op_modulus")
+                                {
+                                    op = OperatorType.Multiply;
+                                }
+                                else if (member.Name == "op_exponent")
+                                {
+                                    // TODO: Iona does not yet have a proper syntax for this
+                                    continue;
+                                }
+                                else if (member.Name == "op_equals")
+                                {
+                                    op = OperatorType.Equal;
+                                }
+                                else if (member.Name == "op_lessThan")
+                                {
+                                    op = OperatorType.LessThan;
+                                }
+                                else if (member.Name == "op_greaterThan")
+                                {
+                                    op = OperatorType.GreaterThan;
+                                }
+                                else if (member.Name == "op_greaterThanOrEqual")
+                                {
+                                    op = OperatorType.GreaterThanOrEqual;
+                                }
+                                else if (member.Name == "op_lessThan")
+                                {
+                                    op = OperatorType.LessThan;
+                                }
+                                else if (member.Name == "op_greaterThanOrEqual")
+                                {
+                                    op = OperatorType.GreaterThanOrEqual;
+                                }
+                                else
+                                {
+                                    continue;
+                                }
+                                
+                                var opSymbol = new OperatorSymbol(op);
+                                opSymbol.Symbols.AddRange(funcSymbol.Symbols.OfType<ParameterSymbol>());
+                                opSymbol.ReturnType = returnType;
+                                
+                                symbol.Symbols.Add(opSymbol);
+                                
+                                continue;
+                            }
+                            
+                            // If the func is a regular func and not an operator, add it
+                            symbol.Symbols.Add(funcSymbol);
                         }
                         else if (member.MemberType == MemberTypes.Field)
                         {

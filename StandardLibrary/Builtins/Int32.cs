@@ -21,6 +21,8 @@
         public static Int32 operator *(Int32 a, Int32 b) => new Int32(a.value * b.value);
         public static Int32 operator /(Int32 a, Int32 b) => new Int32(a.value / b.value);
 
+        public static Float operator +(Int32 a, Float b) => new(a.value / b.value);
+
         public static bool operator ==(Int32 a, Int32 b) => a.value == b.value;
         public static bool operator !=(Int32 a, Int32 b) => a.value != b.value;
         public static bool operator <(Int32 a, Int32 b) => a.value < b.value;

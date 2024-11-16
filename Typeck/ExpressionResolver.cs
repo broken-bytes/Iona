@@ -47,6 +47,11 @@ namespace Typeck
         {
             CheckNode(node.Left);
             CheckNode(node.Right);
+
+            if (node.Left.ResultType is null || node.Right.ResultType is null)
+            {
+                return;
+            }
             
             if (node.Left.ResultType?.FullyQualifiedName == node.Right.ResultType?.FullyQualifiedName)
             {
@@ -55,6 +60,33 @@ namespace Typeck
                 return;
             }
 
+            var leftType = table.FindTypeBy(node.Left.ResultType.Name, null);
+            var rightType = table.FindTypeBy(node.Right.ResultType.Name, null);
+
+            if (leftType is null || rightType is null)
+            {
+                return;
+            }
+            
+            var leftOp = FindMatchingOperator(leftType, leftType.Name, rightType.FullyQualifiedName);
+            var rightOp = FindMatchingOperator(rightType, rightType.Name, leftType.FullyQualifiedName);
+
+            if (leftOp is not null)
+            {
+                node.Status = INode.ResolutionStatus.Resolved;
+                
+                return;
+            }
+            
+            if (rightOp is not null)
+            {
+                node.Status = INode.ResolutionStatus.Resolved;
+                
+                return;
+            }
+
+            node.Status = INode.ResolutionStatus.Failed;
+            
             var error = CompilerErrorFactory.NoBinaryOverload(
                 node.Operation.CSharpOperator(),
                 node.Left.ResultType.Name,
@@ -258,6 +290,35 @@ namespace Typeck
                     structNode.Accept(this);
                     break;
             }
+        }
+
+        private OperatorSymbol? FindMatchingOperator(TypeSymbol type, string leftFqn, string rightFqn)
+        {
+            var leftOp = type
+                .Symbols
+                .OfType<OperatorSymbol>()
+                .FirstOrDefault(op =>
+                    {
+                        var parameters = op.Symbols.OfType<ParameterSymbol>().ToList();
+
+                        if (parameters.Count != 2)
+                        {
+                            return false;
+                        }
+                        
+                        if (
+                            parameters[0].Type.FullyQualifiedName == leftFqn && 
+                            parameters[1].Type.FullyQualifiedName == rightFqn
+                        )
+                        {
+                            return true;
+                        }
+
+                        return false;
+                    }
+                );
+
+            return leftOp;
         }
     }
 }

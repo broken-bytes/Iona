@@ -20,6 +20,8 @@
         /// Used when a prop or variable does not have a type annotation nor is assigned a value during declaration
         MissingTypeAnnotation,
         /// Used when neither type overrides the binary operation used
-        NoBinaryOverload
+        NoBinaryOverload,
+        /// Used when two types implement the same operator overload
+        AmbigiousOperatorOverload
     }
 }
