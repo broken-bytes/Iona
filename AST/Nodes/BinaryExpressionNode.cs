@@ -9,8 +9,8 @@ namespace AST.Nodes
     {
         public INode? Parent { get; set; }
         public NodeType Type { get; set; }
-        public INode? Left { get; set; }
-        public INode? Right { get; set; }
+        public IExpressionNode Left { get; set; }
+        public IExpressionNode Right { get; set; }
         public BinaryOperation Operation { get; set; }
         public ExpressionType ExpressionType { get; set; }
         public TypeReferenceNode? ResultType { get; set; }
@@ -19,8 +19,8 @@ namespace AST.Nodes
         public Metadata Meta { get; set; }
 
         public BinaryExpressionNode(
-            INode? left,
-            INode? right,
+            IExpressionNode left,
+            IExpressionNode right,
             BinaryOperation operation,
             TypeReferenceNode? resultType = null,
             INode? parent = null

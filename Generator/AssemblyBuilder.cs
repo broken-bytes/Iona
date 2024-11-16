@@ -524,14 +524,7 @@ namespace Generator
 
         public void Visit(ScopeResolutionNode node)
         {
-            if (node.Scope is SelfNode self)
-            {
-                source.Append("this");
-            }
-            else
-            {
-                source.Append(node.Scope.ToString());
-            }
+            source.Append(node.Scope.ToString());
             source.Append(".");
             
             if (node.Property is IdentifierNode identifier)

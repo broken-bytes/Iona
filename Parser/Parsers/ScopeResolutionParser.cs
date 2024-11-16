@@ -91,7 +91,7 @@ namespace Parser.Parsers
                 Utils.SetMeta(member, memberIdentifier);
             }
 
-            var scopeResolution = new ScopeResolutionNode(target, member, parent);
+            var scopeResolution = new ScopeResolutionNode((IdentifierNode)target, member, parent);
             Utils.SetMeta(scopeResolution, token);
 
             target.Parent = scopeResolution;
@@ -124,7 +124,7 @@ namespace Parser.Parsers
                     Utils.SetMeta(nextMember, memberIdentifier);
                 }
 
-                scopeResolution.Scope = new PropAccessNode(scopeResolution.Scope, nextMember, parent);
+                scopeResolution.Property = new PropAccessNode(scopeResolution.Scope, nextMember, parent);
                 scopeResolution.Scope.Parent = scopeResolution;
                 scopeResolution.Property.Parent = scopeResolution;
                 Utils.SetColumnEnd(scopeResolution, nextMember.Meta.ColumnEnd);

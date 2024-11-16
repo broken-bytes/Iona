@@ -9,7 +9,7 @@ namespace AST.Nodes
     {
         public INode? Parent { get; set; }
         public NodeType Type { get; set; }
-        public INode Scope { get; set; }
+        public IdentifierNode Scope { get; set; }
         public INode Property { get; set; }
         public TypeReferenceNode? ResultType { get; set; }
         public ExpressionType ExpressionType => ExpressionType.PropAccess;
@@ -17,9 +17,9 @@ namespace AST.Nodes
         public ResolutionStatus Status { get; set; } = ResolutionStatus.Unresolved;
         public Metadata Meta { get; set; }
 
-        public ScopeResolutionNode(INode obj, INode property, INode? parent = null)
+        public ScopeResolutionNode(IdentifierNode scope, INode property, INode? parent = null)
         {
-            Scope = obj;
+            Scope = scope;
             Property = property;
             Parent = parent;
             Type = NodeType.PropAccess;

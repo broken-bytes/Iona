@@ -40,12 +40,29 @@ namespace Typeck
 
         public void Visit(AssignmentNode node)
         {
-            Console.WriteLine(node.Target);
+            CheckNode(node.Value);
         }
 
         public void Visit(BinaryExpressionNode node)
         {
-            var foo = node;
+            CheckNode(node.Left);
+            CheckNode(node.Right);
+            
+            if (node.Left.ResultType?.FullyQualifiedName == node.Right.ResultType?.FullyQualifiedName)
+            {
+                node.Status = INode.ResolutionStatus.Resolved;
+                
+                return;
+            }
+
+            var error = CompilerErrorFactory.NoBinaryOverload(
+                node.Operation.CSharpOperator(),
+                node.Left.ResultType.Name,
+                node.Right.ResultType.Name,
+                node.Meta
+            );
+            
+            _errorCollector.Collect(error);
         }
 
         public void Visit(BlockNode node)
@@ -230,6 +247,9 @@ namespace Typeck
                     break;
                 case OperatorNode operatorNode:
                     operatorNode.Accept(this);
+                    break;
+                case PropAccessNode propAccessNode:
+                    propAccessNode.Accept(this);
                     break;
                 case PropertyNode propertyNode:
                     propertyNode.Accept(this);

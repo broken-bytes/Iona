@@ -77,17 +77,22 @@ namespace Symbols
 
         public TypeSymbol? FindTypeBy(TypeReferenceNode node, ModuleSymbol? module)
         {
+            return FindTypeBy(node.Name, module);
+        }
+        
+        public TypeSymbol? FindTypeBy(string name, ModuleSymbol? module)
+        {
             TypeSymbol? symbol = null;
 
             if (module != null)
             {
-                symbol = module.Symbols.OfType<TypeSymbol>().FirstOrDefault(symbol => symbol.Name == node.Name);
+                symbol = module.Symbols.OfType<TypeSymbol>().FirstOrDefault(symbol => symbol.Name == name);
 
                 if (symbol == null)
                 {
                     foreach (var type in module.Symbols.OfType<ModuleSymbol>())
                     {
-                        symbol = FindTypeBy(node, type);
+                        symbol = FindTypeBy(name, type);
 
                         if (symbol != null)
                         {
@@ -98,29 +103,27 @@ namespace Symbols
 
                 return symbol;
             }
-            else
+            
+            symbol = Modules
+                .SelectMany(module => module.Symbols)
+                .OfType<TypeSymbol>()
+                .ToList()
+                .FirstOrDefault(symbol => symbol.Name == name);
+
+            if (symbol == null)
             {
-                symbol = Modules
-                    .SelectMany(module => module.Symbols)
-                    .OfType<TypeSymbol>()
-                    .ToList()
-                    .FirstOrDefault(symbol => symbol.Name == node.Name);
-
-                if (symbol == null)
+                foreach (var mod in Modules)
                 {
-                    foreach (var mod in Modules)
-                    {
-                        symbol = FindTypeBy(node, mod);
+                    symbol = FindTypeBy(name, mod);
 
-                        if (symbol != null)
-                        {
-                            return symbol;
-                        }
+                    if (symbol != null)
+                    {
+                        return symbol;
                     }
                 }
-
-                return symbol;
             }
+
+            return symbol;
         }
 
         /// <summary>

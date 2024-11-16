@@ -159,9 +159,35 @@ namespace Typeck
                         }
                         else if (member.MemberType == MemberTypes.Property)
                         {
+                            var prop = member as PropertyInfo;
+                            AccessLevel getterAccessLevel = AccessLevel.Internal;
+                            if (prop.GetGetMethod()?.IsPublic ?? false)
+                            {
+                                getterAccessLevel = AccessLevel.Public;
+                            } 
+                            else if (prop.GetGetMethod()?.IsPrivate ?? false)
+                            {
+                                getterAccessLevel = AccessLevel.Private;
+                            }
+                            
+                            AccessLevel setterAccessLevel = AccessLevel.Internal;
+                            if (prop.GetSetMethod()?.IsPublic ?? false)
+                            {
+                                setterAccessLevel = AccessLevel.Public;
+                            } 
+                            else if (prop.GetSetMethod()?.IsPrivate ?? false)
+                            {
+                                setterAccessLevel = AccessLevel.Private;
+                            }
+                            
                             var property = member as PropertyInfo;
-                            var propertySymbol = new PropertySymbol(property.Name,
-                                new TypeSymbol(property.PropertyType.Name, TypeKind.Unknown));
+                            var propertySymbol = new PropertySymbol(
+                                property.Name,
+                                new TypeSymbol(Shared.Utils.GetUnboxedName(property.PropertyType.FullName ?? property.PropertyType.Name), TypeKind.Unknown),
+                                getterAccessLevel,
+                                setterAccessLevel,
+                                prop.GetGetMethod()?.IsStatic ?? false
+                                );
                             propertySymbol.Parent = symbol;
                             symbol.Symbols.Add(propertySymbol);
                         }
@@ -478,7 +504,15 @@ namespace Typeck
 
         public void Visit(PropertyNode node)
         {
-            var symbol = new PropertySymbol(node.Name, new TypeSymbol("Unknown", TypeKind.Unknown));
+            // TODO: Add actual get set access levels instead of public per default
+            var symbol = new PropertySymbol(
+                node.Name, 
+                new TypeSymbol("Unknown", TypeKind.Unknown),
+                AccessLevel.Public,
+                AccessLevel.Public,
+                false,
+                false
+                );
 
             if (_currentSymbol == null)
             {

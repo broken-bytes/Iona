@@ -141,6 +141,8 @@
                     return "C0008";
                 case CompilerErrorCode.MissingTypeAnnotation:
                     return "C0009";
+                case CompilerErrorCode.NoBinaryOverload:
+                    return "C0010";
                 default:
                     return "UnknownError";
             }

@@ -79,5 +79,14 @@ namespace Shared
                 meta
                 );
         }
+
+        public static CompilerError NoBinaryOverload(string method, string left, string right, Metadata meta)
+        {
+            return new CompilerError(
+                CompilerErrorCode.MissingTypeAnnotation,
+                $"Neither `{left}` nor `{right}` implements a binary operation `{method}` taking [lhs: {left}, rhs: {right}]", 
+                meta
+            );
+        }
     }
 }

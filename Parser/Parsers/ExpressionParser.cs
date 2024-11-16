@@ -459,7 +459,7 @@ namespace Parser.Parsers
                     var left = stack.Pop();
 
                     var operation = GetBinaryOperation(token);
-                    var node = new BinaryExpressionNode(left, right, operation, null, parent);
+                    var node = new BinaryExpressionNode((IExpressionNode)left, (IExpressionNode)right, operation, null, parent);
                     left.Parent = node;
                     right.Parent = node;
 

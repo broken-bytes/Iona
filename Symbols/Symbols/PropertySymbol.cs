@@ -1,4 +1,6 @@
-﻿namespace Symbols.Symbols
+﻿using AST.Types;
+
+namespace Symbols.Symbols
 {
     public class PropertySymbol : ISymbol
     {
@@ -8,8 +10,18 @@
         public List<ISymbol> Symbols { get; set; }
         public SymbolKind Kind { get; set; } = SymbolKind.Property;
         public ISymbol? Parent { get; set; }
+        public AccessLevel GetterAccessLevel { get; set; }
+        public AccessLevel SetterAccessLevel { get; set; }
+        public static bool IsStatic { get; set; }
 
-        public PropertySymbol(string name, TypeSymbol type, bool isIl = false)
+        public PropertySymbol(
+            string name, 
+            TypeSymbol type, 
+            AccessLevel getterAccessLevel, 
+            AccessLevel setterAccessLevel,
+            bool isStatic,
+            bool isIl = false
+            )
         {
             // Since C# usually uses PascalCase for function names,
             // we need convert back and forth between PascalCase and camelCase for Iona
@@ -28,6 +40,9 @@
 
             Type = type;
             Symbols = new List<ISymbol>();
+            GetterAccessLevel = getterAccessLevel;
+            SetterAccessLevel = setterAccessLevel;
+            IsStatic = isStatic;
         }
     }
 }

@@ -456,10 +456,15 @@ namespace Typeck
 
         public void Visit(ScopeResolutionNode node)
         {
-            // Find the first symbol
-            var symbol = _symbolTable.FindBy(node.Scope);
+            var type = ResolveScopeResolutionType(node, null);
+
+            if (type is null)
+            {
+                return;
+            }
             
-            Console.Write(symbol);
+            node.ResultType = type;
+            node.Status = ResolutionStatus.Resolved;
         }
 
         public void Visit(StructNode node)
@@ -968,6 +973,58 @@ namespace Typeck
             );
 
             _fixItCollector.Collect(fixIt);
+        }
+
+        private TypeReferenceNode? ResolveScopeResolutionType(ScopeResolutionNode node, ISymbol? parent)
+        {
+            // Find the first symbol
+            ISymbol? symbol;
+            if (parent == null)
+            {
+                symbol = _symbolTable.FindTypeBy(node.Scope.Value, null);
+            }
+            else
+            {
+                symbol = parent.Symbols.FirstOrDefault(symbolSymbol => symbolSymbol.Name == node.Scope.Value);
+            }
+
+            if (symbol is null)
+            {
+                node.Status = ResolutionStatus.Failed;
+                var error = CompilerErrorFactory.TopLevelDefinitionError(node.Scope.Value, node.Meta);
+                _errorCollector.Collect(error);
+
+                return null;
+            }
+
+            if (node.Property is IdentifierNode property)
+            {
+                var propSymbol = symbol.Symbols.OfType<PropertySymbol>().FirstOrDefault(member => member.Name == property.Value);
+
+                if (propSymbol is null)
+                {
+                    node.Status = ResolutionStatus.Failed;
+                    var error = CompilerErrorFactory.TypeDoesNotContainProperty(node.Scope.Value, property.Value, property.Meta);
+                    _errorCollector.Collect(error);
+                    
+                    return null;
+                }
+
+                var type = new TypeReferenceNode(propSymbol.Type.Name, node)
+                {
+                    FullyQualifiedName = propSymbol.Type.FullyQualifiedName,
+                    Assembly = propSymbol.Type.Assembly
+                };
+
+                return type;
+            }
+            
+            if (node.Property is ScopeResolutionNode scope)
+            {
+                return ResolveScopeResolutionType(scope, symbol);
+            }
+
+            return null;
         }
     }
 }

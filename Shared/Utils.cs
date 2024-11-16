@@ -72,35 +72,36 @@ public static class Utils
         switch (fullName)
         {
             case "bool":
-                return "Iona.Builtins.Bool";
+                return "Bool";
             case "double":
-                return "Iona.Builtins.Double";
+                return "Double";
             case "float":
-                return "Iona.Builtins.Float";
+            case "System.Single":
+                return "Float";
             case "sbyte":
-                return "Iona.Builtins.Int8";
+                return "Int8";
             case "short":
-                return "Iona.Builtins.Int16";
+                return "Int16";
             case "int":
-                return "Iona.Builtins.Int32";
+                return "Int32";
             case "long":
-                return "Iona.Builtins.Int64";
+                return "Int64";
             case "nint":
-                return "Iona.Builtins.Int";
+                return "NInt";
             case "byte":
-                return "Iona.Builtins.UInt8";
+                return "UInt8";
             case "ushort":
-                return "Iona.Builtins.UInt16";
+                return "UInt16";
             case "uint":
-                return "Iona.Builtins.UInt32";
+                return "UInt32";
             case "ulong":
-                return "Iona.Builtins.UInt64";
+                return "UInt64";
             case "nuint":
-                return "Iona.Builtins.UInt";
+                return "NUInt";
             case "string":
-                return "Iona.Builtins.String";
+                return "String";
             case "void":
-                return "Iona.Builtins.Void";
+                return "Void";
         }
 
         return fullName;
