@@ -76,6 +76,7 @@ namespace Parser.Parsers
 
                 property = new PropertyNode(name.Value, accessLevel, isMutable, null, null, parent);
                 Utils.SetStart(property, decl);
+                Utils.SetEnd(property, name);
 
                 // Check if the property has a type
                 if (stream.Peek().Type == TokenType.Colon)

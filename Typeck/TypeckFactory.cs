@@ -13,7 +13,7 @@ namespace Typeck
             var tableConstructor = new SymbolTableConstructor();
             var topLevelResolver = new TopLevelScopeResolver(errorCollector, warningCollector, fixItCollector);
             var typeResolver = new TypeResolver(errorCollector, warningCollector, fixItCollector);
-            var expressionResolver = new ExpressionScopeResolver();
+            var expressionResolver = new ExpressionResolver(errorCollector);
             var mutabilityResolver = new MutabilityResolver();
 
             return new Typeck(

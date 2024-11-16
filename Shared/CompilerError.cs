@@ -139,6 +139,8 @@
                     return "C0007";
                 case CompilerErrorCode.ExpectedMember:
                     return "C0008";
+                case CompilerErrorCode.MissingTypeAnnotation:
+                    return "C0009";
                 default:
                     return "UnknownError";
             }

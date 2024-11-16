@@ -16,14 +16,14 @@ namespace AST.Nodes
         public INode? Parent { get; set; }
         public NodeType Type { get; set; }
         public INode Root => Utils.GetRoot(this);
-        public ITypeReferenceNode ObjectType { get; set; }
+        public TypeReferenceNode ObjectType { get; set; }
         public List<Argument> Arguments { get; set; } = new List<Argument>();
         public ResolutionStatus Status { get; set; } = ResolutionStatus.Unresolved;
         public Metadata Meta { get; set; }
         public ExpressionType ExpressionType => ExpressionType.ObjectLiteral;
-        public ITypeReferenceNode? ResultType => ObjectType;
+        public TypeReferenceNode? ResultType => ObjectType;
 
-        public ObjectLiteralNode(ITypeReferenceNode objectType, INode? parent)
+        public ObjectLiteralNode(TypeReferenceNode objectType, INode? parent)
         {
             Parent = parent;
             Type = NodeType.ObjectLiteral;

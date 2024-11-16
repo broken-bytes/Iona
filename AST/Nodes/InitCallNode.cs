@@ -16,7 +16,7 @@ namespace AST.Nodes
         public ResolutionStatus Status { get; set; } = ResolutionStatus.Unresolved;
         public Metadata Meta { get; set; }
         public ExpressionType ExpressionType => ExpressionType.FunctionCall;
-        public ITypeReferenceNode? ResultType { get; set; }
+        public TypeReferenceNode? ResultType { get; set; }
 
         public InitCallNode(string typeFQN, INode? parent = null)
         {

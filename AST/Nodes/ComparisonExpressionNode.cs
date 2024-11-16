@@ -15,13 +15,13 @@ namespace AST.Nodes
         public ExpressionType ExpressionType { get; set; }
         public INode Root { get => Utils.GetRoot(this); }
         public ResolutionStatus Status { get; set; } = ResolutionStatus.Unresolved;
-        public ITypeReferenceNode? ResultType
+        public TypeReferenceNode? ResultType
         {
             get
             {
                 var node = new TypeReferenceNode("Bool");
                 node.TypeKind = Kind.Struct;
-                node.FullyQualifiedName = "Builtins.Bool";
+                node.FullyQualifiedName = "Iona.Builtins.Bool";
                 return node;
             }
         }

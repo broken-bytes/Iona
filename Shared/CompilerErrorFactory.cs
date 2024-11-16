@@ -70,5 +70,14 @@ namespace Shared
                 meta
             );
         }
+
+        public static CompilerError MissingTypeAnnotation(string name, Metadata meta)
+        {
+            return new CompilerError(
+                CompilerErrorCode.MissingTypeAnnotation,
+                $"Missing type annotation.", 
+                meta
+                );
+        }
     }
 }

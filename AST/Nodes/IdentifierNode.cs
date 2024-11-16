@@ -11,7 +11,7 @@ namespace AST.Nodes
         public INode? Parent { get; set; }
         public NodeType Type { get; set; }
         public ExpressionType ExpressionType => ExpressionType.Identifier;
-        public ITypeReferenceNode? ResultType { get; set; }
+        public TypeReferenceNode? ResultType { get; set; }
         public INode Root { get => Utils.GetRoot(this); }
         public ResolutionStatus Status { get; set; } = ResolutionStatus.Unresolved;
         public Metadata Meta { get; set; }

@@ -421,9 +421,12 @@ namespace Typeck
             {
                 return;
             }
-            
-            // If the value is a literal we can parse it right away. Otherwise, we need to check the name of the TypeNode
 
+            if (node.TypeNode is null)
+            {
+                return;
+            }
+            
             var actualType = CheckNodeType(node.TypeNode);
             node.TypeNode = actualType;
 
@@ -435,7 +438,6 @@ namespace Typeck
             {
                 prop.Type = typeSymbol;
             }
-            
         }
 
         public void Visit(ReturnNode node)

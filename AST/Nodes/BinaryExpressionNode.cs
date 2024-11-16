@@ -13,7 +13,7 @@ namespace AST.Nodes
         public INode? Right { get; set; }
         public BinaryOperation Operation { get; set; }
         public ExpressionType ExpressionType { get; set; }
-        public ITypeReferenceNode? ResultType { get; set; }
+        public TypeReferenceNode? ResultType { get; set; }
         public INode Root { get => Utils.GetRoot(this); }
         public ResolutionStatus Status { get; set; } = ResolutionStatus.Unresolved;
         public Metadata Meta { get; set; }
@@ -22,7 +22,7 @@ namespace AST.Nodes
             INode? left,
             INode? right,
             BinaryOperation operation,
-            ITypeReferenceNode? resultType = null,
+            TypeReferenceNode? resultType = null,
             INode? parent = null
         )
         {

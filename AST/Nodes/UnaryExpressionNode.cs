@@ -14,14 +14,14 @@ namespace AST.Nodes
         public INode? Operand { get; set; }
         public UnaryOperation Operation { get; set; }
         public ExpressionType ExpressionType { get; set; }
-        public ITypeReferenceNode? ResultType { get; set; }
+        public TypeReferenceNode? ResultType { get; set; }
         public ResolutionStatus Status { get; set; } = ResolutionStatus.Unresolved;
         public Metadata Meta { get; set; }
 
         public UnaryExpressionNode(
             INode? operand,
             UnaryOperation operation,
-            ITypeReferenceNode? resultType,
+            TypeReferenceNode? resultType,
             INode? parent
         )
         {

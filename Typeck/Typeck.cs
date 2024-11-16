@@ -10,21 +10,21 @@ namespace Typeck
         private readonly SymbolTableConstructor _tableConstructor;
         private readonly TopLevelScopeResolver _topLevelScopeResolver;
         private readonly TypeResolver _typeResolver;
-        private readonly ExpressionScopeResolver _expressionScopeResolver;
+        private readonly ExpressionResolver _expressionResolver;
         private readonly MutabilityResolver _mutabilityResolver;
 
         internal Typeck(
             SymbolTableConstructor tableConstructor,
             TopLevelScopeResolver topLevelScopeResolver,
             TypeResolver typeResolver,
-            ExpressionScopeResolver expressionScopeResolver,
+            ExpressionResolver expressionResolver,
             MutabilityResolver mutabilityResolver
         )
         {
             _tableConstructor = tableConstructor;
             _topLevelScopeResolver = topLevelScopeResolver;
             _typeResolver = typeResolver;
-            _expressionScopeResolver = expressionScopeResolver;
+            _expressionResolver = expressionResolver;
             _mutabilityResolver = mutabilityResolver;
         }
 
@@ -68,7 +68,7 @@ namespace Typeck
         {
             if (node is FileNode fileNode)
             {
-                _expressionScopeResolver.CheckScopes(fileNode, table);
+                _expressionResolver.CheckScopes(fileNode, table);
             }
         }
 
