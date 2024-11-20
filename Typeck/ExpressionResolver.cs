@@ -17,6 +17,7 @@ namespace Typeck
         IFileVisitor,
         IFuncVisitor,
         IIdentifierVisitor,
+        IInitCallVisitor,
         IInitVisitor,
         ILiteralVisitor,
         IModuleVisitor,
@@ -77,8 +78,8 @@ namespace Typeck
                 return;
             }
 
-            var leftType = table.FindTypeBy(node.Left.ResultType.Name, null);
-            var rightType = table.FindTypeBy(node.Right.ResultType.Name, null);
+            var leftType = table.FindTypeBy(node.Root, node.Left.ResultType.Name, null);
+            var rightType = table.FindTypeBy(node.Root, node.Right.ResultType.Name, null);
 
             if (leftType is null || rightType is null)
             {
@@ -181,6 +182,50 @@ namespace Typeck
                 FullyQualifiedName = type.FullyQualifiedName,
                 Assembly = type.Assembly,
             };
+        }
+
+        public void Visit(InitCallNode node)
+        {
+            // Check the expression of each arg
+            foreach (var arg in node.Args)
+            {
+                CheckNode(arg.Value);
+            }
+            
+            // Check in the symbol table if any overload exists for the given parameters
+            var type = table.FindTypeByFQN(node.Root, node.TypeFullName);
+
+            if (type is null)
+            {
+                // Shall not happen as this was checked earlier
+                return;
+            }
+            
+            node.ResultType = new TypeReferenceNode(type.Name, node)
+            {
+                FullyQualifiedName = type.FullyQualifiedName,
+                Assembly = type.Assembly,
+            };
+            
+            // Check every init if it has matching name + expression type args
+            foreach (var init in type.Symbols.OfType<InitSymbol>())
+            {
+                if (table.ArgsMatchParameters(init.Symbols.OfType<ParameterSymbol>().ToList(), node.Args))
+                {
+                    return;
+                }
+            }
+            
+            // When this is reached no overload exists
+            CompilerErrorFactory.NoMatchingConstructorForArgs(
+                type.FullyQualifiedName, 
+                node.Args.Aggregate(new Dictionary<string, string>(), (a, b) =>
+                {
+                    a.Add(b.Name, b.Value.ResultType.ToString());
+                    return a;
+                }), 
+                node.Meta
+                );
         }
 
         public void Visit(InitNode node)
@@ -323,6 +368,9 @@ namespace Typeck
                 case IdentifierNode identifier:
                     identifier.Accept(this);
                     break;
+                case InitCallNode initCallNode:
+                    initCallNode.Accept(this);
+                    break;
                 case InitNode initNode:
                     initNode.Accept(this);
                     break;
@@ -400,7 +448,7 @@ namespace Typeck
             ISymbol? symbol;
             if (parent == null)
             {
-                symbol = table.FindTypeBy(node.Scope.Value, null);
+                symbol = table.FindTypeBy(node.Root, node.Scope.Value, null);
             }
             else
             {

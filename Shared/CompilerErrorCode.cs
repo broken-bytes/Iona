@@ -22,6 +22,8 @@
         /// Used when neither type overrides the binary operation used
         NoBinaryOverload,
         /// Used when two types implement the same operator overload
-        AmbigiousOperatorOverload
+        AmbigiousOperatorOverload,
+        /// Used when a type has no constructor that matches the provided arguments
+        NoMatchingConstructorForArgs
     }
 }

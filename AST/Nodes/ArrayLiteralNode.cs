@@ -10,7 +10,7 @@ namespace AST.Nodes
         public List<IExpressionNode> Values { get; set; } = new List<IExpressionNode>();
         public INode? Parent { get; set; }
         public NodeType Type { get; set; }
-        public INode Root => Utils.GetRoot(this);
+        public FileNode Root => Utils.GetRoot(this);
         public ExpressionType ExpressionType => ExpressionType.Literal;
         public TypeReferenceNode? ResultType { get; set; }
         public ResolutionStatus Status { get; set; } = ResolutionStatus.Unresolved;

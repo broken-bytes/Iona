@@ -11,7 +11,7 @@ namespace AST.Nodes
         public NodeType Type { get; set; }
         public StatementType StatementType { get; set; }
         public AssignmentType AssignmentType { get; set; }
-        public INode Root { get => Utils.GetRoot(this); }
+        public FileNode Root { get => Utils.GetRoot(this); }
         public INode Target { get; set; }
         public INode Value { get; set; }
         public ResolutionStatus Status { get; set; } = ResolutionStatus.Unresolved;

@@ -313,6 +313,24 @@ namespace Typeck
                             propertySymbol.Parent = typeSymbol;
                             typeSymbol.Symbols.Add(propertySymbol);
                         }
+                        else if (member.MemberType == MemberTypes.Constructor)
+                        {
+                            var ctor = member as ConstructorInfo;
+
+                            var initSymbol = new InitSymbol(type.Name);
+                            
+                            foreach (var param in ctor.GetParameters())
+                            {
+                                var boxedName = Shared.Utils.GetUnboxedName(param?.ParameterType.FullName ?? param?.ParameterType.Name);
+                                var paramType = _symbolTable.FindTypeByFQN(boxedName);
+                                
+                                var paramSymbol = new ParameterSymbol(param.Name, paramType, initSymbol);
+                                initSymbol.Parent = typeSymbol;
+                                initSymbol.Symbols.Add(paramSymbol);
+                            }
+                            
+                            typeSymbol.Symbols.Add(initSymbol);
+                        }
                     }
                 }
             }

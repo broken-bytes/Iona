@@ -10,7 +10,7 @@ namespace AST.Nodes
         public string Value { get; set; }
         public INode? Parent { get; set; }
         public NodeType Type { get; set; }
-        public INode Root => Utils.GetRoot(this);
+        public FileNode Root => Utils.GetRoot(this);
         public ExpressionType ExpressionType => ExpressionType.Literal;
         public TypeReferenceNode? ResultType { get; set; }
         public LiteralType LiteralType { get; set; }

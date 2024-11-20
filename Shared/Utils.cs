@@ -83,6 +83,7 @@ public static class Utils
             case "short":
                 return "Iona.Builtins.Int16";
             case "int":
+            case "System.Int32":
                 return "Iona.Builtins.Int32";
             case "long":
                 return "Iona.Builtins.Int64";

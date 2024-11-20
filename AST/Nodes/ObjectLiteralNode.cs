@@ -15,7 +15,7 @@ namespace AST.Nodes
 
         public INode? Parent { get; set; }
         public NodeType Type { get; set; }
-        public INode Root => Utils.GetRoot(this);
+        public FileNode Root => Utils.GetRoot(this);
         public TypeReferenceNode ObjectType { get; set; }
         public List<Argument> Arguments { get; set; } = new List<Argument>();
         public ResolutionStatus Status { get; set; } = ResolutionStatus.Unresolved;

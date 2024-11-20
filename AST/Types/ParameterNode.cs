@@ -10,7 +10,7 @@ namespace AST.Types
         public TypeReferenceNode TypeNode { get; set; }
         public INode? Parent { get; set; }
         public NodeType Type { get; set; }
-        public INode Root => Utils.GetRoot(this);
+        public FileNode Root => Utils.GetRoot(this);
         public ResolutionStatus Status { get; set; }
         public Metadata Meta { get; set; }
 

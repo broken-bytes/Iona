@@ -119,5 +119,16 @@ namespace Shared
                 meta
             );
         }
+
+        public static CompilerError NoMatchingConstructorForArgs(string typeName, Dictionary<string, string> args, Metadata meta)
+        {
+            var argString = args.Aggregate("", (lhs, rhs) => lhs.ToString() + ", " + rhs.ToString());
+            
+            return new CompilerError(
+                CompilerErrorCode.NoMatchingConstructorForArgs,
+                $"`{typeName}` does not implement any constructor matching {argString}", 
+                meta
+            );
+        }
     }
 }

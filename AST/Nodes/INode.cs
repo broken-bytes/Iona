@@ -15,7 +15,7 @@ namespace AST.Nodes
 
         INode? Parent { get; set; }
         NodeType Type { get; set; }
-        INode Root { get; }
+        FileNode Root { get; }
         ResolutionStatus Status { get; set; }
         Metadata Meta { get; set; }
 

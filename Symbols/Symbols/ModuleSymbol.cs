@@ -8,12 +8,12 @@
         public SymbolKind Kind { get; set; } = SymbolKind.Module;
         public ISymbol? Parent { get; set; }
 
-        public ModuleSymbol(string name, string assembly)
+        public ModuleSymbol(string name, string assembly, ISymbol? parent = null)
         {
             Name = name;
             Assembly = assembly;
             Symbols = new List<ISymbol>();
-            Parent = null;
+            Parent = parent;
         }
     }
 }

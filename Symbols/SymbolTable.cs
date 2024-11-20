@@ -2,6 +2,7 @@
 using AST.Nodes;
 using AST.Types;
 using System.Xml.Linq;
+using Shared;
 
 namespace Symbols
 {
@@ -75,13 +76,14 @@ namespace Symbols
             return null;
         }
 
-        public TypeSymbol? FindTypeBy(TypeReferenceNode node, ModuleSymbol? module)
+        public TypeSymbol? FindTypeBy(FileNode context, TypeReferenceNode node, ModuleSymbol? module)
         {
-            return FindTypeBy(node.Name, module);
+            return FindTypeBy(context, node.Name, module);
         }
         
-        public TypeSymbol? FindTypeBy(string name, ModuleSymbol? module)
+        public TypeSymbol? FindTypeBy(FileNode context, string name, ModuleSymbol? module)
         {
+            var imported = GetImportedModules(context);
             TypeSymbol? symbol = null;
 
             if (module != null)
@@ -92,7 +94,7 @@ namespace Symbols
                 {
                     foreach (var type in module.Symbols.OfType<ModuleSymbol>())
                     {
-                        symbol = FindTypeBy(name, type);
+                        symbol = FindTypeBy(context, name, type);
 
                         if (symbol != null)
                         {
@@ -104,7 +106,7 @@ namespace Symbols
                 return symbol;
             }
             
-            symbol = Modules
+            symbol = imported
                 .SelectMany(module => module.Symbols)
                 .OfType<TypeSymbol>()
                 .ToList()
@@ -114,7 +116,7 @@ namespace Symbols
             {
                 foreach (var mod in Modules)
                 {
-                    symbol = FindTypeBy(name, mod);
+                    symbol = FindTypeBy(context, name, mod);
 
                     if (symbol != null)
                     {
@@ -124,29 +126,6 @@ namespace Symbols
             }
 
             return symbol;
-        }
-
-        /// <summary>
-        /// Gets the type symbol this symbol is contained in.
-        /// </summary>
-        /// <param name="symbol"></param>
-        /// <note>Free functions and types themselves do return null</note>
-        /// <returns></returns>
-        private ISymbol? GetContainedType(ISymbol symbol)
-        {
-            var currentSymbol = symbol;
-
-            while (currentSymbol.Parent != null)
-            {
-                if (currentSymbol.Parent.Kind == SymbolKind.Type)
-                {
-                    return currentSymbol.Parent;
-                }
-
-                currentSymbol = currentSymbol.Parent;
-            }
-
-            return null;
         }
 
         private string? GetNodeName(INode node)
@@ -220,7 +199,7 @@ namespace Symbols
                     {
                         if (sym is InitSymbol initSym)
                         {
-                            return MatchParameters(initSym, init.Parameters);
+                            return MatchParameters(node.Root, initSym, init.Parameters);
                         }
                         else
                         {
@@ -235,7 +214,7 @@ namespace Symbols
                     {
                         if (sym is FuncSymbol funcSym)
                         {
-                            return MatchParameters(funcSym, func.Parameters);
+                            return MatchParameters(node.Root, funcSym, func.Parameters);
                         }
                         else
                         {
@@ -250,7 +229,7 @@ namespace Symbols
                     {
                         if (sym is OperatorSymbol opSym)
                         {
-                            return MatchParameters(opSym, op.Parameters);
+                            return MatchParameters(node.Root, opSym, op.Parameters);
                         }
                         else
                         {
@@ -289,7 +268,7 @@ namespace Symbols
             return symbolHierarchy;
         }
 
-        private bool MatchParameters(ISymbol target, List<ParameterNode> nodeParams)
+        private bool MatchParameters(FileNode context, ISymbol target, List<ParameterNode> nodeParams)
         {
             var parameters = target.Symbols.OfType<ParameterSymbol>().ToList();
 
@@ -304,7 +283,7 @@ namespace Symbols
                 // - The parameter is a type reference -> we need to compare the type name
                 // - The parameter is an array -> we need to compare the type name of the array
                 // - The parameter is a generic type -> we need to compare the type name of the generic type
-                if (!MatchType(parameters[i].Type, nodeParams[i].TypeNode))
+                if (!MatchType(context, parameters[i].Type, nodeParams[i].TypeNode))
                 {
                     return false;
                 }
@@ -313,8 +292,10 @@ namespace Symbols
             return true;
         }
 
-        private bool MatchType(ITypeSymbol symbol, ITypeReferenceNode node)
+        private bool MatchType(FileNode context, ITypeSymbol symbol, ITypeReferenceNode node)
         {
+            var imported = GetImportedModules(context);
+            
             if (symbol.IsConcrete && node is TypeReferenceNode type)
             {
                 var typeSymbol = symbol as TypeSymbol;
@@ -338,7 +319,7 @@ namespace Symbols
 
                 foreach (var import in imports)
                 {
-                    importedModules.AddRange(Modules.Where(m => m.Name == import));
+                    importedModules.AddRange(imported.Where(m => m.Name == import));
                 }
                 
                 // If the fully qualified name doesn't match, we need to check in each module if the type is defined
@@ -359,6 +340,44 @@ namespace Symbols
             return false;
         }
 
+        public TypeSymbol? FindTypeByFQN(FileNode context, string name)
+        {
+            ISymbol? symbol = FindModuleByFQN(context, name);
+
+            if (symbol == null)
+            {
+                return null;
+            }
+
+            string typePart = name.Remove(0, symbol.Name.Length + 1);
+
+            var typeSplit = typePart.Split(".");
+
+            if (typeSplit.Length == 0)
+            {
+                return null;
+            }
+
+            while (typeSplit.Length > 0)
+            {
+                symbol = symbol.Symbols.FirstOrDefault(sym => sym.Name == typeSplit[0]);
+
+                if (symbol == null)
+                {
+                    return null;
+                }
+
+                typeSplit = typeSplit.Skip(1).ToArray();
+            }
+
+            if (symbol is TypeSymbol typeSymbol)
+            {
+                return typeSymbol;
+            }
+
+            return null;
+        }
+        
         public TypeSymbol? FindTypeByFQN(string name)
         {
             ISymbol? symbol = FindModuleByFQN(name);
@@ -397,27 +416,51 @@ namespace Symbols
             return null;
         }
 
-        public TypeSymbol? FindTypeBySimpleName(string name)
+        public Result<TypeSymbol, SymbolResolutionError> FindTypeBySimpleName(FileNode context, string name)
         {
-            TypeSymbol? type = null;
-            foreach (var module in Modules)
+            var results = FindTypeByName(context, name, null);
+
+            return results.Count switch
             {
-                var found = module.Symbols.OfType<TypeSymbol>().FirstOrDefault(sym => sym.Name == name);
+                0 => Result<TypeSymbol, SymbolResolutionError>.Err(SymbolResolutionError.NotFound),
+                > 1 => Result<TypeSymbol, SymbolResolutionError>.Err(SymbolResolutionError.Ambigious),
+                _ => Result<TypeSymbol, SymbolResolutionError>.Ok(results[0])
+            };
+        }
 
-                if (found != null)
-                {
-                    type = found;
-                }
-            }
+        public ModuleSymbol? FindModuleByFQN(FileNode context, string name)
+        {
+            // First, break the fully qualified name into parts
+            var parts = name.Split('.');
 
-            if (type == null)
+            if (parts.Length == 0)
             {
                 return null;
             }
 
-            return type;
-        }
+            // We need to find the module of thye fqn first. 
+            // Edge case: Modules can also have multiple parts in their name (e.g. std.io)
+            // So we check the fqn minus the last part, then minus the second last part, etc. until we find a module
+            var moduleName = parts.Aggregate((current, next) => current + "." + next);
 
+            var imported = GetImportedModules(context.Root);
+            ModuleSymbol? module = imported.FirstOrDefault(mod => mod.Name == moduleName);
+
+            while (module == null && parts.Length > 1)
+            {
+                parts = parts.Take(parts.Length - 1).ToArray();
+                moduleName = parts.Aggregate((current, next) => current + "." + next);
+                module = Modules.FirstOrDefault(mod => mod.Name == moduleName);
+            }
+
+            if (module == null)
+            {
+                return null;
+            }
+
+            return module;
+        }
+        
         public ModuleSymbol? FindModuleByFQN(string name)
         {
             // First, break the fully qualified name into parts
@@ -449,6 +492,201 @@ namespace Symbols
 
             return module;
         }
+
+        private List<TypeSymbol> FindTypeByName(FileNode context, string name, ISymbol? parent = null)
+        {
+            List<TypeSymbol> results = new();
+
+            List<ISymbol> querySymbols;
+            
+            if (parent != null)
+            {
+                querySymbols = [parent];
+            }
+            else
+            {
+                var imported = GetImportedModules(context.Root);
+                querySymbols = [..imported];
+            }
+            
+            foreach (var target in querySymbols)
+            {
+                var found = target.Symbols.OfType<TypeSymbol>().FirstOrDefault(sym => sym.Name == name);
+
+                if (found != null)
+                {
+                    results.Add(found);
+                }
+
+                foreach (var subtarget in target.Symbols.OfType<ModuleSymbol>())
+                {
+                    results.AddRange(FindTypeByName(context, name, subtarget));
+                }
+            }
+
+            return results;
+        }
         
+        public List<ModuleSymbol> GetImportedModules(INode node)
+        {
+            var modules = new List<ModuleSymbol>();
+
+            // All imported modules
+            var reachableModules = node.Root.Children.OfType<ImportNode>().ToList();
+            
+            // Add the module the node is part of as well
+            reachableModules.Add(new ImportNode(node.Module.Name, node.Root));
+            
+            foreach (var import in reachableModules)
+            {
+                var split = import.Name.Split('.');
+
+                var module = Modules.FirstOrDefault(m => m.Name == split[0]);
+
+                if (module == null)
+                {
+                    continue;
+                }
+
+                var newModule = new ModuleSymbol(module.Name, module.Assembly);
+                modules.Add(newModule);
+                
+                if (split.Length > 1)
+                {
+                    foreach (var part in split)
+                    {
+                        var next = module.Symbols.OfType<ModuleSymbol>().FirstOrDefault(m => m.Name == part);
+
+                        if (next == null)
+                        {
+                            continue;
+                        }
+
+                        newModule = new ModuleSymbol(next.Name, next.Assembly, newModule);
+                        newModule?.Parent?.Symbols.Add(newModule);
+
+                        if (part == split.Last())
+                        {
+                            // For the last part of the symbo ltree we also want to add all the types and functions to the module
+                            newModule?.Symbols.AddRange(next.Symbols.OfType<TypeSymbol>());
+                            newModule?.Symbols.AddRange(next.Symbols.OfType<FuncSymbol>());
+                        }
+                    }
+                }
+                else
+                {
+                    newModule.Symbols.AddRange(module.Symbols.OfType<TypeSymbol>());
+                    newModule.Symbols.AddRange(module.Symbols.OfType<FuncSymbol>());
+                }
+            }
+
+            return modules;
+        }
+        
+        /// <summary>
+        /// Check if the symbol table contains the function. This does not check if any overload matches the args. 
+        /// </summary>
+        /// <param name="funcCallNode">The function call</param>
+        /// <param name="parent">Possible parent to use for check</param>
+        /// <returns>True if any init is found</returns>
+        public bool CheckIfFuncExists(FileNode context, FuncCallNode funcCallNode, ISymbol? parent = null)
+        {
+            List<FuncSymbol> functions = new List<FuncSymbol>();
+
+            List<ISymbol> childs;
+            if (parent == null)
+            {
+                var imported = GetImportedModules(context);
+                childs = new List<ISymbol>(imported);
+            }
+            else
+            {
+                childs = parent.Symbols;
+            }
+            
+            foreach (var child in childs)
+            {
+                switch (child)
+                {
+                    case FuncSymbol funcSymbol:
+                    {
+                        if (funcSymbol.Name != funcCallNode.Target.Value)
+                        {
+                            functions.Add(funcSymbol);
+                        }
+                        
+                        break;
+                    }
+                }
+            }
+
+            return functions.Count > 0;
+        }
+        
+        /// <summary>
+        /// Check if the symbol table contains the init. This does not check if any overload matches the args. 
+        /// </summary>
+        /// <param name="funcCallNode">The function call</param>
+        /// <param name="parent">Possible parent to use for check</param>
+        /// <returns>True if any init is found</returns>
+        public bool CheckIfInitExists(FileNode context, FuncCallNode initCallNode, ISymbol? parent = null)
+        {
+            InitSymbol? initSymbol = null;
+            
+            List<ISymbol> childs;
+            if (parent == null)
+            {
+                var imported = GetImportedModules(context);
+                childs = new List<ISymbol>(imported);
+            }
+            else
+            {
+                childs = parent.Symbols;
+            }
+            
+            foreach (var child in childs)
+            {
+                switch (child)
+                {
+                    case TypeSymbol type:
+                    {
+                        if (type.Name != initCallNode.Target.Value)
+                        {
+                            continue;
+                        }
+
+                        foreach (var init in type.Symbols.OfType<InitSymbol>())
+                        {
+                            return true;
+                        }
+                        
+                        break;
+                    }
+                    
+                    case ModuleSymbol module:
+                        return CheckIfInitExists(context, initCallNode, module);
+                }
+            }
+
+            return false;
+        }
+        
+        public bool ArgsMatchParameters(List<ParameterSymbol> parameters, List<FuncCallArg> args)
+        {
+            bool matchingArgs = true;
+            for (var x = 0; x < parameters.Count; x++)
+            {
+                if (
+                    parameters[x].Type.FullyQualifiedName != args[x].Value.ResultType.FullyQualifiedName ||
+                    parameters[x].Name != args[x].Name
+                )
+                {
+                    matchingArgs = false;
+                    break;
+                }
+            }
+
+            return matchingArgs;
+        }
     }
 }

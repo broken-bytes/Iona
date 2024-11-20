@@ -9,7 +9,7 @@ namespace AST.Nodes
     {
         public INode? Parent { get; set; }
         public NodeType Type { get; set; }
-        public INode Root => Utils.GetRoot(this);
+        public FileNode Root => Utils.GetRoot(this);
         public NodeKind Kind { get; set; }
         public INode? Operand { get; set; }
         public UnaryOperation Operation { get; set; }

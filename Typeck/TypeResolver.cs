@@ -87,15 +87,19 @@ namespace Typeck
 
         public void Visit(ClassNode node)
         {
-            
             // For each contract this class conforms to, check if one of them is in fact a class and make it the base type
             foreach (var contract in node.Contracts)
             {
-                var symbol = _symbolTable.FindTypeByFQN(contract.Name);
+                var symbol = _symbolTable.FindTypeByFQN(node.Root, contract.FullyQualifiedName);
 
                 if (symbol == null)
                 {
-                    symbol = _symbolTable.FindTypeBySimpleName(contract.Name);
+                    var searchResult = _symbolTable.FindTypeBySimpleName(node.Root, contract.Name);
+
+                    if (searchResult.IsSuccess)
+                    {
+                        symbol = searchResult.Unwrapped();
+                    }
                 }
 
                 if (symbol != null)
@@ -226,7 +230,7 @@ namespace Typeck
         public void Visit(InitCallNode initCall)
         {
             // Find the type for the init call
-            var type = _symbolTable.FindTypeByFQN(initCall.TypeFullName);
+            var type = _symbolTable.FindTypeByFQN(initCall.Root, initCall.TypeFullName);
 
             if (type == null)
             {
@@ -241,16 +245,6 @@ namespace Typeck
                 Status = ResolutionStatus.Resolved,
                 Meta = initCall.Meta
             };
-
-            // Ensure that the type is imported
-            if (!CheckFileImportsModule(initCall.ResultType))
-            {
-                EmitImportMissing(initCall, type);
-
-                initCall.Status = ResolutionStatus.Failed;
-
-                return;
-            }
 
             initCall.Status = ResolutionStatus.Resolved;
         }
@@ -426,7 +420,7 @@ namespace Typeck
 
             // Update the symbol in the symbol table
             var symbol = _symbolTable.FindBy(node);
-            var typeSymbol = _symbolTable.FindTypeByFQN(node.TypeNode.FullyQualifiedName);
+            var typeSymbol = _symbolTable.FindTypeByFQN(node.Root, node.TypeNode.FullyQualifiedName);
 
             if (symbol is PropertySymbol prop && typeSymbol is not null)
             {
@@ -495,7 +489,7 @@ namespace Typeck
 
                     // Update the symbol in the symbol table
                     var symbol = _symbolTable.FindBy(node);
-                    var typeSymbol = _symbolTable.FindTypeByFQN(node.Value.ResultType.FullyQualifiedName);
+                    var typeSymbol = _symbolTable.FindTypeByFQN(node.Root, node.Value.ResultType.FullyQualifiedName);
                     
                     if (symbol is VariableSymbol var && typeSymbol is not null)
                     {
@@ -539,7 +533,7 @@ namespace Typeck
             }
 
             // Now we know the model and the scopes in correct order, we can traverse both the ast and the symbol table to find the type
-            var type = _symbolTable.FindTypeBy(typeNode, null);
+            var type = _symbolTable.FindTypeBy(typeNode.Root, typeNode, null);
             
             if (type != null)
             {
@@ -797,7 +791,7 @@ namespace Typeck
             {
                 var type = GetTypeOfSelf(self);
 
-                typeSymbol = _symbolTable.FindTypeByFQN(type.FullyQualifiedName);
+                typeSymbol = _symbolTable.FindTypeByFQN(propAccess.Root, type.FullyQualifiedName);
 
                 if (typeSymbol == null)
                 {
@@ -852,7 +846,7 @@ namespace Typeck
                     if (actualType is TypeReferenceNode typeRef)
                     {
                         // Set the type of the parameter (symbol)
-                        var typeSymbol = _symbolTable.FindTypeByFQN(typeRef.FullyQualifiedName);
+                        var typeSymbol = _symbolTable.FindTypeByFQN(param.Root, typeRef.FullyQualifiedName);
 
                         if (typeSymbol != null)
                         {
@@ -881,51 +875,6 @@ namespace Typeck
             }
         }
 
-        private bool CheckFileImportsModule(INode node)
-        {
-            if (node is not TypeReferenceNode type)
-            {
-                return false;
-            }
-
-            var file = ((FileNode)node.Root);
-
-            var imports = file.Children.OfType<ImportNode>();
-
-            ModuleNode? moduleNode = null;
-
-            var module = _symbolTable.FindModuleByFQN(type.FullyQualifiedName);
-
-            while (node.Parent != null)
-            {
-                if (node is ModuleNode mod)
-                {
-                    moduleNode = mod;
-                    break;
-                }
-
-                node = node.Parent;
-            }
-
-            if (moduleNode == null)
-            {
-                return false;
-            }
-
-            // Always import the module of the node itself
-            imports = imports.Append(new ImportNode(moduleNode.Name, null));
-
-            foreach (var import in imports)
-            {
-                if (import.Name == module.Name)
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
         private void EmitImportMissing(INode node, TypeSymbol type)
         {
             var error = CompilerErrorFactory.TopLevelDefinitionError(
@@ -935,7 +884,7 @@ namespace Typeck
 
             _errorCollector.Collect(error);
 
-            var module = _symbolTable.FindModuleByFQN(type.FullyQualifiedName);
+            var module = _symbolTable.FindModuleByFQN(node.Root, type.FullyQualifiedName);
 
             if (module == null)
             {

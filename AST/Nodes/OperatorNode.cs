@@ -10,7 +10,7 @@ namespace AST.Nodes
         public OperatorType Op { get; set; }
         public INode? Parent { get; set; }
         public NodeType Type { get; set; }
-        public INode Root => Utils.GetRoot(this);
+        public FileNode Root => Utils.GetRoot(this);
         public AccessLevel AccessLevel { get; set; }
         public StatementType StatementType { get; set; }
         public List<ParameterNode> Parameters { get; set; } = new List<ParameterNode>();

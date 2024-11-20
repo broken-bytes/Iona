@@ -5,14 +5,19 @@ namespace AST
 {
     public static class Utils
     {
-        public static INode GetRoot(INode node)
+        public static FileNode GetRoot(INode node)
         {
             while (node.Parent != null)
             {
                 node = node.Parent;
             }
 
-            return node;
+            if (node is not FileNode fileNode)
+            {
+                throw new NullReferenceException();
+            }
+            
+            return fileNode;
         }
 
         public static ModuleNode GetModule(INode node)

@@ -9,7 +9,7 @@ namespace AST.Nodes
     {
         public INode? Parent { get; set; }
         public NodeType Type { get; set; }
-        public INode Root => Utils.GetRoot(this);
+        public FileNode Root => Utils.GetRoot(this);
         public IdentifierNode Target { get; set; }
         public List<FuncCallArg> Args { get; set; } = new List<FuncCallArg>();
         public ResolutionStatus Status { get; set; } = ResolutionStatus.Unresolved;

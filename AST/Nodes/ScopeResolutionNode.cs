@@ -13,7 +13,7 @@ namespace AST.Nodes
         public INode Property { get; set; }
         public TypeReferenceNode? ResultType { get; set; }
         public ExpressionType ExpressionType => ExpressionType.PropAccess;
-        public INode Root => Utils.GetRoot(this);
+        public FileNode Root => Utils.GetRoot(this);
         public ResolutionStatus Status { get; set; } = ResolutionStatus.Unresolved;
         public Metadata Meta { get; set; }
 

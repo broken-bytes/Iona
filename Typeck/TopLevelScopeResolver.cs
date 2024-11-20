@@ -161,20 +161,22 @@ namespace Typeck
         {
             node.Status = INode.ResolutionStatus.Resolving;
             // Check if the function is in scope
-            var symbol = FindFuncSymbol(node);
+            var funcWasFound = table.CheckIfFuncExists(node.Root, node);
 
             // Free function or member function
-            if (symbol.IsSuccess)
+            if (funcWasFound)
             {
                 // Check if the function is a member function or a free function
                 var hierarchy = ((INode)node).Hierarchy();
                 var currentType = hierarchy.OfType<ITypeNode>().FirstOrDefault();
 
+                var typeSymbol = table.FindTypeByFQN(node.Root, currentType.FullyQualifiedName);
+
                 // Function is inside a type -> member function
-                if (currentType != null)
+                if (typeSymbol != null)
                 {
                     var self = new SelfNode(node.Parent);
-                    var target = new IdentifierNode(symbol.Success!.Name, node.Target);
+                    var target = new IdentifierNode(typeSymbol.Name, node.Target);
                     var methodCall = new MethodCallNode(self, target, node.Parent);
                     methodCall.Args = node.Args;
                     methodCall.Meta = node.Meta;
@@ -187,36 +189,26 @@ namespace Typeck
             // Init
             else
             {   
-                var initSymbol = FindInitSymbol(node);
+                var initWasFound = table.CheckIfInitExists(node.Root, node, null);
 
-                if (initSymbol.IsError)
+                if (!initWasFound)
                 {
                     node.Status = INode.ResolutionStatus.Failed;
 
                     return;
                 }
+                
+                // When an init was found we implicitly know a type with that name exists.
+                var typeSearchResult = table.FindTypeBySimpleName(node.Root, node.Target.Value);
 
-                // Replace the function call with the init call
-                // Get the parent type symbol of the init call
-                ISymbol? typeSymbol = initSymbol.Success!;
-
-                while (typeSymbol.Parent != null && typeSymbol.Kind != SymbolKind.Type)
+                if (typeSearchResult.IsSuccess)
                 {
-                    typeSymbol = typeSymbol.Parent;
+                    var initCall = new InitCallNode(typeSearchResult.Unwrapped().FullyQualifiedName, node.Parent);
+                    initCall.Args = node.Args;
+                    initCall.Meta = node.Meta;
+
+                    ReplaceNode(node, initCall);
                 }
-
-                if (typeSymbol.Parent == null || typeSymbol.Kind != SymbolKind.Type)
-                {
-                    node.Status = INode.ResolutionStatus.Failed;
-
-                    return;
-                }
-
-                var initCall = new InitCallNode(((TypeSymbol)typeSymbol).FullyQualifiedName, node.Parent);
-                initCall.Args = node.Args;
-                initCall.Meta = node.Meta;
-
-                ReplaceNode(node, initCall);
             }
         }
 
@@ -472,7 +464,7 @@ namespace Typeck
             {
                 return Result<TypeSymbol, SymbolError>.Err(new SymbolError("Unknown type"));
             }
-            var symbol = table.FindTypeBy(typeNode, null);
+            var symbol = table.FindTypeBy(typeNode.Root, typeNode, null);
 
             if (symbol == null)
             {
@@ -481,122 +473,7 @@ namespace Typeck
             
             return Result<TypeSymbol, SymbolError>.Ok(symbol);
         }
-
-        private TypeSymbol? FindTypeSymbolIn(string name, ISymbol symbol)
-        {
-            // Step 1: Check all top level types in the current module
-            // This will find stuff like Foo, Foo.Bar(if Foo is a module), etc.
-            // This will not find stuff like Foo.Bar.Baz, etc. as Baz is not a top level type
-            var found = symbol.Symbols.OfType<TypeSymbol>().FirstOrDefault(s => s.FullyQualifiedName == name || s.Name == name);
-
-            if (found != null)
-            {
-                return found;
-            }
-
-            // TODO: Step 2: Check all nested types in the current module, if name has a dot AND we found nothing in step 1
-            var split = name.Split('.').ToList();
-
-            return found;
-        }
-
-        private Result<FuncSymbol, SymbolError> FindFuncSymbol(FuncCallNode funcCallNode)
-        {
-            List<FuncSymbol> functions = new List<FuncSymbol>();
-
-            // Check 1: -> Free functions in each module
-            foreach (var module in table.Modules)
-            {
-                var found = FindFuncSymbolIn(funcCallNode.Target.Value, module);
-
-                if (found != null)
-                {
-                    functions.Add(found);
-                }
-            }
-
-            // If we found more than one type with the same name, we have an ambiguity error
-            if (functions.Count > 1)
-            {
-                return Result<FuncSymbol, SymbolError>.Err(new SymbolError($"Ambiguous function name `{funcCallNode.Target.Value}`"));
-            }
-
-            // Check 2: -> Member functions in current type
-            var hierachy = ((INode)funcCallNode).Hierarchy();
-            hierachy.Reverse();
-            var currentType = hierachy.OfType<TypeReferenceNode>().FirstOrDefault();
-
-            // Check if the current type is a type node
-            if (currentType == null)
-            {
-                return Result<FuncSymbol, SymbolError>.Err(new SymbolError($"Function `{funcCallNode.Target.Value}` not found"));
-            }
-
-            // Check if the current type has a method with the name of the function call
-            var typeSymbol = FindTypeSymbol(currentType);
-
-            if (typeSymbol.IsError)
-            {
-                return Result<FuncSymbol, SymbolError>.Err(new SymbolError($"Function `{funcCallNode.Target.Value}` not found"));
-            }
-
-            var func = FindFuncSymbolIn(funcCallNode.Target.Value, typeSymbol.Success!);
-
-            if (func != null)
-            {
-                return Result<FuncSymbol, SymbolError>.Ok(func);
-            }
-
-            return Result<FuncSymbol, SymbolError>.Err(new SymbolError($"Function `{funcCallNode.Target.Value}` not found"));
-        }
-
-        private FuncSymbol? FindFuncSymbolIn(string name, ISymbol symbol)
-        {
-            var found = symbol.Symbols.OfType<FuncSymbol>().FirstOrDefault(s => s.Name == name);
-
-            return found;
-        }
-
-        private Result<InitSymbol, SymbolError> FindInitSymbol(FuncCallNode node)
-        {
-            List<InitSymbol> initSymbols = new List<InitSymbol>();
-
-            // Check 2: -> Member functions in current type
-            var hierachy = ((INode)node).Hierarchy();
-            hierachy.Reverse();
-            var currentType = hierachy.OfType<TypeReferenceNode>().FirstOrDefault();
-
-            // Check if the current type is a type node
-            if (currentType == null)
-            {
-                return Result<InitSymbol, SymbolError>.Err(new SymbolError($"Undefined symbol {node.Target}"));
-            }
-
-            // Check if the current type has a method with the name of the function call
-            var typeSymbol = FindTypeSymbol(currentType);
-
-            if (typeSymbol.IsError)
-            {
-                return Result<InitSymbol, SymbolError>.Err(new SymbolError($"Undefined symbol {node.Target}"));
-            }
-
-            var init = FindInitSymbolIn(typeSymbol.Success!);
-
-            if (init != null)
-            {
-                return Result<InitSymbol, SymbolError>.Ok(init);
-            }
-
-            return Result<InitSymbol, SymbolError>.Err(new SymbolError($"Undefined symbol {node.Target}"));
-        }
-
-        private InitSymbol? FindInitSymbolIn(ISymbol symbol)
-        {
-            var found = symbol.Symbols.OfType<BlockSymbol>().FirstOrDefault()?.Symbols.OfType<InitSymbol>().FirstOrDefault();
-
-            return found;
-        }
-
+        
         private void ReplaceNode(INode node, INode newNode)
         {
             // Case 1: Node is inside a block
