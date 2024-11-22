@@ -120,8 +120,8 @@ namespace Parser.Parsers
                 // While the next token is an identifier or dot, keep adding and peeking
                 while (token.Type is TokenType.Identifier or TokenType.Dot)
                 {
-                    moduleImport += stream.Peek().Value;
-                    token = stream.Consume();
+                    moduleImport += stream.Consume().Value;
+                    token = stream.Peek();
                 }
 
                 return new ImportNode(moduleImport, parent);

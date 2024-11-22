@@ -3,13 +3,13 @@ module App
 use UnityEngine
 
 public class Test: MonoBehaviour {
-    public var value = 0
+    public var value = 0.0
 
     public fn start() {
     }
 
     public fn update() {
-        value += Int32(value: 1 * Time::deltaTime)
+        value += 1 * Time::deltaTime
         Debug::log(message: gameObject)
     }
 }

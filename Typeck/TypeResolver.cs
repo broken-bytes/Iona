@@ -90,8 +90,19 @@ namespace Typeck
             // For each contract this class conforms to, check if one of them is in fact a class and make it the base type
             foreach (var contract in node.Contracts)
             {
-                var symbol = _symbolTable.FindTypeByFQN(node.Root, contract.FullyQualifiedName);
+                TypeSymbol? symbol = null;
+                
+                var result = _symbolTable.FindTypeBySimpleName(node.Root, contract.Name);
 
+                if (result.IsError)
+                {
+                    symbol = _symbolTable.FindTypeByFQN(node.Root, contract.FullyQualifiedName);
+                }
+                else
+                {
+                    symbol = result.Unwrapped();
+                }
+                
                 if (symbol == null)
                 {
                     var searchResult = _symbolTable.FindTypeBySimpleName(node.Root, contract.Name);

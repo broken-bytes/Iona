@@ -465,12 +465,12 @@ namespace Symbols
         {
             // First, break the fully qualified name into parts
             var parts = name.Split('.');
-
+            
             if (parts.Length == 0)
             {
                 return null;
             }
-
+            
             // We need to find the module of thye fqn first. 
             // Edge case: Modules can also have multiple parts in their name (e.g. std.io)
             // So we check the fqn minus the last part, then minus the second last part, etc. until we find a module
@@ -505,7 +505,7 @@ namespace Symbols
             }
             else
             {
-                var imported = GetImportedModules(context.Root);
+                var imported = GetImportedModules(context);
                 querySymbols = [..imported];
             }
             
@@ -539,45 +539,14 @@ namespace Symbols
             
             foreach (var import in reachableModules)
             {
-                var split = import.Name.Split('.');
-
-                var module = Modules.FirstOrDefault(m => m.Name == split[0]);
-
-                if (module == null)
+                if (FindModuleByFQN(import.Name) is ModuleSymbol module)
                 {
+                    modules.Add(module);
                     continue;
                 }
-
-                var newModule = new ModuleSymbol(module.Name, module.Assembly);
-                modules.Add(newModule);
                 
-                if (split.Length > 1)
-                {
-                    foreach (var part in split)
-                    {
-                        var next = module.Symbols.OfType<ModuleSymbol>().FirstOrDefault(m => m.Name == part);
-
-                        if (next == null)
-                        {
-                            continue;
-                        }
-
-                        newModule = new ModuleSymbol(next.Name, next.Assembly, newModule);
-                        newModule?.Parent?.Symbols.Add(newModule);
-
-                        if (part == split.Last())
-                        {
-                            // For the last part of the symbo ltree we also want to add all the types and functions to the module
-                            newModule?.Symbols.AddRange(next.Symbols.OfType<TypeSymbol>());
-                            newModule?.Symbols.AddRange(next.Symbols.OfType<FuncSymbol>());
-                        }
-                    }
-                }
-                else
-                {
-                    newModule.Symbols.AddRange(module.Symbols.OfType<TypeSymbol>());
-                    newModule.Symbols.AddRange(module.Symbols.OfType<FuncSymbol>());
-                }
+                // TODO: Add error for imported module that doesnt exist
+                Console.WriteLine("Import not found");
             }
 
             return modules;

@@ -171,7 +171,16 @@ namespace Typeck
                             var funcSymbol = new FuncSymbol(method.Name);
                             funcSymbol.Parent = typeSymbol;
 
-                            var returnType = new TypeSymbol(method.ReturnType.Name, TypeKind.Unknown);
+                            // Find the type symbol
+                            var unboxed =
+                                Shared.Utils.GetUnboxedName(method.ReturnType.FullName ?? method.ReturnType.Name);
+                            var returnType = _symbolTable.FindTypeByFQN(unboxed);
+
+                            if (returnType is null)
+                            {
+                                continue;
+                            }
+                            
                             funcSymbol.ReturnType = returnType;
 
                             if (method.IsSpecialName)

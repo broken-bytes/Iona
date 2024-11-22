@@ -6,10 +6,27 @@
         public readonly E? Error = error;
 
         public bool IsSuccess { get; } = !object.Equals(success, default(S));
-        public bool IsError { get; } = !object.Equals(error, default(E));
 
-        public static Result<S, E> Ok(S success) => new Result<S, E>(success, default);
-        public static Result<S, E> Err(E error) => new Result<S, E>(default, error);
+        public bool IsError
+        {
+            get
+            {
+                if (error is null)
+                {
+                    return true;
+                }
+
+                if (error is Enum)
+                {
+                    return true;
+                }
+                
+                return !Equals(error, default(E));
+            }
+        }
+
+        public static Result<S, E> Ok(S success) => new(success, default);
+        public static Result<S, E> Err(E error) => new(default, error);
 
         public S Unwrapped()
         {

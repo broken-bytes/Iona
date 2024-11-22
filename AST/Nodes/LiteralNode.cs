@@ -26,6 +26,17 @@ namespace AST.Nodes
             Value = value;
         }
 
+        public override string ToString()
+        {
+            switch (LiteralType)
+            {
+                case LiteralType.Float:
+                    return $"{Value}f";
+                default:
+                    return Value;
+            }
+        }
+
         public void Accept(ILiteralVisitor visitor)
         {
             visitor.Visit(this);

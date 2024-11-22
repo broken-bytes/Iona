@@ -319,7 +319,7 @@ namespace Generator
 
         public void Visit(LiteralNode node)
         {
-            source.Append(node.Value);
+            source.Append(node);
         }
 
         public void Visit(ModuleNode node)

@@ -190,6 +190,11 @@ namespace Typeck
             foreach (var arg in node.Args)
             {
                 CheckNode(arg.Value);
+
+                if (node.Status != INode.ResolutionStatus.Resolved)
+                {
+                    return;
+                }
             }
             
             // Check in the symbol table if any overload exists for the given parameters
@@ -411,7 +416,7 @@ namespace Typeck
             var leftOp = type
                 .Symbols
                 .OfType<OperatorSymbol>()
-                .FirstOrDefault(op =>
+                .Where(op =>
                     {
                         var parameters = op.Symbols.OfType<ParameterSymbol>().ToList();
 
@@ -419,9 +424,9 @@ namespace Typeck
                         {
                             return false;
                         }
-                        
+
                         if (
-                            parameters[0].Type.FullyQualifiedName == leftFqn && 
+                            parameters[0].Type.FullyQualifiedName == leftFqn &&
                             parameters[1].Type.FullyQualifiedName == rightFqn
                         )
                         {
@@ -431,13 +436,13 @@ namespace Typeck
                             {
                                 return op.ReturnType.FullyQualifiedName == reference;
                             }
-                            
+
                             return true;
                         }
 
                         return false;
                     }
-                );
+                ).FirstOrDefault();
 
             return leftOp;
         }
@@ -477,10 +482,13 @@ namespace Typeck
                     return null;
                 }
 
+                Kind kind = Utils.SymbolKindToASTKind(propSymbol.Type.TypeKind);
+
                 var type = new TypeReferenceNode(propSymbol.Type.Name, node)
                 {
                     FullyQualifiedName = propSymbol.Type.FullyQualifiedName,
-                    Assembly = propSymbol.Type.Assembly
+                    Assembly = propSymbol.Type.Assembly,
+                    TypeKind = kind
                 };
 
                 return type;

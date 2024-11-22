@@ -32,6 +32,16 @@ namespace AST
                 node = node.Parent;
             }
 
+            if (node is FileNode fileNode)
+            {
+                var module = fileNode.Children.OfType<ModuleNode>().FirstOrDefault();
+
+                if (module is not null)
+                {
+                    return module;
+                }
+            }
+
             return new ModuleNode("Global", "Global", null);
         }
 
