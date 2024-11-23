@@ -221,7 +221,7 @@ namespace Generator
                 source.Remove(source.Length - 2, 2);
             }
 
-            source.Append(");");
+            source.Append(")");
         }
 
         public void Visit(FuncNode node)
@@ -451,7 +451,7 @@ namespace Generator
             {
                 source.Append(node.Object.ToString());
             }
-            source.Append(".");
+            source.Append('.');
             
             if (node.Property is IdentifierNode identifier)
             {
