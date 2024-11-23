@@ -95,9 +95,9 @@
 
         // Comparison
         Equal,
-        Greater,
+        ArrowRight,
         GreaterEqual,
-        Less,
+        ArrowLeft,
         LessEqual,
         NotEqual,
 

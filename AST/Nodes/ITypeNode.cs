@@ -6,7 +6,7 @@ namespace AST.Nodes
     {
         public string FullyQualifiedName { get; set; }
         public string Name { get; set; }
-        public List<GenericArgument> GenericArguments { get; set; }
+        public List<GenericParameter> GenericArguments { get; set; }
         public bool IsGeneric => GenericArguments.Count > 0;
         public BlockNode? Body { get; set; }
     }

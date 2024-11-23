@@ -224,7 +224,7 @@ namespace Generator
 
                 source.Append("public static partial class Module {\n");
                 
-                source.Append("""
+                source.Append($"""
                 /// <summary>
                 /// This function is defined in {node.Meta.File} at line {node.Meta.LineStart}
                 /// </summary>

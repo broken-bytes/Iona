@@ -16,7 +16,7 @@ namespace AST.Nodes
         public StatementType StatementType { get; set; }
         public ITypeReferenceNode? BaseType { get; set; }
         public List<ITypeReferenceNode> Contracts { get; set; } = new List<ITypeReferenceNode>();
-        public List<GenericArgument> GenericArguments { get; set; } = new List<GenericArgument>();
+        public List<GenericParameter> GenericArguments { get; set; } = new List<GenericParameter>();
         public BlockNode? Body { get; set; }
         public ResolutionStatus Status { get; set; } = ResolutionStatus.Unresolved;
         public Metadata Meta { get; set; }

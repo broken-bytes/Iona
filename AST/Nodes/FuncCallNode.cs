@@ -11,7 +11,8 @@ namespace AST.Nodes
         public NodeType Type { get; set; }
         public FileNode Root => Utils.GetRoot(this);
         public IdentifierNode Target { get; set; }
-        public List<FuncCallArg> Args { get; set; } = new List<FuncCallArg>();
+        public List<FuncCallArg> Args { get; set; } = [];
+        public List<GenericArgument> GenericArgs { get; set; } = [];
         public ResolutionStatus Status { get; set; } = ResolutionStatus.Unresolved;
         public Metadata Meta { get; set; }
         public ExpressionType ExpressionType => ExpressionType.FunctionCall;

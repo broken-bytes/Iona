@@ -10,6 +10,7 @@
         Declaration,
         Expression,
         GenericType,
+        GenericArgument,
         Statement,
         NominalType,
         Import,

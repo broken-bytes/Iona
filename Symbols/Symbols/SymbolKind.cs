@@ -5,6 +5,7 @@
         Assembly,
         Enum,
         Function,
+        GenericParameter,
         Module,
         Operator,
         Parameter,

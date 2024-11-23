@@ -170,19 +170,67 @@ namespace Typeck
                             var method = member as MethodInfo;
                             var funcSymbol = new FuncSymbol(method.Name);
                             funcSymbol.Parent = typeSymbol;
-
-                            // Find the type symbol
-                            var unboxed =
-                                Shared.Utils.GetUnboxedName(method.ReturnType.FullName ?? method.ReturnType.Name);
-                            var returnType = _symbolTable.FindTypeByFQN(unboxed);
-
-                            if (returnType is null)
+                            TypeSymbol? returnType = null;
+                            
+                            // Check for generic parameters
+                            if (method.ContainsGenericParameters || method.IsGenericMethod || method.IsGenericMethodDefinition)
                             {
-                                continue;
+                                var args = method.GetGenericArguments();
+
+                                foreach (var arg in args)
+                                {
+                                    var generic = new GenericParameterSymbol(arg.Name);
+                                    generic.Parent = typeSymbol;
+                                    funcSymbol.Symbols.Add(generic);
+                                }
+                            }
+
+                            var genericReturn = funcSymbol
+                                .Symbols
+                                .OfType<GenericParameterSymbol>()
+                                .FirstOrDefault(symbol => symbol.Name == method.ReturnType.Name);
+
+                            if (genericReturn is not null)
+                            {
+                                funcSymbol.ReturnType = new TypeSymbol(genericReturn.Name, TypeKind.Generic);
+                            }
+                            else
+                            {
+                                // Find the type symbol
+                                var unboxed =
+                                    Shared.Utils.GetUnboxedName(method.ReturnType.FullName ?? method.ReturnType.Name);
+                                returnType = _symbolTable.FindTypeByFQN(unboxed);
+
+                                if (returnType is null)
+                                {
+                                    continue;
+                                }
+                                
+                                funcSymbol.ReturnType = returnType;
+                            }
+
+
+                            var parameters = new List<ParameterSymbol>();
+                            foreach (var param in method.GetParameters())
+                            {
+                                ParameterSymbol paramSymbol = null;
+                                if (funcSymbol.Symbols.OfType<GenericParameterSymbol>()
+                                    .Any(symbol => symbol.Name == param.Name))
+                                {
+                                    paramSymbol = new ParameterSymbol(param.Name, true, null);
+                                }
+                                else
+                                {
+                                    var paramType = _symbolTable.FindTypeByFQN(
+                                        param?.ParameterType.FullName ??
+                                        param?.ParameterType.Name);
+
+                                    paramSymbol = new ParameterSymbol(param.Name, paramType, null);
+                                }
+                                
+                                parameters.Add(paramSymbol);
                             }
                             
-                            funcSymbol.ReturnType = returnType;
-
                             if (method.IsSpecialName)
                             {
                                 OperatorType op;
@@ -241,16 +289,15 @@ namespace Typeck
                                     continue;
                                 }
                                 
-                                var opSymbol = new OperatorSymbol(op);
-                                opSymbol.ReturnType = returnType;
-                                
-                                foreach (var param in method.GetParameters())
+                                var opSymbol = new OperatorSymbol(op)
                                 {
-                                    var paramType = _symbolTable.FindTypeByFQN(param?.ParameterType.FullName ?? param?.ParameterType.Name);
+                                    ReturnType = returnType
+                                };
 
-                                    var paramSymbol = new ParameterSymbol(param.Name, paramType, opSymbol);
-                                    opSymbol.Parent = typeSymbol;
-                                    opSymbol.Symbols.Add(paramSymbol);
+                                foreach (var parameter in parameters)
+                                {
+                                    opSymbol.Symbols.Add(parameter);
+                                    parameter.Parent = opSymbol;
                                 }
                                 
                                 typeSymbol.Symbols.Add(opSymbol);
@@ -259,19 +306,12 @@ namespace Typeck
                             }
                             
                             // If the func is a regular func and not an operator, add it
-                            foreach (var param in method.GetParameters())
+                            foreach (var parameter in parameters)
                             {
-                                var paramType = _symbolTable.FindTypeByFQN(param?.ParameterType.FullName ?? param?.ParameterType.Name);
-
-                                if (paramType == null)
-                                {
-                                    continue;
-                                }
-                                
-                                var paramSymbol = new ParameterSymbol(param.Name, paramType, funcSymbol);
-                                funcSymbol.Parent = typeSymbol;
-                                funcSymbol.Symbols.Add(paramSymbol);
+                                funcSymbol.Symbols.Add(parameter);
+                                parameter.Parent = funcSymbol;
                             }
+                            
                             typeSymbol.Symbols.Add(funcSymbol);
                         }
                         else if (member.MemberType == MemberTypes.Field)

@@ -102,8 +102,8 @@ namespace Lexer.Processors
                 // The '!=' case is already handled in ProcessCompoundOperator
                 case "<=": return Utils.MakeToken(TokenType.LessEqual, Operator.LessEqual.AsString());
                 case ">=": return Utils.MakeToken(TokenType.GreaterEqual, Operator.GreaterEqual.AsString());
-                case "<": return Utils.MakeToken(TokenType.Less, Operator.Less.AsString());
-                case ">": return Utils.MakeToken(TokenType.Greater, Operator.Greater.AsString());
+                case "<": return Utils.MakeToken(TokenType.ArrowLeft, Operator.Less.AsString());
+                case ">": return Utils.MakeToken(TokenType.ArrowRight, Operator.Greater.AsString());
                 default: return null;
             }
         }

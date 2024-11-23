@@ -30,15 +30,8 @@ namespace Parser.Parsers
             {
                 return true;
             }
-
-            return false;
-        }
-
-        internal bool IsMemberAccess(TokenStream stream)
-        {
-            var tokens = stream.Peek(2);
-
-            if (tokens[0].Type == TokenType.Identifier && tokens[1].Type == TokenType.Dot)
+            
+            if (tokens[0].Type == TokenType.Identifier && tokens[1].Type == TokenType.ArrowLeft)
             {
                 return true;
             }
@@ -59,6 +52,37 @@ namespace Parser.Parsers
             Utils.SetMeta(identifierNode, identifier);
             var funcCall = new FuncCallNode(identifierNode, parent);
             Utils.SetStart(funcCall, identifier);
+            
+            // Check if the function call includes generic arguments
+            var hasGenerics = stream.Peek().Type == TokenType.ArrowLeft;
+
+            if (hasGenerics)
+            {
+                var next = stream.Consume(TokenType.ArrowLeft, TokenType.ParenLeft);
+                next = stream.Peek();
+
+                while (next.Type is not TokenType.ArrowRight)
+                {
+                    var name = stream.Consume(TokenType.Identifier, TokenType.ParenLeft);
+                    
+                    funcCall.GenericArgs.Add(new GenericArgument(name.Value, funcCall));
+
+                    next = stream.Peek();
+
+                    if (stream.Peek().Type == TokenType.Comma)
+                    {
+                        stream.Consume(TokenType.Comma, TokenType.ParenLeft);
+                        
+                        next = stream.Peek();
+                    }
+                    else
+                    {
+                        // TODO: Error -> Unexpected token in generic arguments
+                    }
+                }
+                
+                stream.Consume(TokenType.ArrowRight, TokenType.ParenLeft);
+            }
 
             stream.Consume(TokenType.ParenLeft, TokenFamily.Operator);
 

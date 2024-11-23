@@ -6,21 +6,21 @@ namespace Parser.Parsers
 {
     internal class GenericArgsParser
     {
-        public List<GenericArgument> Parse(TokenStream stream, INode? parent)
+        public List<GenericParameter> Parse(TokenStream stream, INode? parent)
         {
-            var args = new List<GenericArgument>();
+            var args = new List<GenericParameter>();
 
-            if (stream.Peek().Type != TokenType.Less)
+            if (stream.Peek().Type != TokenType.ArrowLeft)
             {
                 return args;
             }
 
-            stream.Consume(TokenType.Less, TokenFamily.Operator);
+            stream.Consume(TokenType.ArrowLeft, TokenFamily.Operator);
 
-            while (stream.Peek().Type != TokenType.Greater)
+            while (stream.Peek().Type != TokenType.ArrowRight)
             {
                 var token = stream.Consume(TokenType.Identifier, TokenFamily.Keyword);
-                var arg = new GenericArgument(token.Value, parent);
+                var arg = new GenericParameter(token.Value, parent);
                 Utils.SetMeta(arg, token);
 
                 // Check if the generic argument has constraints
@@ -34,7 +34,7 @@ namespace Parser.Parsers
                 }
             }
 
-            stream.Consume(TokenType.Greater, TokenFamily.Operator);
+            stream.Consume(TokenType.ArrowRight, TokenFamily.Operator);
 
             return args;
         }

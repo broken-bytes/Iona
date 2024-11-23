@@ -65,15 +65,15 @@ namespace Parser.Parsers
             }
 
             // Check if the type is a generic
-            if (stream.Peek().Type == TokenType.Less)
+            if (stream.Peek().Type == TokenType.ArrowLeft)
             {
                 // Consume the less than token
-                stream.Consume(TokenType.Less, TokenFamily.Operator);
+                stream.Consume(TokenType.ArrowLeft, TokenFamily.Operator);
 
                 var genericType = new TypeReferenceNode(token.Value);
                 Utils.SetStart(genericType, token);
 
-                while (stream.Peek().Type != TokenType.Greater)
+                while (stream.Peek().Type != TokenType.ArrowRight)
                 {
                     // Parse the generic argument
                     ITypeReferenceNode? genericArg = Parse(stream, parent);
@@ -96,7 +96,7 @@ namespace Parser.Parsers
                     }
                 }
 
-                token = stream.Consume(TokenType.Greater, TokenFamily.Operator);
+                token = stream.Consume(TokenType.ArrowRight, TokenFamily.Operator);
                 Utils.SetEnd(genericType, token);
 
                 return genericType;

@@ -148,9 +148,9 @@ namespace Parser.Parsers
                     return BinaryOperation.Equal;
                 case TokenType.NotEqual:
                     return BinaryOperation.NotEqual;
-                case TokenType.Greater:
+                case TokenType.ArrowRight:
                     return BinaryOperation.GreaterThan;
-                case TokenType.Less:
+                case TokenType.ArrowLeft:
                     return BinaryOperation.LessThan;
                 case TokenType.GreaterEqual:
                     return BinaryOperation.GreaterThanOrEqual;
@@ -291,19 +291,24 @@ namespace Parser.Parsers
             var output = new List<Token>();
             var stack = new Stack<Token>();
 
+            bool hasGenericClause = false;
+            
             while (!stream.IsEmpty())
             {
                 var token = stream.Consume();
                 if (token.Type is TokenType.Identifier or TokenType.Self || token.Family is TokenFamily.Literal)
                 {
                     output.Add(token);
+                    continue;
                 }
-                else if (token.Type == TokenType.ParenLeft)
+                
+                if (token.Type == TokenType.ParenLeft)
                 {
                     // When we have an identifier followed by a parenthesis without any operator
                     // we have a function call and parse until the closing parenthesis
-                    if (output[^1].Type is TokenType.Identifier or TokenType.Self)
+                    if (output[^1].Type is TokenType.Identifier or TokenType.Self || hasGenericClause)
                     {
+                        hasGenericClause = false;
                         output.Add(token);
 
                         token = stream.Peek();
@@ -339,8 +344,10 @@ namespace Parser.Parsers
                         continue;
                     }
                     stack.Push(token);
+                    continue;
                 }
-                else if (token.Type == TokenType.ParenRight)
+                
+                if (token.Type == TokenType.ParenRight)
                 {
                     while (stack.Count > 0 && stack.Peek().Type != TokenType.ParenLeft)
                     {
@@ -355,35 +362,65 @@ namespace Parser.Parsers
                     }
                     
                     stack.Pop(); // Pop the '('
+                    continue;
                 }
-                else // The token is an operator
+                // Check if between `<` and `>` come only identifiers or commas
+                if (token.Type is TokenType.ArrowLeft)
                 {
-                    // We need to check if the operator is just a dot for property access
-                    if (token.Type is TokenType.Dot or TokenType.Scope)
+                    var genericClause = stream
+                        .SkipWhile(t => t.Family is not TokenFamily.Operator and TokenFamily.Grouping)
+                        .TakeWhile(t => t.Type is not TokenType.ParenRight)
+                        .ToList();
+                    
+                    if (genericClause.Last().Type is TokenType.ParenLeft &&
+                        genericClause.SkipLast(1).Last().Type is TokenType.ArrowRight)
                     {
+                        hasGenericClause = true;
+                        
                         output.Add(token);
+
+                        token = stream.Peek();
+                        
+                        while (token.Type is not TokenType.ArrowRight)
+                        {
+                            output.Add(token);
+                            token = stream.Consume();
+                            
+                            token = stream.Peek();
+                        }
+
+                        stream.Consume();
+                        output.Add(token);
+                        
                         continue;
                     }
-
-                    BinaryOperation? op = null;
-
-                    // Check if there is an operator on the stack
-                    if (stack.Count > 0)
-                    {
-                        op = GetBinaryOperation(stack.Peek());
-                    }
-
-                    var otherOp = GetBinaryOperation(token);
-
-                    if (op is BinaryOperation binary)
-                    {
-                        while (stack.Count > 0 && (Precedence(binary) >= Precedence(otherOp)))
-                        {
-                            output.Add(stack.Pop());
-                        }
-                    }
-                    stack.Push(token);
                 }
+
+                // We need to check if the operator is just a dot for property access
+                if (token.Type is TokenType.Dot or TokenType.Scope)
+                {
+                    output.Add(token);
+                    continue;
+                }
+
+                BinaryOperation? op = null;
+
+                // Check if there is an operator on the stack
+                if (stack.Count > 0)
+                {
+                    op = GetBinaryOperation(stack.Peek());
+                }
+
+                var otherOp = GetBinaryOperation(token);
+
+                if (op is BinaryOperation binary)
+                {
+                    while (stack.Count > 0 && (Precedence(binary) >= Precedence(otherOp)))
+                    {
+                        output.Add(stack.Pop());
+                    }
+                }
+                stack.Push(token);
             }
 
             while (stack.Count > 0)

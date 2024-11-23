@@ -15,7 +15,7 @@ namespace AST.Nodes
         public AccessLevel AccessLevel { get; set; }
         public StatementType StatementType { get; set; }
         public List<INode> Contracts { get; set; } = new List<INode>();
-        public List<GenericArgument> GenericArguments { get; set; } = new List<GenericArgument>();
+        public List<GenericParameter> GenericArguments { get; set; } = new List<GenericParameter>();
         public BlockNode? Body { get; set; }
         public ResolutionStatus Status { get; set; } = ResolutionStatus.Unresolved;
         public Metadata Meta { get; set; }

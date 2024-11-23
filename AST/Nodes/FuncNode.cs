@@ -13,7 +13,8 @@ namespace AST.Nodes
         public FileNode Root => Utils.GetRoot(this);
         public AccessLevel AccessLevel { get; set; }
         public StatementType StatementType { get; set; }
-        public List<ParameterNode> Parameters { get; set; } = new List<ParameterNode>();
+        public List<ParameterNode> Parameters { get; set; } = [];
+        public List<GenericParameter> GenericArguments { get; set; } = [];
         public TypeReferenceNode? ReturnType { get; set; }
         public bool IsMutable { get; set; }
         public bool IsStatic { get; set; }

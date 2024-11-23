@@ -170,11 +170,11 @@ namespace Parser.Parsers
                     return OperatorType.Equal;
                 case TokenType.NotEqual:
                     return OperatorType.NotEqual;
-                case TokenType.Greater:
+                case TokenType.ArrowRight:
                     return OperatorType.GreaterThan;
                 case TokenType.GreaterEqual:
                     return OperatorType.GreaterThanOrEqual;
-                case TokenType.Less:
+                case TokenType.ArrowLeft:
                     return OperatorType.LessThan;
                 case TokenType.LessEqual:
                     return OperatorType.LessThanOrEqual;

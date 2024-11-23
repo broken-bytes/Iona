@@ -34,9 +34,9 @@ namespace Lexer
                 case TokenType.DivideAssign:
                 case TokenType.Dot:
                 case TokenType.Equal:
-                case TokenType.Greater:
+                case TokenType.ArrowRight:
                 case TokenType.GreaterEqual:
-                case TokenType.Less:
+                case TokenType.ArrowLeft:
                 case TokenType.LessEqual:
                 case TokenType.Minus:
                 case TokenType.MinusAssign:
