@@ -573,6 +573,34 @@ namespace Symbols
                 childs = parent.Symbols;
             }
             
+            // First, check if the method is part of the same type where the call is initiated from
+            var hierarchy = ((INode)funcCallNode).Hierarchy();
+            var type = hierarchy.OfType<ITypeNode>().FirstOrDefault();
+            
+            if (type is not null)
+            {
+                var matching = type.Body.Children.OfType<FuncNode>()
+                    .Where(func => func.Name == funcCallNode.Target.Value);
+
+                if (matching.Any())
+                {
+                    Console.WriteLine($"Found {matching.Count()} functions");
+                }
+                else
+                {
+                    // Check the base type
+                    if (type is ClassNode classNode)
+                    {
+                        if (classNode.BaseType != null)
+                        {
+                            var baseType = FindTypeByFQN(context, classNode.BaseType.FullyQualifiedName);
+                            
+                            Console.WriteLine($"Found {baseType?.Name}");
+                        }
+                    }
+                }
+            }
+            
             foreach (var child in childs)
             {
                 switch (child)

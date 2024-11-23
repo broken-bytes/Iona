@@ -6,17 +6,18 @@ namespace AST.Types
 {
     public class GenericArgument : INode
     {
-        public TypeReferenceNode TypeNode { get; set; }
-        public NodeType Type { get; set; }
+        public string Name { get; set; }
         public INode? Parent { get; set; }
+        public NodeType Type { get; set; }
         public FileNode Root => Utils.GetRoot(this);
         public ResolutionStatus Status { get; set; } = ResolutionStatus.Unresolved;
         public Metadata Meta { get; set; }
 
         public GenericArgument(string name, INode? parent = null)
         {
+            Name = name;
             Parent = parent;
-            Type = NodeType.GenericArgument;
+            Type = NodeType.GenericType;
         }
     }
 }

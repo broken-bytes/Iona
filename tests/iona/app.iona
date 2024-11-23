@@ -7,7 +7,7 @@ public class Test: MonoBehaviour {
     private var rigidbody: Rigidbody
 
     public fn start() {
-        rigidbody = getComponent<Rigidbody>()
+        rigidbody = self.getComponent<Rigidbody>()
     }
 
     public fn update() {

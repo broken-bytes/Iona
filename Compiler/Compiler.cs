@@ -43,7 +43,14 @@ namespace Compiler
             this.fixItCollector = fixItCollector;
         }
 
-        public bool Compile(string assemblyName, List<CompilationUnit> files, bool intermediate, List<string> assemblyPaths, List<string> assemblyRefs)
+        public bool Compile(
+            string assemblyName, 
+            List<CompilationUnit> files, 
+            bool intermediate, 
+            bool debug,
+            List<string> assemblyPaths, 
+            List<string> assemblyRefs
+            )
         {
             // Add IONA SDK to the references
             assemblyRefs.Add("Iona.Builtins");
@@ -113,6 +120,11 @@ namespace Compiler
             Parallel.ForEach(asts, ast => typeck.CheckTopLevelScopes(ast, globalTable));
             Parallel.ForEach(asts, ast => typeck.CheckExpressions(ast, globalTable));
             Parallel.ForEach(asts, ast => typeck.TypeCheck(ast, globalTable));
+
+            if (debug)
+            {
+                Parallel.ForEach(asts, ast => logger.Log(ast));
+            }
             
             if (errorCollector.Errors.Any())
             {

@@ -195,14 +195,32 @@ namespace Generator
         {
             // First, print the name of the function
             source.Append(Utils.IonaToCSharpName(node.Target.Value));
-            source.Append('(');
-            foreach (var arg in node.Args)
+            if (node.GenericArgs.Any())
             {
-                source.Append(arg.Value);
-                source.Append(", ");
+                source.Append('<');
+                foreach (var arg in node.GenericArgs)
+                {
+                    source.Append(arg.Name);
+                    source.Append(", ");
+                }
+                source.Remove(source.Length - 2, 2);
+
+                source.Append('>');
             }
             
-            source.Remove(source.Length - 2, 2);
+            source.Append('(');
+
+            if (node.Args.Any())
+            {
+                foreach (var arg in node.Args)
+                {
+                    source.Append(arg.Value);
+                    source.Append(", ");
+                }
+
+                source.Remove(source.Length - 2, 2);
+            }
+
             source.Append(");");
         }
 
@@ -236,9 +254,9 @@ namespace Generator
             
             source.Append(returnType);
             
-            source.Append(" ");
+            source.Append(' ');
             source.Append(Utils.IonaToCSharpName(node.Name));
-            source.Append("(");
+            source.Append('(');
 
             // Add the parameters to the method
             foreach (var parameter in node.Parameters)
@@ -246,16 +264,13 @@ namespace Generator
                 var paramType = Utils.GetBoxedName(parameter.TypeNode.FullyQualifiedName);
                 source.Append($"{paramType} {parameter.Name}");
             }
-            source.Append(")");
-            
-            if (node.Body != null)
-            {
-                node.Body.Accept(this);
-            }
+            source.Append(')');
+
+            node.Body?.Accept(this);
 
             if (isFree)
             {
-                source.Append("}");
+                source.Append('}');
             }
         }
 

@@ -160,68 +160,11 @@ namespace Typeck
         public void Visit(FuncCallNode node)
         {
             node.Status = INode.ResolutionStatus.Resolving;
-            // Check if the function is in scope
-            var funcWasFound = table.CheckIfFuncExists(node.Root, node);
-
-            // Free function or member function
-            if (funcWasFound)
-            {
-                // Check if the function is a member function or a free function
-                var hierarchy = ((INode)node).Hierarchy();
-                var currentType = hierarchy.OfType<ITypeNode>().FirstOrDefault();
-
-                var typeSymbol = table.FindTypeByFQN(node.Root, currentType.FullyQualifiedName);
-
-                // Function is inside a type -> member function
-                if (typeSymbol != null)
-                {
-                    var self = new SelfNode(node.Parent);
-                    var target = new IdentifierNode(typeSymbol.Name, node.Target);
-                    var methodCall = new MethodCallNode(self, target, node.Parent);
-                    methodCall.Args = node.Args;
-                    methodCall.Meta = node.Meta;
-                    self.Parent = methodCall;
-                    target.Parent = methodCall;
-
-                    ReplaceNode(node, methodCall);
-                }
-            } 
-            // Init
-            else
-            {   
-                var initWasFound = table.CheckIfInitExists(node.Root, node, null);
-
-                if (!initWasFound)
-                {
-                    node.Status = INode.ResolutionStatus.Failed;
-
-                    return;
-                }
-                
-                // When an init was found we implicitly know a type with that name exists.
-                var typeSearchResult = table.FindTypeBySimpleName(node.Root, node.Target.Value);
-
-                if (typeSearchResult.IsSuccess)
-                {
-                    var initCall = new InitCallNode(typeSearchResult.Unwrapped().FullyQualifiedName, node.Parent);
-                    initCall.Args = node.Args;
-                    initCall.Meta = node.Meta;
-
-                    ReplaceNode(node, initCall);
-                }
-            }
         }
 
         public void Visit(IdentifierNode node)
         {
             node.Status = INode.ResolutionStatus.Resolving;
-
-            if (node.Value == "self")
-            {
-                ReplaceNode(node, new SelfNode(node.Parent) { Meta = node.Meta, Status = INode.ResolutionStatus.Resolved });
-
-                return;
-            }
 
             // Check if the identifier is in the current (or parent) scope
             var symbol = table.FindBy(node);
@@ -472,67 +415,6 @@ namespace Typeck
             }
             
             return Result<TypeSymbol, SymbolError>.Ok(symbol);
-        }
-        
-        private void ReplaceNode(INode node, INode newNode)
-        {
-            // Case 1: Node is inside a block
-            if (node.Parent is BlockNode block)
-            {
-                var index = block.Children.IndexOf(node);
-                block.Children[index] = newNode;
-            }
-            // Case 2: Node is value of a variable decl
-            else if (node.Parent is VariableNode variable)
-            {
-                variable.Value = (IExpressionNode)newNode;
-            }
-            // Case 3: Node is value of a property decl
-            else if (node.Parent is PropertyNode property)
-            {
-                property.Value = (IExpressionNode)newNode;
-            }
-            // Case 4: Node is value of a return statement
-            else if (node.Parent is ReturnNode returnNode)
-            {
-                returnNode.Value = (IExpressionNode)newNode;
-            }
-            // Case 5: Node is value of an assignment
-            else if (node.Parent is AssignmentNode assignment)
-            {
-                if (assignment.Target == node)
-                {
-                    assignment.Target = newNode;
-                }
-                else
-                {
-                    assignment.Value = newNode;
-                }
-            }
-            // Case 6: Node is value of a binary expression
-            else if (node.Parent is BinaryExpressionNode binary)
-            {
-                if (binary.Left == node)
-                {
-                    binary.Left = (IExpressionNode)newNode;
-                }
-                else
-                {
-                    binary.Right = (IExpressionNode)newNode;
-                }
-            }
-            // Case 7: Node is the object or prop of a property access node
-            else if (node.Parent is PropAccessNode propAccess)
-            {
-                if (propAccess.Object == node)
-                {
-                    propAccess.Object = (IExpressionNode)newNode;
-                }
-                else
-                {
-                    propAccess.Property = (IExpressionNode)newNode;
-                }
-            }
         }
     }
 }

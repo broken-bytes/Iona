@@ -14,7 +14,7 @@ namespace AST.Nodes
         public AccessLevel AccessLevel { get; set; }
         public StatementType StatementType { get; set; }
         public List<ParameterNode> Parameters { get; set; } = [];
-        public List<GenericParameter> GenericArguments { get; set; } = [];
+        public List<GenericArgument> GenericArguments { get; set; } = [];
         public TypeReferenceNode? ReturnType { get; set; }
         public bool IsMutable { get; set; }
         public bool IsStatic { get; set; }

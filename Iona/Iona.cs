@@ -8,6 +8,8 @@ class Iona
         public IEnumerable<string> InputFiles { get; set; }
         [Option('i', "intermediate", Required = false, HelpText = "Compile to C# only. Do not emit assembly.")]
         public bool Intermediate { get; set; } = false;
+        [Option('d', "debug", Required = false, HelpText = "Print debug information (AST)")]
+        public bool Debug { get; set; } = false;
         [Option('a', "assemblies", Required = false, HelpText = "Additional paths to check for assemblies")]
         public IEnumerable<string> AssemblyPaths { get; set; }
         [Option('r', "references", Required = false, HelpText = "Assemblies that shall be referenced.")]
@@ -68,6 +70,7 @@ class Iona
                 "App", 
                 new List<CompilationUnit> { new CompilationUnit { Source = code, Name = file }}, 
                 options.Intermediate, 
+                options.Debug,
                 options.AssemblyPaths?.ToList() ?? new List<string>(),
                 options.AssemblyRefs?.ToList() ?? new List<string>()
             ); 

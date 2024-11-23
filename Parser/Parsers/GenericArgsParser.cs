@@ -6,9 +6,9 @@ namespace Parser.Parsers
 {
     internal class GenericArgsParser
     {
-        public List<GenericParameter> Parse(TokenStream stream, INode? parent)
+        public List<GenericArgument> Parse(TokenStream stream, INode? parent)
         {
-            var args = new List<GenericParameter>();
+            var args = new List<GenericArgument>();
 
             if (stream.Peek().Type != TokenType.ArrowLeft)
             {
@@ -20,7 +20,7 @@ namespace Parser.Parsers
             while (stream.Peek().Type != TokenType.ArrowRight)
             {
                 var token = stream.Consume(TokenType.Identifier, TokenFamily.Keyword);
-                var arg = new GenericParameter(token.Value, parent);
+                var arg = new GenericArgument(token.Value, parent);
                 Utils.SetMeta(arg, token);
 
                 // Check if the generic argument has constraints
