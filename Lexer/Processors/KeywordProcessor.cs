@@ -83,6 +83,10 @@ namespace Lexer.Processors
             {
                 return Utils.MakeToken(TokenType.Static, Keyword.Static.AsString());
             }
+            else if (Utils.CheckMatchingSequence(source, Keyword.Self.AsString()))
+            {
+                return Utils.MakeToken(TokenType.Self, Keyword.Self.AsString());
+            }
 
             return null;
         }

@@ -90,33 +90,43 @@ namespace Parser.Parsers
         
         private TokenStream GetParameterExpression(TokenStream stream)
         {
-            var expression = stream.Copy();
-
+            var tokens = new List<Token>();
+            
             // (..) is one subexpression. We use it to check if we are still in a param expression or hit the enclosing `)`
             var subExpressions = 0;
 
             var token = stream.Peek();
-            
+
             while (stream.Any())
             {
-                if (token.Type is TokenType.Comma || (token.Type is TokenType.ParenRight && subExpressions == 0))
+                if (token.Type is TokenType.Comma)
                 {
                     break;
                 }
-                
+
+                if (token.Type is TokenType.ParenRight)
+                {
+                    if (subExpressions == 0)
+                    {
+                        break;    
+                    }
+                    
+                    subExpressions--;
+                }
+
                 if (token.Type == TokenType.ParenLeft)
                 {
                     subExpressions++;
                 }
                 
-                expression.Append(token);
+                tokens.Add(token);
 
                 stream.Consume();
                 
                 token = stream.Peek();
             }
 
-            return expression;
+            return new TokenStream(tokens);
         }
     }
 }

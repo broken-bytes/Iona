@@ -61,8 +61,13 @@ namespace Parser.Parsers
                 var error = stream.Peek();
                 throw new ParserException(ParserExceptionCode.Unknown, error.Line, error.ColumnStart, error.ColumnEnd, error.File);
             }
+            
+            var token = stream.Consume();
 
-            var token = stream.Consume(TokenType.Identifier, TokenFamily.Keyword);
+            if (token.Type is not TokenType.Identifier and not TokenType.Self)
+            {
+                stream.Panic(TokenFamily.Keyword);
+            }
 
             INode target;
 

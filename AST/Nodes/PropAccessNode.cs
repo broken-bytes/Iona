@@ -1,4 +1,5 @@
-﻿using AST.Types;
+﻿using System.Text;
+using AST.Types;
 using AST.Visitors;
 using Shared;
 using static AST.Nodes.INode;
@@ -24,6 +25,32 @@ namespace AST.Nodes
             Parent = parent;
             Type = NodeType.PropAccess;
             Meta = property.Meta;
+        }
+
+        public override string ToString()
+        {
+            var builder = new StringBuilder();
+            if (Object is SelfNode selfNode)
+            {
+                builder.Append(selfNode);
+            }
+            else
+            {
+                builder.Append(Object);
+            }
+            
+            builder.Append('.');
+
+            if (Property is IdentifierNode identifierNode)
+            {
+                builder.Append(identifierNode);
+            }
+            else
+            {
+                builder.Append(Property);
+            }
+            
+            return builder.ToString();
         }
 
         public void Accept(IPropAccessVisitor visitor)

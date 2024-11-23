@@ -59,7 +59,8 @@ namespace Parser.Parsers
                 token.Family is TokenFamily.Literal ||
                 token.Family is TokenFamily.Identifier ||
                 token.Type is TokenType.ParenLeft ||
-                token.Family is TokenFamily.Operator
+                token.Family is TokenFamily.Operator ||
+                token.Type is TokenType.Self
             )
             {
                 return true;
@@ -293,7 +294,7 @@ namespace Parser.Parsers
             while (!stream.IsEmpty())
             {
                 var token = stream.Consume();
-                if (token.Family is TokenFamily.Identifier or TokenFamily.Literal)
+                if (token.Type is TokenType.Identifier or TokenType.Self || token.Family is TokenFamily.Literal)
                 {
                     output.Add(token);
                 }
@@ -301,7 +302,7 @@ namespace Parser.Parsers
                 {
                     // When we have an identifier followed by a parenthesis without any operator
                     // we have a function call and parse until the closing parenthesis
-                    if (output[^1].Type is TokenType.Identifier)
+                    if (output[^1].Type is TokenType.Identifier or TokenType.Self)
                     {
                         output.Add(token);
 
@@ -399,7 +400,7 @@ namespace Parser.Parsers
             var token = stream.Peek();
             while (!stream.IsEmpty())
             {
-                if (token.Family == TokenFamily.Identifier)
+                if (token.Type is TokenType.Identifier or TokenType.Self)
                 {
                     // We don't consume from the stream here, as the member access parser does that
                     if (IsMemberAccess(stream))
@@ -520,7 +521,7 @@ namespace Parser.Parsers
                         return ExpressionState.ScopeResolution;
                     }
 
-                    if (token.Family is TokenFamily.Literal || token.Type is TokenType.Identifier)
+                    if (token.Family is TokenFamily.Literal || token.Type is TokenType.Identifier or TokenType.Self)
                     {
                         return ExpressionState.Operand;
                     }
@@ -579,7 +580,7 @@ namespace Parser.Parsers
                         return ExpressionState.StartGroup;
                     }
 
-                    if (token.Type is TokenType.Identifier || token.Family is TokenFamily.Literal)
+                    if (token.Type is TokenType.Identifier or TokenType.Self || token.Family is TokenFamily.Literal)
                     {
                         return ExpressionState.Operand;
                     }
@@ -594,7 +595,7 @@ namespace Parser.Parsers
                         return ExpressionState.StartGroup;
                     }
 
-                    if (token.Type is TokenType.Identifier || token.Family is TokenFamily.Literal)
+                    if (token.Type is TokenType.Identifier or TokenType.Self || token.Family is TokenFamily.Literal)
                     {
                         return ExpressionState.Operand;
                     }
@@ -618,7 +619,7 @@ namespace Parser.Parsers
                         return ExpressionState.EndGroup;
                     }
 
-                    if (token.Type is TokenType.Identifier || token.Family is TokenFamily.Literal)
+                    if (token.Type is TokenType.Identifier or TokenType.Self || token.Family is TokenFamily.Literal)
                     {
                         return ExpressionState.Operand;
                     }
@@ -649,7 +650,7 @@ namespace Parser.Parsers
                     return ExpressionState.Invalid;
                 }
                 case ExpressionState.Param:
-                    if (token.Type is TokenType.Identifier || token.Family is TokenFamily.Literal)
+                    if (token.Type is TokenType.Identifier or TokenType.Self || token.Family is TokenFamily.Literal)
                     {
                         return ExpressionState.Operand;
                     }

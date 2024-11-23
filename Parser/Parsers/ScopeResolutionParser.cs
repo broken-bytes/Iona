@@ -70,7 +70,8 @@ namespace Parser.Parsers
             {
                 target = new SelfNode();
                 Utils.SetMeta(target, token);
-            } else
+            } 
+            else
             {
                 target = new IdentifierNode(token.Value);
                 Utils.SetMeta(target, token);

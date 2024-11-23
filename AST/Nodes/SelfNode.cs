@@ -20,15 +20,15 @@ namespace AST.Nodes
             Parent = parent;
             Type = NodeType.Self;
         }
-
+        
+        public override string ToString()
+        {
+            return "this";
+        }
+        
         public void Accept(ISelfVisitor visitor)
         {
             visitor.Visit(this);
-        }
-
-        public override string ToString()
-        {
-            return "self";
         }
     }
 }
