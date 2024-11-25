@@ -21,7 +21,8 @@ namespace Parser.Parsers
             Invalid,
             Finish,
             Skip,
-            Param
+            Param,
+            ParamNext
         }
         
         FuncCallParser funcCallParser;
@@ -291,64 +292,51 @@ namespace Parser.Parsers
             var output = new List<Token>();
             var stack = new Stack<Token>();
 
+            int funcNestingLevel = 0;
+            
             bool hasGenericClause = false;
             
             while (!stream.IsEmpty())
-            {
+            {   
                 var token = stream.Consume();
-                if (token.Type is TokenType.Identifier or TokenType.Self || token.Family is TokenFamily.Literal)
+                if (token.Type is TokenType.Identifier or TokenType.Self or TokenType.Dot or TokenType.Comma|| token.Family is TokenFamily.Literal)
                 {
                     output.Add(token);
                     continue;
                 }
                 
+                // TODO: Function calls dont work nested right now as the first nested call will trigger the paren right for the outer one
                 if (token.Type == TokenType.ParenLeft)
                 {
                     // When we have an identifier followed by a parenthesis without any operator
                     // we have a function call and parse until the closing parenthesis
                     if (output[^1].Type is TokenType.Identifier or TokenType.Self || hasGenericClause)
                     {
+                        funcNestingLevel++;
                         hasGenericClause = false;
                         output.Add(token);
 
                         token = stream.Peek();
-                        while (token.Type != TokenType.ParenRight)
-                        {
-                            if (stream.IsEmpty())
-                            {
-                                errorCollector.Collect(
-                                    CompilerErrorFactory.SyntaxError("Unexpected end of file",
-                                        new Metadata
-                                        {
-                                            ColumnStart = token.ColumnStart,
-                                            ColumnEnd = token.ColumnEnd,
-                                            LineStart = token.Line,
-                                            LineEnd = token.Line,
-                                            File = token.File
-                                        }
-                                    )
-                                );
-                                break;
-                            }
-
-                            output.Add(token);
-
-                            stream.Consume();
-                            token = stream.Peek();
-                        }
-
-                        output.Add(token);
-
-                        stream.Consume();
-
-                        continue;
                     }
-                    stack.Push(token);
+                    else
+                    {
+                        stack.Push(token);
+                    }
                     continue;
                 }
                 
                 if (token.Type == TokenType.ParenRight)
                 {
+                    if (funcNestingLevel > 0)
+                    {
+                        funcNestingLevel--;
+                        
+                        output.Add(token);
+
+                        token = stream.Peek();
+                        continue;
+                    }
+                    
                     while (stack.Count > 0 && stack.Peek().Type != TokenType.ParenLeft)
                     {
                         output.Add(stack.Pop());
@@ -364,7 +352,6 @@ namespace Parser.Parsers
                     stack.Pop(); // Pop the '('
                     continue;
                 }
-                // Check if between `<` and `>` come only identifiers or commas
                 if (token.Type is TokenType.ArrowLeft)
                 {
                     var genericClause = stream
@@ -372,6 +359,7 @@ namespace Parser.Parsers
                         .TakeWhile(t => t.Type is not TokenType.ParenRight)
                         .ToList();
                     
+                    // Check if between `<` and `>` come only identifiers or commas
                     if (genericClause.Last().Type is TokenType.ParenLeft &&
                         genericClause.SkipLast(1).Last().Type is TokenType.ArrowRight)
                     {
@@ -398,6 +386,13 @@ namespace Parser.Parsers
 
                 // We need to check if the operator is just a dot for property access
                 if (token.Type is TokenType.Dot or TokenType.Scope)
+                {
+                    output.Add(token);
+                    continue;
+                }
+
+                // These only occur within a function call so we always add them
+                if (token.Type is TokenType.Colon or TokenType.Comma)
                 {
                     output.Add(token);
                     continue;
@@ -562,6 +557,11 @@ namespace Parser.Parsers
                     {
                         return ExpressionState.Operand;
                     }
+                    
+                    if (token.Type is TokenType.Dot)
+                    {
+                        return ExpressionState.MemberAccess;
+                    }
 
                     if (token.Type is TokenType.ParenLeft)
                     {
@@ -607,7 +607,31 @@ namespace Parser.Parsers
                         // Any operator that is NOT a binary or unary operator ends the expression (=, +=, etc.)
                         return ExpressionState.Finish;
                     }
+
+                    if (token.Type is TokenType.Comma)
+                    {
+                        return ExpressionState.ParamNext;
+                    }
                     
+                    return ExpressionState.Invalid;
+                }
+                case ExpressionState.ParamNext:
+                {
+                    if (token.Type is TokenType.ParenLeft)
+                    {
+                        return ExpressionState.StartGroup;
+                    }
+
+                    if (token.Type is TokenType.Identifier or TokenType.Self || token.Family is TokenFamily.Literal)
+                    {
+                        return ExpressionState.Operand;
+                    }
+                    
+                    if (token.Type is TokenType.Dot)
+                    {
+                        return ExpressionState.MemberAccess;
+                    }
+
                     return ExpressionState.Invalid;
                 }
                 case ExpressionState.Operator:
@@ -620,6 +644,11 @@ namespace Parser.Parsers
                     if (token.Type is TokenType.Identifier or TokenType.Self || token.Family is TokenFamily.Literal)
                     {
                         return ExpressionState.Operand;
+                    }
+                    
+                    if (token.Type is TokenType.Dot)
+                    {
+                        return ExpressionState.MemberAccess;
                     }
 
                     return ExpressionState.Invalid;
@@ -635,6 +664,11 @@ namespace Parser.Parsers
                     if (token.Type is TokenType.Identifier or TokenType.Self || token.Family is TokenFamily.Literal)
                     {
                         return ExpressionState.Operand;
+                    }
+                    
+                    if (token.Type is TokenType.Dot)
+                    {
+                        return ExpressionState.MemberAccess;
                     }
 
                     if (token.Type is TokenType.ParenRight)
@@ -660,10 +694,20 @@ namespace Parser.Parsers
                     {
                         return ExpressionState.Operand;
                     }
+                    
+                    if (token.Type is TokenType.Dot)
+                    {
+                        return ExpressionState.MemberAccess;
+                    }
 
                     if (token.Type is TokenType.Dot)
                     {
                         return ExpressionState.MemberAccess;
+                    }
+
+                    if (token.Type is TokenType.Comma)
+                    {
+                        return ExpressionState.ParamNext;
                     }
                     
                     return ExpressionState.Invalid;
@@ -687,17 +731,24 @@ namespace Parser.Parsers
                     return ExpressionState.Invalid;
                 }
                 case ExpressionState.Param:
+                {
                     if (token.Type is TokenType.Identifier or TokenType.Self || token.Family is TokenFamily.Literal)
                     {
                         return ExpressionState.Operand;
+                    }
+
+                    if (token.Type is TokenType.Dot)
+                    {
+                        return ExpressionState.MemberAccess;
                     }
 
                     if (token.Type is TokenType.Colon)
                     {
                         return ExpressionState.Param;
                     }
-                    
+
                     return ExpressionState.Invalid;
+                }
             }
 
             return ExpressionState.Invalid;

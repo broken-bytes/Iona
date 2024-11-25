@@ -77,8 +77,6 @@ namespace Generator
             }
 
             HandleNode(node.Value);
-
-            source.Append(";\n");
         }
 
         public void Visit(BinaryExpressionNode node)
@@ -95,54 +93,7 @@ namespace Generator
             source.Append("{\n");
             foreach (var child in node.Children)
             {
-                if (child is PropertyNode property)
-                {
-                    property.Accept(this);
-                }
-                else if (child is InitNode init)
-                {
-                    init.Accept(this);
-                }
-                else if (child is BlockNode block)
-                {
-                    block.Accept(this);
-                }
-                else if (child is AssignmentNode assignment)
-                {
-                    assignment.Accept(this);
-                }
-                else if (child is OperatorNode op)
-                {
-                    op.Accept(this);
-                }
-                else if (child is BinaryExpressionNode binary)
-                {
-                    binary.Accept(this);
-                }
-                else if (child is ReturnNode ret)
-                {
-                    ret.Accept(this);
-                }
-                else if (child is VariableNode variable)
-                {
-                    variable.Accept(this);
-                }
-                else if (child is FuncNode func)
-                {
-                    func.Accept(this);
-                }
-                else if (child is FuncCallNode funcCall)
-                {
-                    funcCall.Accept(this);
-                }
-                else if (child is PropAccessNode propAccess)
-                {
-                    propAccess.Accept(this);
-                }
-                else if (child is ScopeResolutionNode scope)
-                {
-                    scope.Accept(this);
-                }
+                HandleNode(child);
             }
 
             source.Append("}");
@@ -214,7 +165,7 @@ namespace Generator
             {
                 foreach (var arg in node.Args)
                 {
-                    source.Append(arg.Value);
+                    HandleNode(arg.Value);
                     source.Append(", ");
                 }
 
@@ -511,8 +462,6 @@ namespace Generator
                         literal.Accept(this);
                         break;
                 }
-                
-                source.Append(';');
             }
         }
         
@@ -757,21 +706,54 @@ namespace Generator
         {
             switch (node)
             {
-                case BinaryExpressionNode binaryExpression:
-                    binaryExpression.Accept(this);
+                case AssignmentNode assignment:
+                    assignment.Accept(this);
+                    break;
+                case BinaryExpressionNode binary:
+                    binary.Accept(this);
+                    break;
+                case BlockNode block:
+                    block.Accept(this);
+                    break;
+                case FuncCallNode funcCall:
+                    funcCall.Accept(this);
+                    break;
+                case FuncNode func:
+                    func.Accept(this);
                     break;
                 case IdentifierNode identifier:
                     identifier.Accept(this);
-                       break;
+                    break;
+                case InitNode init:
+                    init.Accept(this);
+                    break;
                 case LiteralNode literalNode:
                     literalNode.Accept(this);
                     break;
-                case PropAccessNode propAccessNode:
-                    propAccessNode.Accept(this);
+                case OperatorNode op:
+                    op.Accept(this);
                     break;
-                case ScopeResolutionNode scopeNode:
-                    scopeNode.Accept(this);
+                case PropAccessNode propAccess:
+                    propAccess.Accept(this);
                     break;
+                case PropertyNode property:
+                    property.Accept(this);
+                    break;
+                case ReturnNode ret:
+                    ret.Accept(this);
+                    break;
+               
+                case ScopeResolutionNode scope:
+                    scope.Accept(this);
+                    break;
+                case VariableNode variable:
+                    variable.Accept(this);
+                    break;
+            }
+
+            if (node.Parent is BlockNode blockNode && node is not FuncNode or OperatorNode or BlockNode)
+            {
+                source.Append(";\n");
             }
         }
     }

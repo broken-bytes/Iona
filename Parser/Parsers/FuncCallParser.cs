@@ -95,7 +95,7 @@ namespace Parser.Parsers
                 // The expression parser should not be concerned with handling edge cases `,`, `)` of the function call.
                 var expressionStream = GetParameterExpression(stream);
                 // Remove either the comma, or last `)` from the stream
-                var expression = expressionParser.Parse(expressionStream, parent);
+                var expression = expressionParser.Parse(expressionStream, funcCall);
                 funcCall.Args.Add(new FuncCallArg { Name = argName, Value = (IExpressionNode)expression });
 
                 token = stream.Peek();
@@ -114,6 +114,7 @@ namespace Parser.Parsers
         
         private TokenStream GetParameterExpression(TokenStream stream)
         {
+            int functionNesting = 0;
             var tokens = new List<Token>();
             
             // (..) is one subexpression. We use it to check if we are still in a param expression or hit the enclosing `)`
@@ -125,22 +126,41 @@ namespace Parser.Parsers
             {
                 if (token.Type is TokenType.Comma)
                 {
-                    break;
+                    // When we are inside of another function call we do not want to break
+                    if (functionNesting == 0)
+                    {
+                        break;
+                    }
                 }
 
                 if (token.Type is TokenType.ParenRight)
                 {
-                    if (subExpressions == 0)
+                    if (functionNesting > 0)
                     {
-                        break;    
+                        functionNesting--;
                     }
-                    
-                    subExpressions--;
+                    else
+                    {
+                        if (subExpressions == 0)
+                        {
+                            break;
+                        }
+
+                        subExpressions--;
+                    }
                 }
 
                 if (token.Type == TokenType.ParenLeft)
                 {
-                    subExpressions++;
+                    // Nested function call
+                    if (tokens.Last().Type is TokenType.Identifier)
+                    {
+                        functionNesting++;
+                    }
+                    else
+                    {
+                        subExpressions++;
+                    }
                 }
                 
                 tokens.Add(token);

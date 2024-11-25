@@ -4,10 +4,11 @@ use UnityEngine
 
 public class Test: MonoBehaviour {
     public var value = 0.0
-    private var rigidbody: Rigidbody
+    private var body: Rigidbody
 
     public fn start() {
-        rigidbody = self.getComponent<Rigidbody>()
+        body = self.getComponent<Rigidbody>()
+        body.addForce(force: Vector3(x: 0, y: 0, z: value))
     }
 
     public fn update() {
