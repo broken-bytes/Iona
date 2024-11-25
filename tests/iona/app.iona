@@ -8,7 +8,7 @@ public class Test: MonoBehaviour {
 
     public fn start() {
         body = self.getComponent<Rigidbody>()
-        body.addForce(force: Vector3(x: 0, y: 0, z: value))
+        body.addForce(force: Vector3(x: 0, y: 0, z: value), mode: ForceMode::force)
     }
 
     public fn update() {

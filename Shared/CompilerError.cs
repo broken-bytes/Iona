@@ -88,7 +88,7 @@
 
                 for (int x = 0; x < line.Item2.Length; x++)
                 {
-                    if (x >= Meta.ColumnStart - 1 && x < Meta.ColumnEnd && Meta.LineStart >= line.Item1 && Meta.LineEnd <= line.Item1)
+                    if ((x >= Meta.ColumnStart - 1 && x < Meta.ColumnEnd - 1) && Meta.LineStart >= line.Item1 && Meta.LineEnd <= line.Item1)
                     {
                         Console.ForegroundColor = ConsoleColor.Red;
                     }

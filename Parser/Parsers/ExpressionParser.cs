@@ -493,6 +493,21 @@ namespace Parser.Parsers
                 }
                 else // The token is an operator
                 {
+                    if (!stack.Any())
+                    {
+                        var meta = new Metadata
+                        {
+                            ColumnStart = token.ColumnStart,
+                            ColumnEnd = token.ColumnEnd,
+                            LineStart = token.Line,
+                            LineEnd = token.Line,
+                            File = token.File
+                        };
+                        var syntaxError = CompilerErrorFactory.SyntaxError($"Unexpected token `{token.Value}` in expression", meta);
+                        errorCollector.Collect(syntaxError);
+                        stream.Panic(TokenType.Linebreak);
+                        return null;
+                    }
                     var right = stack.Pop();
                     var left = stack.Pop();
 
