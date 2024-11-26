@@ -5,7 +5,7 @@ using static AST.Nodes.INode;
 
 namespace AST.Nodes
 {
-    public class InitCallNode : IExpressionNode
+    public class InitCallNode : ICallNode
     {
         public string TypeFullName { get; set; }
         public INode? Parent { get; set; }
@@ -21,8 +21,8 @@ namespace AST.Nodes
         public InitCallNode(string typeFQN, INode? parent = null)
         {
             TypeFullName = typeFQN;
-            Parent = parent;
             Type = NodeType.FuncCall;
+            Parent = parent;
         }
 
         public void Accept(IInitCallVisitor visitor)

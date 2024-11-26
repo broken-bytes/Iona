@@ -13,7 +13,6 @@
             Code = GetCodeString(code);
             Message = message;
             Meta = meta;
-            
             Context = new ();
             
             // Read LineEnd - LineStart + 2 Lines Starting At LineStart - 1

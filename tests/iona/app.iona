@@ -7,7 +7,7 @@ public class Test: MonoBehaviour {
     private var body: Rigidbody
 
     public fn start() {
-        body = self.getComponent<Rigidbody>()
+        body = getComponent<Rigidbody>()
         body.addForce(force: Vector3(x: 0, y: 0, z: value), mode: ForceMode::force)
     }
 

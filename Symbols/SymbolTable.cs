@@ -558,66 +558,9 @@ namespace Symbols
         /// <param name="funcCallNode">The function call</param>
         /// <param name="parent">Possible parent to use for check</param>
         /// <returns>True if any init is found</returns>
-        public bool CheckIfFuncExists(FileNode context, FuncCallNode funcCallNode, ISymbol? parent = null)
+        public Result<FuncSymbol, SymbolResolutionResult> CheckIfFuncExists(FileNode context, TypeSymbol? type, FuncCallNode funcCallNode, ISymbol? parent = null)
         {
-            List<FuncSymbol> functions = new List<FuncSymbol>();
-
-            List<ISymbol> childs;
-            if (parent == null)
-            {
-                var imported = GetImportedModules(context);
-                childs = new List<ISymbol>(imported);
-            }
-            else
-            {
-                childs = parent.Symbols;
-            }
-            
-            // First, check if the method is part of the same type where the call is initiated from
-            var hierarchy = ((INode)funcCallNode).Hierarchy();
-            var type = hierarchy.OfType<ITypeNode>().FirstOrDefault();
-            
-            if (type is not null)
-            {
-                var matching = type.Body.Children.OfType<FuncNode>()
-                    .Where(func => func.Name == funcCallNode.Target.Value);
-
-                if (matching.Any())
-                {
-                    Console.WriteLine($"Found {matching.Count()} functions");
-                }
-                else
-                {
-                    // Check the base type
-                    if (type is ClassNode classNode)
-                    {
-                        if (classNode.BaseType != null)
-                        {
-                            var baseType = FindTypeByFQN(context, classNode.BaseType.FullyQualifiedName);
-                            
-                            Console.WriteLine($"Found {baseType?.Name}");
-                        }
-                    }
-                }
-            }
-            
-            foreach (var child in childs)
-            {
-                switch (child)
-                {
-                    case FuncSymbol funcSymbol:
-                    {
-                        if (funcSymbol.Name != funcCallNode.Target.Value)
-                        {
-                            functions.Add(funcSymbol);
-                        }
-                        
-                        break;
-                    }
-                }
-            }
-
-            return functions.Count > 0;
+            return FindFunc(context, type, funcCallNode);
         }
         
         /// <summary>
@@ -626,46 +569,9 @@ namespace Symbols
         /// <param name="funcCallNode">The function call</param>
         /// <param name="parent">Possible parent to use for check</param>
         /// <returns>True if any init is found</returns>
-        public bool CheckIfInitExists(FileNode context, FuncCallNode initCallNode, ISymbol? parent = null)
+        public Result<InitSymbol, SymbolResolutionResult> CheckIfInitExists(FileNode context, TypeSymbol? type, InitCallNode initCallNode, ISymbol? parent = null)
         {
-            InitSymbol? initSymbol = null;
-            
-            List<ISymbol> childs;
-            if (parent == null)
-            {
-                var imported = GetImportedModules(context);
-                childs = new List<ISymbol>(imported);
-            }
-            else
-            {
-                childs = parent.Symbols;
-            }
-            
-            foreach (var child in childs)
-            {
-                switch (child)
-                {
-                    case TypeSymbol type:
-                    {
-                        if (type.Name != initCallNode.Target.Value)
-                        {
-                            continue;
-                        }
-
-                        foreach (var init in type.Symbols.OfType<InitSymbol>())
-                        {
-                            return true;
-                        }
-                        
-                        break;
-                    }
-                    
-                    case ModuleSymbol module:
-                        return CheckIfInitExists(context, initCallNode, module);
-                }
-            }
-
-            return false;
+            return FindInit(context, type, initCallNode);
         }
         
         public bool ArgsMatchParameters(List<ParameterSymbol> parameters, List<FuncCallArg> args)
@@ -684,6 +590,195 @@ namespace Symbols
             }
 
             return matchingArgs;
+        }
+
+        public Result<FuncSymbol, SymbolResolutionResult> FindFunc(FileNode context, TypeSymbol? type, FuncCallNode node)
+        {
+            List<FuncSymbol> results = new();
+
+            if (type != null)
+            {
+                results = FindFuncs(type, node);
+
+                if (results.Any())
+                {
+                    return Result<FuncSymbol, SymbolResolutionResult>.Ok(results.First());
+                }
+                
+                if (type.BaseType != null)
+                {
+                    results.AddRange(FindFuncs(type.BaseType, node));
+                }
+                
+                if (results.Any())
+                {
+                    return Result<FuncSymbol, SymbolResolutionResult>.Ok(results.First());
+                }
+            }
+
+            if (results.Any())
+            {
+                return Result<FuncSymbol, SymbolResolutionResult>.Ok(results.First());
+            }
+            
+            var imports = GetImportedModules(context);
+
+            foreach (var import in imports)
+            {
+                results.AddRange(FindFuncs(import, node));
+            }
+
+            if (results.Count > 1)
+            {
+                return Result<FuncSymbol, SymbolResolutionResult>.Err(new SymbolResolutionResult
+                {
+                    Error = SymbolResolutionError.Ambigious,
+                    Ambiguity = results.Select(func => func.Parent!.ToString() ?? "").ToList()
+                });
+            }
+
+            if (results.Count == 1)
+            {
+                return Result<FuncSymbol, SymbolResolutionResult>.Ok(results.First());
+            }
+            
+            return Result<FuncSymbol, SymbolResolutionResult>.Err(new SymbolResolutionResult
+            {
+                Error = SymbolResolutionError.NotFound,
+                Ambiguity = []
+            });
+        }
+
+        private List<FuncSymbol> FindFuncs(ISymbol? symbol, FuncCallNode node)
+        {
+            List<FuncSymbol> results = new();
+
+            results
+                .AddRange(
+                    symbol.Symbols
+                        .OfType<FuncSymbol>()
+                        .Where(func =>
+                        {
+                            if (func.Name != node.Target.Value)
+                            {
+                                return false;
+                            }
+
+                            bool matching = true;
+
+                            foreach (var (param, arg) in func
+                                         .Symbols
+                                         .OfType<ParameterSymbol>()
+                                         .Zip(node.Args, (p, a) => (p, a)))
+                            {
+                                if (
+                                    param.Type.FullyQualifiedName != arg.Value.ResultType.FullyQualifiedName || 
+                                    param.Name != arg.Name
+                                )
+                                {
+                                    matching = false;
+                                    break;
+                                }
+                            }
+
+                            return matching;
+
+                        })
+                );
+
+            return results;
+        }
+        
+        public Result<InitSymbol, SymbolResolutionResult> FindInit(FileNode context, TypeSymbol? type, InitCallNode node)
+        {
+            List<InitSymbol> results = new();
+
+            if (type != null)
+            {
+                results = FindInits(type, node);
+
+                if (results.Any())
+                {
+                    return Result<InitSymbol, SymbolResolutionResult>.Ok(results.First());
+                }
+                
+                if (type.BaseType != null)
+                {
+                    results.AddRange(FindInits(type.BaseType, node));
+                }
+                
+                if (results.Any())
+                {
+                    return Result<InitSymbol, SymbolResolutionResult>.Ok(results.First());
+                }
+            }
+
+            if (results.Any())
+            {
+                return Result<InitSymbol, SymbolResolutionResult>.Ok(results.First());
+            }
+            
+            var imports = GetImportedModules(context);
+
+            foreach (var import in imports)
+            {
+                results.AddRange(FindInits(import, node));
+            }
+
+            if (results.Count > 1)
+            {
+                return Result<InitSymbol, SymbolResolutionResult>.Err(new SymbolResolutionResult
+                {
+                    Error = SymbolResolutionError.Ambigious,
+                    Ambiguity = results.Select(func => func.Parent!.ToString() ?? "").ToList()
+                });
+            }
+
+            if (results.Count == 1)
+            {
+                return Result<InitSymbol, SymbolResolutionResult>.Ok(results.First());
+            }
+            
+            return Result<InitSymbol, SymbolResolutionResult>.Err(new SymbolResolutionResult
+            {
+                Error = SymbolResolutionError.NotFound,
+                Ambiguity = []
+            });
+        }
+
+        private List<InitSymbol> FindInits(ISymbol? symbol, InitCallNode node)
+        {
+            List<InitSymbol> results = new();
+
+            results
+                .AddRange(
+                    symbol.Symbols
+                        .OfType<InitSymbol>()
+                        .Where(func =>
+                        {
+                            bool matching = true;
+
+                            foreach (var (param, arg) in func
+                                         .Symbols
+                                         .OfType<ParameterSymbol>()
+                                         .Zip(node.Args, (p, a) => (p, a)))
+                            {
+                                if (
+                                    param.Type.FullyQualifiedName != arg.Value.ResultType.FullyQualifiedName || 
+                                    param.Name != arg.Name
+                                )
+                                {
+                                    matching = false;
+                                    break;
+                                }
+                            }
+
+                            return matching;
+
+                        })
+                );
+
+            return results;
         }
     }
 }

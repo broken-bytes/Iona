@@ -143,56 +143,84 @@ namespace Typeck
 
         public void Visit(FuncCallNode node)
         {
+            var hierarchy = ((INode)node).Hierarchy();
+            
+            // Check if the function is a member function or a free function
+            var currentType = hierarchy.OfType<ITypeNode>().FirstOrDefault();
+            var typeSymbol = table.FindTypeByFQN(node.Root, currentType.FullyQualifiedName);
+            
             // Check if the function is in scope
-            var funcWasFound = table.CheckIfFuncExists(node.Root, node);
+            var funcWasFound = table.CheckIfFuncExists(node.Root, typeSymbol, node);
 
-            // Free function or member function
-            if (funcWasFound)
+            if (funcWasFound.IsError)
             {
-                // Check if the function is a member function or a free function
-                var hierarchy = ((INode)node).Hierarchy();
-                var currentType = hierarchy.OfType<ITypeNode>().FirstOrDefault();
+                node.Status = INode.ResolutionStatus.Failed;
 
-                var typeSymbol = table.FindTypeByFQN(node.Root, currentType.FullyQualifiedName);
-
-                // Function is inside a type -> member function
-                if (typeSymbol != null)
+                if (funcWasFound.Error!.Error is SymbolResolutionError.Ambigious)
                 {
-                    var self = new SelfNode(node.Parent);
-                    var target = new IdentifierNode(typeSymbol.Name, node.Target);
-                    var methodCall = new MethodCallNode(self, target, node.Parent);
-                    methodCall.Args = node.Args;
-                    methodCall.Meta = node.Meta;
-                    self.Parent = methodCall;
-                    target.Parent = methodCall;
-
-                    ReplaceNode(node, methodCall);
+                    var error = CompilerErrorFactory.AmbigiousFunctionCall(node.Target.Value, funcWasFound.Error.Ambiguity, node.Meta);
+                    
+                    _errorCollector.Collect(error);
                 }
-            } 
-            // Init
-            else
-            {   
-                var initWasFound = table.CheckIfInitExists(node.Root, node, null);
-
-                if (!initWasFound)
+                else
                 {
-                    node.Status = INode.ResolutionStatus.Failed;
-
+                    // The function is not part of a direct reference like self or Module:: thus we emit a top level error
+                    if (node.Parent is not ScopeResolutionNode and not PropAccessNode)
+                    {
+                        var error = CompilerErrorFactory.TopLevelDefinitionError(node.Target.Value, node.Target.Meta);
+                        
+                        _errorCollector.Collect(error);
+                    }
+                    else
+                    {
+                        var error = CompilerErrorFactory.TypeDoesNotContainMethod(currentType.FullyQualifiedName, node.Target.Value, node.Meta);
+                        
+                        _errorCollector.Collect(error);
+                    }
+                    
                     return;
                 }
-                
-                // When an init was found we implicitly know a type with that name exists.
-                var typeSearchResult = table.FindTypeBySimpleName(node.Root, node.Target.Value);
-
-                if (typeSearchResult.IsSuccess)
-                {
-                    var initCall = new InitCallNode(typeSearchResult.Unwrapped().FullyQualifiedName, node.Parent);
-                    initCall.Args = node.Args;
-                    initCall.Meta = node.Meta;
-
-                    ReplaceNode(node, initCall);
-                }
             }
+
+            // Function is inside a type -> member function
+            if (typeSymbol != null)
+            {
+                var self = new SelfNode(node.Parent);
+                var target = new IdentifierNode(typeSymbol.Name, node.Target);
+                var methodCall = new MethodCallNode(self, target, node.Parent);
+                methodCall.Args = node.Args;
+                methodCall.Meta = node.Meta;
+                self.Parent = methodCall;
+                target.Parent = methodCall;
+
+                ReplaceNode(node, methodCall);
+            }
+            
+                
+            /*
+            var initWasFound = table.CheckIfInitExists(node.Root, node, null);
+
+            if (!initWasFound)
+            {
+                node.Status = INode.ResolutionStatus.Failed;
+                var error = CompilerErrorFactory.TopLevelDefinitionError(node.Target.Value, node.Meta);
+                _errorCollector.Collect(error);
+
+                return;
+            }
+            
+            // When an init was found we implicitly know a type with that name exists.
+            var typeSearchResult = table.FindTypeBySimpleName(node.Root, node.Target.Value);
+
+            if (typeSearchResult.IsSuccess)
+            {
+                var initCall = new InitCallNode(typeSearchResult.Unwrapped().FullyQualifiedName, node.Parent);
+                initCall.Args = node.Args;
+                initCall.Meta = node.Meta;
+
+                ReplaceNode(node, initCall);
+            }
+            */
         }
 
         public void Visit(FuncNode node)
@@ -336,7 +364,7 @@ namespace Typeck
 
         public void Visit(PropAccessNode node)
         {
-            
+            CheckNode(node.Property);
         }
 
         public void Visit(PropertyNode node)

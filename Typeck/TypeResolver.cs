@@ -87,50 +87,6 @@ namespace Typeck
 
         public void Visit(ClassNode node)
         {
-            // For each contract this class conforms to, check if one of them is in fact a class and make it the base type
-            foreach (var contract in node.Contracts)
-            {
-                TypeSymbol? symbol = null;
-                
-                var result = _symbolTable.FindTypeBySimpleName(node.Root, contract.Name);
-
-                if (result.IsError)
-                {
-                    symbol = _symbolTable.FindTypeByFQN(node.Root, contract.FullyQualifiedName);
-                }
-                else
-                {
-                    symbol = result.Unwrapped();
-                }
-                
-                if (symbol == null)
-                {
-                    var searchResult = _symbolTable.FindTypeBySimpleName(node.Root, contract.Name);
-
-                    if (searchResult.IsSuccess)
-                    {
-                        symbol = searchResult.Unwrapped();
-                    }
-                }
-
-                if (symbol != null)
-                {
-                    contract.FullyQualifiedName = symbol.FullyQualifiedName;
-                    contract.TypeKind = Utils.SymbolKindToASTKind(symbol.TypeKind);
-                    contract.Assembly = symbol.Assembly;
-                    
-                    if (symbol.TypeKind == TypeKind.Class)
-                    {
-                        node.BaseType = contract;
-                    }
-                }
-            }
-
-            if (node.BaseType != null)
-            {
-                node.Contracts.Remove(node.BaseType);
-            }
-            
             if (node.Body != null)
             {
                 node.Body.Accept(this);

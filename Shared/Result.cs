@@ -1,32 +1,32 @@
 ﻿namespace Shared
 {
-    public class Result<S, E>(S? success, E? error)
+    public class Result<S, E>
     {
-        public readonly S? Success = success;
-        public readonly E? Error = error;
+        public readonly S? Success;
+        public readonly E? Error;
+        
+        private readonly bool _isError;
 
-        public bool IsSuccess { get; } = !object.Equals(success, default(S));
+        public bool IsSuccess => !_isError;
 
-        public bool IsError
+        public bool IsError => _isError;
+
+        public static Result<S, E> Ok(S success) => new(success);
+        public static Result<S, E> Err(E error) => new(error);
+
+        private Result(S? success)
         {
-            get
-            {
-                if (error is null)
-                {
-                    return true;
-                }
-
-                if (error is Enum)
-                {
-                    return true;
-                }
-                
-                return !Equals(error, default(E));
-            }
+            Success = success;
+            _isError = false;
+            Error = default;
         }
 
-        public static Result<S, E> Ok(S success) => new(success, default);
-        public static Result<S, E> Err(E error) => new(default, error);
+        private Result(E? error)
+        {
+            Error = error;
+            _isError = true;
+            Success = default;
+        }
 
         public S Unwrapped()
         {

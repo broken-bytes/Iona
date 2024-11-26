@@ -24,6 +24,8 @@
         /// Used when two types implement the same operator overload
         AmbigiousOperatorOverload,
         /// Used when a type has no constructor that matches the provided arguments
-        NoMatchingConstructorForArgs
+        NoMatchingConstructorForArgs,
+        /// Used when a function call uses a function that is defined in multiple modules
+        AmbigiousFunctionCall
     }
 }

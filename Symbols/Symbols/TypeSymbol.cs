@@ -12,6 +12,8 @@
         public List<ISymbol> Symbols { get; set; }
         public SymbolKind Kind { get; set; } = SymbolKind.Type;
         public ISymbol? Parent { get; set; }
+        public TypeSymbol? BaseType { get; set; }
+        public List<TypeSymbol> Contracts { get; set; } = new();
 
         public TypeSymbol(string name, TypeKind kind)
         {

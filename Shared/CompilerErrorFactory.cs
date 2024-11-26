@@ -130,5 +130,16 @@ namespace Shared
                 meta
             );
         }
+
+        public static CompilerError AmbigiousFunctionCall(string functionName, List<string> modules, Metadata meta)
+        {
+            var modulesString = modules.Aggregate("", (lhs, rhs) => lhs.ToString() + " and" + rhs.ToString());
+            
+            return new CompilerError(
+                CompilerErrorCode.AmbigiousFunctionCall,
+                $"`Ambiguous call of {functionName}`. It is defined in `{modulesString}`", 
+                meta
+            );
+        }
     }
 }

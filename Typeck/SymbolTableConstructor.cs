@@ -168,7 +168,9 @@ namespace Typeck
                         if (member.MemberType == MemberTypes.Method)
                         {
                             var method = member as MethodInfo;
-                            var funcSymbol = new FuncSymbol(method.Name);
+                            var ionaName = Shared.Utils.CSharpToIonaName(method.Name);
+                            var funcSymbol = new FuncSymbol(ionaName, method.Name);
+                            
                             funcSymbol.Parent = typeSymbol;
                             TypeSymbol? returnType = null;
                             
@@ -472,7 +474,7 @@ namespace Typeck
             AddSymbol(symbol);
 
             _currentSymbol = symbol;
-
+            
             if (node.Body != null)
             {
                 node.Body.Accept(this);
@@ -527,7 +529,8 @@ namespace Typeck
                 return;
             }
 
-            var symbol = new FuncSymbol(node.Name);
+            var csharpName = Shared.Utils.IonaToCSharpName(node.Name);
+            var symbol = new FuncSymbol(node.Name, csharpName);
             foreach (var param in node.Parameters)
             {
                 var typeRef = param.TypeNode as TypeReferenceNode;

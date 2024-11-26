@@ -100,6 +100,50 @@ namespace Typeck
         public void Visit(ClassNode node)
         {
             node.Status = INode.ResolutionStatus.Resolving;
+            var hierarchy = ((INode)node).Hierarchy();
+            var type = hierarchy.OfType<ITypeNode>().FirstOrDefault();
+            var typeSymbol = table.FindTypeByFQN(type!.FullyQualifiedName);
+            
+            // For each contract this class conforms to, check if one of them is in fact a class and make it the base type
+            foreach (var contract in node.Contracts)
+            {
+                TypeSymbol? symbol = null;
+                
+                var result = table.FindTypeBySimpleName(node.Root, contract.Name);
+
+                if (result.IsError)
+                {
+                    symbol = table.FindTypeByFQN(node.Root, contract.FullyQualifiedName);
+                }
+                else
+                {
+                    symbol = result.Unwrapped();
+                }
+                
+                if (symbol != null)
+                {
+                    contract.FullyQualifiedName = symbol.FullyQualifiedName;
+                    contract.TypeKind = Utils.SymbolKindToASTKind(symbol.TypeKind);
+                    contract.Assembly = symbol.Assembly;
+                    
+                    var contractSymbol = table.FindTypeByFQN(node.Root, contract.FullyQualifiedName);
+                    
+                    if (symbol.TypeKind == TypeKind.Class)
+                    {
+                        node.BaseType = contract;
+                        typeSymbol!.BaseType = contractSymbol;
+                    }
+                    else
+                    {
+                        typeSymbol!.Contracts.Add(contractSymbol!);
+                    }
+                }
+            }
+
+            if (node.BaseType != null)
+            {
+                node.Contracts.Remove(node.BaseType);
+            }
 
             if (node.Body != null)
             {
