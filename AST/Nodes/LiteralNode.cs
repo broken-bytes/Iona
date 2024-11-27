@@ -28,13 +28,7 @@ namespace AST.Nodes
 
         public override string ToString()
         {
-            switch (LiteralType)
-            {
-                case LiteralType.Float:
-                    return $"{Value}f";
-                default:
-                    return Value;
-            }
+            return Value;
         }
 
         public void Accept(ILiteralVisitor visitor)

@@ -467,6 +467,9 @@ namespace Parser.Parsers
                     LiteralType type = LiteralType.Unknown;
                     switch (token.Type)
                     {
+                        case TokenType.Double:
+                            type = LiteralType.Double;
+                            break;
                         case TokenType.Integer:
                             type = LiteralType.Integer;
                             break;

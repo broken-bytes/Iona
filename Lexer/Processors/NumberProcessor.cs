@@ -44,6 +44,7 @@ namespace Lexer.Processors
 
         private Token? ProcessFloat(string source)
         {
+            bool isFloat = false;
             bool hasDot = false;
             var number = new StringBuilder();
 
@@ -55,8 +56,16 @@ namespace Lexer.Processors
                 }
                 else if (char.IsLetter(c))
                 {
-                    // TODO: Handle error
-                    break;
+                    if (c is 'f')
+                    {
+                        isFloat = true;
+                        number.Append(c);
+                    }
+                    else
+                    {
+                        // TODO: Handle error
+                        break;
+                    }
                 }
                 else if (c == '.')
                 {
@@ -79,7 +88,7 @@ namespace Lexer.Processors
                 return null;
             }
 
-            return Utils.MakeToken(TokenType.Float, number.ToString());
+            return Utils.MakeToken(isFloat ? TokenType.Float : TokenType.Double, number.ToString());
         }
 
         private Token? ProcessHex(string source)

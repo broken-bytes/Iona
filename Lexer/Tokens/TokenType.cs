@@ -119,6 +119,7 @@
 
         // Literals
         Boolean,
+        Double,
         False,
         Float,
         Integer,

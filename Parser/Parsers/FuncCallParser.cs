@@ -96,7 +96,7 @@ namespace Parser.Parsers
                 var expressionStream = GetParameterExpression(stream);
                 // Remove either the comma, or last `)` from the stream
                 var expression = expressionParser.Parse(expressionStream, funcCall);
-                funcCall.Args.Add(new FuncCallArg { Name = argName, Value = (IExpressionNode)expression });
+                funcCall.Args.Add(new FuncCallArg(argName, (IExpressionNode)expression));
 
                 token = stream.Peek();
 

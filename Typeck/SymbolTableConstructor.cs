@@ -296,11 +296,8 @@ namespace Typeck
                                     ReturnType = returnType
                                 };
 
-                                foreach (var parameter in parameters)
-                                {
-                                    opSymbol.Symbols.Add(parameter);
-                                    parameter.Parent = opSymbol;
-                                }
+                                
+                                opSymbol.Symbols.AddRange(parameters);
                                 
                                 typeSymbol.Symbols.Add(opSymbol);
                                 
@@ -368,7 +365,8 @@ namespace Typeck
                         {
                             var ctor = member as ConstructorInfo;
 
-                            var initSymbol = new InitSymbol(type.Name);
+                            var initSymbol = new InitSymbol();
+                            initSymbol.ReturnType = typeSymbol;
                             
                             foreach (var param in ctor.GetParameters())
                             {
@@ -407,11 +405,8 @@ namespace Typeck
             {
                 return;
             }
-
-            var symbol = new BlockSymbol();
-            AddSymbol(symbol);
-
-            _currentSymbol = symbol;
+            
+            // We do not want to have the blocks in out symbol table structure as they are only needed in the AST so we do not add them at all
 
             foreach (var child in node.Children)
             {
@@ -453,8 +448,6 @@ namespace Typeck
                     default:
                         break;
                 }
-
-                _currentSymbol = symbol;
             }
         }
 
@@ -577,7 +570,13 @@ namespace Typeck
                 return;
             }
 
-            var symbol = new InitSymbol(node.Name);
+            if (_currentSymbol is not TypeSymbol typeSymbol)
+            {
+                return;
+            }
+
+            var symbol = new InitSymbol();
+            symbol.ReturnType = typeSymbol;
             foreach (var param in node.Parameters)
             {
                 var typeRef = param.TypeNode as TypeReferenceNode;

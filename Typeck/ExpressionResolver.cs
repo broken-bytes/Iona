@@ -145,6 +145,19 @@ namespace Typeck
 
         public void Visit(FuncCallNode node)
         {
+            // Before we do anything else, we need to resolve each arg
+            foreach (var arg in node.Args)
+            {
+                CheckNode(arg.Value);
+
+                if (arg.Value.Status == INode.ResolutionStatus.Failed)
+                {
+                    node.Status = INode.ResolutionStatus.Failed;
+                    
+                    return;
+                }
+            }
+            
             var hierarchy = ((INode)node).Hierarchy();
 
             TypeSymbol? typeSymbol = null;
@@ -170,29 +183,11 @@ namespace Typeck
 
             if (funcWasFound.IsError)
             {
-                node.Status = INode.ResolutionStatus.Failed;
-
                 if (funcWasFound.Error!.Error is SymbolResolutionError.Ambigious)
                 {
                     var error = CompilerErrorFactory.AmbigiousFunctionCall(node.Target.Value, funcWasFound.Error.Ambiguity, node.Meta);
                     
                     _errorCollector.Collect(error);
-                }
-                else
-                {
-                    // The function is not part of a direct reference like self or Module:: thus we emit a top level error
-                    if (node.Parent is not ScopeResolutionNode and not PropAccessNode)
-                    {
-                        var error = CompilerErrorFactory.TopLevelDefinitionError(node.Target.Value, node.Target.Meta);
-                        
-                        _errorCollector.Collect(error);
-                    }
-                    else
-                    {
-                        var error = CompilerErrorFactory.TypeDoesNotContainMethod(typeSymbol!.FullyQualifiedName, node.Target.Value, node.Target.Meta);
-                        
-                        _errorCollector.Collect(error);
-                    }
                     
                     return;
                 }
@@ -203,29 +198,42 @@ namespace Typeck
                 return;
             }
 
-            var initCallNode = new InitCallNode(typeSymbol.FullyQualifiedName, node.Parent);
+            var initCallNode = new InitCallNode(node.Target.Value, node.Parent);
             initCallNode.Args = node.Args;
             initCallNode.Meta = node.Meta;
             
-            var initWasFound = table.CheckIfInitExists(node.Root, typeSymbol, initCallNode);
+            var initWasFound = table.CheckIfInitExists(node.Root, initCallNode);
 
-            if (!initWasFound.IsError)
+            if (initWasFound.IsError)
             {
                 node.Status = INode.ResolutionStatus.Failed;
-                var error = CompilerErrorFactory.TopLevelDefinitionError(node.Target.Value, node.Meta);
-                _errorCollector.Collect(error);
-
+                // The function is not part of a direct reference like self or Module:: thus we emit a top level error
+                if (node.Parent is not ScopeResolutionNode and not PropAccessNode)
+                {
+                    var error = CompilerErrorFactory.TopLevelDefinitionError(node.Target.Value, node.Target.Meta);
+                        
+                    _errorCollector.Collect(error);
+                }
+                else
+                {
+                    var error = CompilerErrorFactory.TypeDoesNotContainMethod(typeSymbol!.FullyQualifiedName, node.Target.Value, node.Target.Meta);
+                        
+                    _errorCollector.Collect(error);
+                }
+                    
                 return;
             }
-            
-            // When an init was found we implicitly know a type with that name exists.
-            var typeSearchResult = table.FindTypeBySimpleName(node.Root, node.Target.Value);
 
-            if (typeSearchResult.IsSuccess)
+            initCallNode.TypeFullName = initWasFound.Unwrapped().ReturnType.FullyQualifiedName;
+            initCallNode.ResultType = new TypeReferenceNode(initWasFound.Unwrapped().Name, initCallNode)
             {
-
-                ReplaceNode(node, initCallNode);
-            }
+                FullyQualifiedName = initWasFound.Unwrapped().ReturnType.FullyQualifiedName,
+                Assembly = initWasFound.Unwrapped().ReturnType.Assembly
+            };
+            
+            ReplaceNode(node, initCallNode);
+            
+            initCallNode.Accept(this);
         }
 
         public void Visit(FuncNode node)
@@ -279,8 +287,10 @@ namespace Typeck
             {
                 CheckNode(arg.Value);
 
-                if (node.Status != INode.ResolutionStatus.Resolved)
+                if (arg.Value.Status == INode.ResolutionStatus.Failed)
                 {
+                    node.Status = INode.ResolutionStatus.Failed;
+                    
                     return;
                 }
             }
@@ -676,6 +686,17 @@ namespace Typeck
                 else
                 {
                     propAccess.Property = (IExpressionNode)newNode;
+                }
+            }
+            // Case 8: Parent is a function call and node is an arg
+            else if (node.Parent is FuncCallNode funcCall)
+            {
+                for (int x = 0; x < funcCall.Args.Count; x++)
+                {
+                    if (funcCall.Args[x].Value == node)
+                    {
+                        funcCall.Args[x].Value = (IExpressionNode)newNode;
+                    }
                 }
             }
         }

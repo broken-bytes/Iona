@@ -2,9 +2,9 @@
 
 namespace AST.Types
 {
-    public struct FuncCallArg
+    public class FuncCallArg(string name, IExpressionNode value)
     {
-        public string Name;
-        public IExpressionNode Value;
+        public string Name = name;
+        public IExpressionNode Value = value;
     }
 }

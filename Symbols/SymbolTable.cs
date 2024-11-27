@@ -190,7 +190,7 @@ namespace Symbols
             {
                 if (currentNode is BlockNode)
                 {
-                    currentSymbol = currentSymbol.Symbols.FirstOrDefault(sym => sym is BlockSymbol);
+                   // We skip Block Nodes as they have no representation in the symbol table
                 }
                 else if (currentNode is InitNode init)
                 {
@@ -569,9 +569,9 @@ namespace Symbols
         /// <param name="funcCallNode">The function call</param>
         /// <param name="parent">Possible parent to use for check</param>
         /// <returns>True if any init is found</returns>
-        public Result<InitSymbol, SymbolResolutionResult> CheckIfInitExists(FileNode context, TypeSymbol? type, InitCallNode initCallNode, ISymbol? parent = null)
+        public Result<InitSymbol, SymbolResolutionResult> CheckIfInitExists(FileNode context, InitCallNode initCallNode)
         {
-            return FindInit(context, type, initCallNode);
+            return FindInit(context, initCallNode);
         }
         
         public bool ArgsMatchParameters(List<ParameterSymbol> parameters, List<FuncCallArg> args)
@@ -659,7 +659,6 @@ namespace Symbols
                         .OfType<FuncSymbol>()
                         .Where(func =>
                         {
-                            Console.WriteLine($"Type: {symbol} Query: {node.Target.Value} Iona: {func.Name} CSharp: {func.CsharpName}");
                             if (func.Name != node.Target.Value)
                             {
                                 return false;
@@ -690,40 +689,22 @@ namespace Symbols
             return results;
         }
         
-        public Result<InitSymbol, SymbolResolutionResult> FindInit(FileNode context, TypeSymbol? type, InitCallNode node)
+        public Result<InitSymbol, SymbolResolutionResult> FindInit(FileNode context, InitCallNode node)
         {
             List<InitSymbol> results = new();
-
-            if (type != null)
-            {
-                results = FindInits(type, node);
-
-                if (results.Any())
-                {
-                    return Result<InitSymbol, SymbolResolutionResult>.Ok(results.First());
-                }
-                
-                if (type.BaseType != null)
-                {
-                    results.AddRange(FindInits(type.BaseType, node));
-                }
-                
-                if (results.Any())
-                {
-                    return Result<InitSymbol, SymbolResolutionResult>.Ok(results.First());
-                }
-            }
-
-            if (results.Any())
-            {
-                return Result<InitSymbol, SymbolResolutionResult>.Ok(results.First());
-            }
             
             var imports = GetImportedModules(context);
 
             foreach (var import in imports)
             {
-                results.AddRange(FindInits(import, node));
+                var types = import
+                    .Symbols.OfType<TypeSymbol>()
+                    .Where(symbol => symbol.Name == node.TypeFullName);
+                
+                foreach (var type in types)
+                {
+                    results.AddRange(FindInits(type, node));
+                }
             }
 
             if (results.Count > 1)
@@ -747,7 +728,7 @@ namespace Symbols
             });
         }
 
-        private List<InitSymbol> FindInits(ISymbol? symbol, InitCallNode node)
+        private List<InitSymbol> FindInits(TypeSymbol? symbol, InitCallNode node)
         {
             List<InitSymbol> results = new();
 
@@ -757,7 +738,10 @@ namespace Symbols
                         .OfType<InitSymbol>()
                         .Where(func =>
                         {
-                            bool matching = true;
+                            if (func.Symbols.OfType<ParameterSymbol>().Count() != node.Args.Count)
+                            {
+                                return false;
+                            }
 
                             foreach (var (param, arg) in func
                                          .Symbols
@@ -765,16 +749,15 @@ namespace Symbols
                                          .Zip(node.Args, (p, a) => (p, a)))
                             {
                                 if (
-                                    param.Type.FullyQualifiedName != arg.Value.ResultType.FullyQualifiedName || 
+                                    param.Type.FullyQualifiedName != arg.Value.ResultType!.FullyQualifiedName || 
                                     param.Name != arg.Name
                                 )
                                 {
-                                    matching = false;
-                                    break;
+                                    return false;
                                 }
                             }
 
-                            return matching;
+                            return true;
 
                         })
                 );

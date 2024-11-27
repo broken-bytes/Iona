@@ -6,6 +6,7 @@
         Enum,
         Function,
         GenericParameter,
+        Init,
         Module,
         Operator,
         Parameter,

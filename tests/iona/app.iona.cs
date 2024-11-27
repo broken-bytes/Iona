@@ -17,7 +17,7 @@ namespace App
         public void Start()
         {
             body = this.GetComponent<Rigidbody>();
-            body.AddForce(Vector3(0, 0, value), ForceMode.force);
+            body.AddForce(Vector3(0.0, 0.0, value), ForceMode.force);
         }
 
         public void Update()

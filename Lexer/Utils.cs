@@ -14,6 +14,7 @@ namespace Lexer
 
                 // Literals
                 case TokenType.Boolean:
+                case TokenType.Double:
                 case TokenType.Float:
                 case TokenType.Integer:
                 case TokenType.NullLiteral:
