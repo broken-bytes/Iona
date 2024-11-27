@@ -89,20 +89,8 @@ namespace Parser.Parsers
                 {
                     case ExpressionState.Invalid:
                     {
-                        var meta = new Metadata
-                        {
-                            File = token.File,
-                            ColumnStart = token.ColumnStart,
-                            ColumnEnd = token.ColumnEnd,
-                            LineStart = token.Line,
-                            LineEnd = token.Line,
-                        };
-
-                        var error = CompilerErrorFactory.SyntaxError($"Unexpected token '{token.Value}'", meta);
-
-                        errorCollector.Collect(error);
-
-                        return null;
+                        // TODO: Expression parsing should not break fucntion parsing even when bad input
+                        break;
                     }
                     case ExpressionState.Skip:
                         stream.Consume();

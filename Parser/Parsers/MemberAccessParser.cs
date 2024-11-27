@@ -134,6 +134,15 @@ namespace Parser.Parsers
                 propAccess.Property.Parent = propAccess;
                 Utils.SetColumnEnd(propAccess, nextMember.Meta.ColumnEnd);
                 Utils.SetLineEnd(propAccess, nextMember.Meta.LineEnd);
+
+                if (stream.Any())
+                {
+                    token = stream.Peek();
+                }
+                else
+                {
+                    break;
+                }
             }
 
             return propAccess;

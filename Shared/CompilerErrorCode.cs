@@ -26,6 +26,10 @@
         /// Used when a type has no constructor that matches the provided arguments
         NoMatchingConstructorForArgs,
         /// Used when a function call uses a function that is defined in multiple modules
-        AmbigiousFunctionCall
+        AmbigiousFunctionCall,
+        /// The name of a parameter was not provided
+        MissingParameterName,
+        /// The colon between parameter name and argument was not provided
+        MissingColonAfterParameterName
     }
 }

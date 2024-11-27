@@ -1,0 +1,16 @@
+module App
+
+use UnityEngine
+
+public class Player: MonoBehaviour {
+    public var health = 100
+
+    fn update() {
+    }
+
+    fn onCollisionEnter(collision: Collision) {
+        var name = collision.gameobject.foo
+
+        Debug::log(message: name)
+    }
+}

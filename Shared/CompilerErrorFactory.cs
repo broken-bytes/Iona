@@ -141,5 +141,23 @@ namespace Shared
                 meta
             );
         }
+
+        public static CompilerError MissingParameterName(Metadata meta)
+        {
+            return new CompilerError(
+                CompilerErrorCode.MissingParameterName,
+                $"Missing parameter name before argument. Parameter names must be specified in Iona.", 
+                meta
+            );
+        }
+        
+        public static CompilerError MissingColonAfterParameterName(Metadata meta)
+        {
+            return new CompilerError(
+                CompilerErrorCode.MissingColonAfterParameterName,
+                $"Missing colon between parameter name and argument.", 
+                meta
+            );
+        }
     }
 }

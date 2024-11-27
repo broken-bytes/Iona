@@ -15,7 +15,7 @@ namespace Parser
             var accessLevelParser = new AccessLevelParser();
             var genericArgsParser = new GenericArgsParser();
             var typeParser = new TypeParser();
-            var funcCallParser = new FuncCallParser();
+            var funcCallParser = new FuncCallParser(errorCollector);
             var memberAccessParser = new MemberAccessParser();
             var scopeResolutionParser = new ScopeResolutionParser();
             var expressionParser = new ExpressionParser(

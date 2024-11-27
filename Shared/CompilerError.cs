@@ -144,6 +144,12 @@
                     return "C0010";
                 case CompilerErrorCode.AmbigiousOperatorOverload:
                     return "C0011";
+                case CompilerErrorCode.AmbigiousFunctionCall:
+                    return "C0012";
+                case CompilerErrorCode.MissingParameterName:
+                    return "C0013";
+                case CompilerErrorCode.MissingColonAfterParameterName:
+                    return "C0014";
                 default:
                     return "UnknownError";
             }

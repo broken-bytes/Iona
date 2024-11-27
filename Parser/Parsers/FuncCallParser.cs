@@ -1,20 +1,23 @@
 ﻿using AST.Nodes;
 using AST.Types;
 using Lexer.Tokens;
+using Shared;
 
 namespace Parser.Parsers
 {
     internal class FuncCallParser
     {
-        private ExpressionParser? expressionParser;
+        private ExpressionParser? _expressionParser;
+        private readonly IErrorCollector _errorCollector;
 
-        internal FuncCallParser()
+        internal FuncCallParser(IErrorCollector errorCollector)
         {
+            _errorCollector = errorCollector;
         }
 
         internal void Setup(ExpressionParser expressionParser)
         {
-            this.expressionParser = expressionParser;
+            this._expressionParser = expressionParser;
         }
 
         internal bool IsFuncCall(TokenStream stream)
@@ -41,7 +44,7 @@ namespace Parser.Parsers
 
         public IExpressionNode Parse(TokenStream stream, INode? parent)
         {
-            if(expressionParser == null)
+            if(_expressionParser == null)
             {
                 var error = stream.Peek();
                 throw new ParserException(ParserExceptionCode.Unknown, error.Line, error.ColumnStart, error.ColumnEnd, error.File);
@@ -89,13 +92,59 @@ namespace Parser.Parsers
             var token = stream.Peek();
             while (token.Type != TokenType.ParenRight && stream.Any())
             {
+                string argName = "";
                 // Parse the name of the argument([name]: value)
-                var argName = stream.Consume(TokenType.Identifier, TokenFamily.Keyword).Value;
-                stream.Consume(TokenType.Colon, TokenFamily.Operator);
+                try
+                {
+                    argName = stream.Consume(TokenType.Identifier, TokenFamily.Keyword).Value;
+                }
+                catch
+                {
+                    var meta = new Metadata
+                    {
+                        ColumnStart = token.ColumnStart,
+                        ColumnEnd = token.ColumnEnd,
+                        LineStart = token.Line,
+                        LineEnd = token.Line,
+                        File = token.File,
+                    };
+                    var error = CompilerErrorFactory.MissingParameterName(meta);
+                    
+                    _errorCollector.Collect(error);
+
+                    funcCall.Status = INode.ResolutionStatus.Failed;
+                    
+                    return funcCall;
+                }
+
+                try
+                {
+                    stream.Consume(TokenType.Colon, TokenFamily.Operator);
+                }
+                catch
+                {
+                    var meta = new Metadata
+                    {
+                        ColumnStart = token.ColumnStart,
+                        ColumnEnd = token.ColumnEnd,
+                        LineStart = token.Line,
+                        LineEnd = token.Line,
+                        File = token.File,
+                    };
+                    
+                    var error = CompilerErrorFactory.MissingColonAfterParameterName(meta);
+                    
+                    _errorCollector.Collect(error);
+
+                    funcCall.Status = INode.ResolutionStatus.Failed;
+                    
+                    return funcCall;
+                }
+
                 // The expression parser should not be concerned with handling edge cases `,`, `)` of the function call.
                 var expressionStream = GetParameterExpression(stream);
                 // Remove either the comma, or last `)` from the stream
-                var expression = expressionParser.Parse(expressionStream, funcCall);
+                var expression = _expressionParser.Parse(expressionStream, funcCall);
                 funcCall.Args.Add(new FuncCallArg(argName, (IExpressionNode)expression));
 
                 token = stream.Peek();
