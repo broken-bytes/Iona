@@ -7,6 +7,7 @@ namespace Typeck
 {
     internal class Typeck : ITypeck
     {
+        private readonly AssemblyResolver _assemblyResolver;
         private readonly SymbolTableConstructor _tableConstructor;
         private readonly TopLevelScopeResolver _topLevelScopeResolver;
         private readonly TypeResolver _typeResolver;
@@ -14,6 +15,7 @@ namespace Typeck
         private readonly MutabilityResolver _mutabilityResolver;
 
         internal Typeck(
+            AssemblyResolver assemblyResolver,
             SymbolTableConstructor tableConstructor,
             TopLevelScopeResolver topLevelScopeResolver,
             TypeResolver typeResolver,
@@ -21,6 +23,7 @@ namespace Typeck
             MutabilityResolver mutabilityResolver
         )
         {
+            _assemblyResolver = assemblyResolver;
             _tableConstructor = tableConstructor;
             _topLevelScopeResolver = topLevelScopeResolver;
             _typeResolver = typeResolver;
@@ -83,35 +86,25 @@ namespace Typeck
         public SymbolTable MergeTables(List<SymbolTable> tables, List<string> assemblies)
         {
             var mergedTable = new SymbolTable();
-            
-            foreach (var path in assemblies)
-            {
-                Assembly? assembly = null;
-                try
-                {
-                    assembly = Assembly.Load(path);
-                    _tableConstructor.ConstructTypesForAssembly(assembly);
-                }
-                catch
-                {
-                    continue;
-                }
-            }
-            
-            foreach (var path in assemblies)
-            {
-                Assembly? assembly = null;
-                try
-                {
-                    assembly = Assembly.Load(path);
-                    _tableConstructor.PopulateMembersForAssembly(assembly);
-                }
-                catch
-                {
-                    continue;
-                }
-            }
 
+            List<Assembly> loadedAssemblies = [];
+            
+            foreach (var path in assemblies)
+            {
+                Assembly? assembly = null;
+                try
+                {
+                    assembly = Assembly.Load(path);
+                    loadedAssemblies.Add(assembly);
+                }
+                catch
+                {
+                    continue;
+                }
+            }
+            
+            _assemblyResolver.AddAssembliesToSymbolTable(loadedAssemblies, mergedTable);
+            
             foreach (var table in tables)
             {
                 foreach (var module in table.Modules)

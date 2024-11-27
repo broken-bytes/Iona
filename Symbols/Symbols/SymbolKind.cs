@@ -4,6 +4,7 @@
     {
         Assembly,
         Enum,
+        EnumCase,
         Function,
         GenericParameter,
         Init,

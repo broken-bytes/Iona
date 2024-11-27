@@ -195,6 +195,7 @@ namespace Typeck
 
             if (funcWasFound.IsSuccess)
             {
+                node.Target.ILValue = funcWasFound.Unwrapped().CsharpName;
                 return;
             }
 
@@ -598,27 +599,53 @@ namespace Typeck
 
             if (node.Property is IdentifierNode property)
             {
+                // Could be a static prop:
                 var propSymbol = symbol.Symbols.OfType<PropertySymbol>().FirstOrDefault(member => member.Name == property.Value);
 
-                if (propSymbol is null)
+                if (propSymbol is not null)
                 {
-                    node.Status = INode.ResolutionStatus.Failed;
-                    var error = CompilerErrorFactory.TypeDoesNotContainProperty(node.Scope.Value, property.Value, property.Meta);
-                    _errorCollector.Collect(error);
-                    
-                    return null;
+                    Kind kind = Utils.SymbolKindToASTKind(propSymbol.Type.TypeKind);
+
+                    var type = new TypeReferenceNode(propSymbol.Type.Name, node)
+                    {
+                        FullyQualifiedName = propSymbol.Type.FullyQualifiedName,
+                        Assembly = propSymbol.Type.Assembly,
+                        TypeKind = kind
+                    };
+
+                    return type;
                 }
 
-                Kind kind = Utils.SymbolKindToASTKind(propSymbol.Type.TypeKind);
+                var caseSymbol = symbol.Symbols.OfType<EnumCaseSymbol>()
+                    .FirstOrDefault(@case => @case.Name == property.Value);
 
-                var type = new TypeReferenceNode(propSymbol.Type.Name, node)
+                if (caseSymbol is not null && symbol is TypeSymbol typeSymbol)
                 {
-                    FullyQualifiedName = propSymbol.Type.FullyQualifiedName,
-                    Assembly = propSymbol.Type.Assembly,
-                    TypeKind = kind
-                };
+                    // We can assume the left hand is an enum type
+                    Kind kind = Utils.SymbolKindToASTKind(typeSymbol.TypeKind);
 
-                return type;
+                    var type = new TypeReferenceNode(typeSymbol.Name, node)
+                    {
+                        FullyQualifiedName = typeSymbol.FullyQualifiedName,
+                        Assembly = typeSymbol.Assembly,
+                        TypeKind = kind
+                    };
+
+                    var identifier = new IdentifierNode(caseSymbol.Name);
+                    identifier.ILValue = caseSymbol.CsharpName;
+                    var enumAccess = new EnumCaseAccessNode(identifier, node);
+                    identifier.Parent = enumAccess;
+                    // Change the node to enum access
+                    ReplaceNode(node.Property, enumAccess);
+
+                    return type;
+                }
+                
+                node.Status = INode.ResolutionStatus.Failed;
+                var error = CompilerErrorFactory.TypeDoesNotContainProperty(node.Scope.Value, property.Value, property.Meta);
+                _errorCollector.Collect(error);
+                    
+                return null;
             }
             
             if (node.Property is ScopeResolutionNode scope)
@@ -697,6 +724,13 @@ namespace Typeck
                     {
                         funcCall.Args[x].Value = (IExpressionNode)newNode;
                     }
+                }
+            }
+            else if (node.Parent is ScopeResolutionNode scope)
+            {
+                if (scope.Property == node)
+                {
+                    scope.Property = (IExpressionNode)newNode;
                 }
             }
         }

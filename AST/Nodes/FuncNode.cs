@@ -8,6 +8,7 @@ namespace AST.Nodes
     public class FuncNode : IAccessLevelNode, IStatementNode
     {
         public string Name { get; set; }
+        public string ILName { get; set; }
         public INode? Parent { get; set; }
         public NodeType Type { get; set; }
         public FileNode Root => Utils.GetRoot(this);
@@ -32,6 +33,7 @@ namespace AST.Nodes
         )
         {
             Name = name;
+            ILName = Shared.Utils.IonaToCSharpName(name);
             Parent = parent;
             Type = NodeType.Declaration;
             StatementType = StatementType.FunctionDeclaration;

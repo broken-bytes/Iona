@@ -145,7 +145,7 @@ namespace Generator
         public void Visit(FuncCallNode node)
         {
             // First, print the name of the function
-            source.Append(Utils.IonaToCSharpName(node.Target.Value));
+            source.Append(Utils.IonaToCSharpName(node.Target.ILValue));
             if (node.GenericArgs.Any())
             {
                 source.Append('<');
@@ -227,38 +227,19 @@ namespace Generator
 
         public void Visit(IdentifierNode node)
         {
-            source.Append(node.Value);
+            source.Append(node.ILValue);
         }
 
         public void Visit(InitCallNode node)
         {
-            if (node.ResultType is not TypeReferenceNode resultType)
+            source.Append($"new {node.TypeFullName}(");
+            foreach (var arg in node.Args)
             {
-                return;
+                source.Append($"{arg.Value}, ");
             }
             
-            var typeSymbol = _table.FindTypeByFQN(resultType.FullyQualifiedName);
-
-            if (typeSymbol is null)
-            {
-                return;
-            }
-            
-            var init = typeSymbol
-                .Symbols
-                .OfType<BlockSymbol>()
-                .First()
-                .Symbols
-                .OfType<InitSymbol>().Where(init => { 
-                    var parameters = init.Symbols.OfType<ParameterSymbol>().ToList();
-
-                    if (parameters.Count != node.Args.Count)
-                    {
-                        return false;
-                    }
-
-                    return !parameters.Where((t, i) => t.Type.FullyQualifiedName != node.Args[i].Value.ResultType?.FullyQualifiedName).Any();
-                });
+            source.Remove(source.Length - 2, 2);
+            source.Append(")");
         }
 
         public void Visit(InitNode node)
@@ -503,6 +484,10 @@ namespace Generator
             {
                 funcCall.Accept(this);
             }
+            else if (node.Property is EnumCaseAccessNode caseAccess)
+            {
+                caseAccess.Case.Accept(this);
+            }
         }
 
         public void Visit(StructNode node)
@@ -723,6 +708,9 @@ namespace Generator
                     break;
                 case IdentifierNode identifier:
                     identifier.Accept(this);
+                    break;
+                case InitCallNode initCall:
+                    initCall.Accept(this);
                     break;
                 case InitNode init:
                     init.Accept(this);

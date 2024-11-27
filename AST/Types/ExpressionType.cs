@@ -2,6 +2,7 @@
 {
     public enum ExpressionType
     {
+        EnumCaseAcces,
         Literal,
         Identifier,
         FunctionCall,
@@ -18,6 +19,7 @@
         PointerDereference,
         PropAccess,
         AddressOf,
+        ScopeResolution,
         Self,
         New,
         Delete,

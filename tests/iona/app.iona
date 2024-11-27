@@ -3,7 +3,7 @@ module App
 use UnityEngine
 
 public class Test: MonoBehaviour {
-    public var value = 0.0
+    public var value = 0.0f
     private var body: Rigidbody
 
     public fn start() {
@@ -12,7 +12,7 @@ public class Test: MonoBehaviour {
     }
 
     public fn update() {
-        value += 1 * Time::deltaTime
+        value += 1.0f * Time::deltaTime
     }
 }
 

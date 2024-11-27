@@ -10,6 +10,7 @@ namespace Typeck
             IFixItCollector fixItCollector
         )
         {
+            var assemblyResolver = new AssemblyResolver();
             var tableConstructor = new SymbolTableConstructor();
             var topLevelResolver = new TopLevelScopeResolver(errorCollector, warningCollector, fixItCollector);
             var typeResolver = new TypeResolver(errorCollector, warningCollector, fixItCollector);
@@ -17,6 +18,7 @@ namespace Typeck
             var mutabilityResolver = new MutabilityResolver();
 
             return new Typeck(
+                assemblyResolver,
                 tableConstructor, 
                 topLevelResolver, 
                 typeResolver, 

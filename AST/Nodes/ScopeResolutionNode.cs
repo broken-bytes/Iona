@@ -12,7 +12,7 @@ namespace AST.Nodes
         public IdentifierNode Scope { get; set; }
         public INode Property { get; set; }
         public TypeReferenceNode? ResultType { get; set; }
-        public ExpressionType ExpressionType => ExpressionType.PropAccess;
+        public ExpressionType ExpressionType => ExpressionType.ScopeResolution;
         public FileNode Root => Utils.GetRoot(this);
         public ResolutionStatus Status { get; set; } = ResolutionStatus.Unresolved;
         public Metadata Meta { get; set; }
@@ -22,7 +22,7 @@ namespace AST.Nodes
             Scope = scope;
             Property = property;
             Parent = parent;
-            Type = NodeType.PropAccess;
+            Type = NodeType.ScopeResolution;
             Meta = property.Meta;
         }
 

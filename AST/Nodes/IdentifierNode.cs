@@ -8,6 +8,7 @@ namespace AST.Nodes
     public class IdentifierNode : IExpressionNode
     {
         public string Value { get; set; }
+        public string ILValue { get; set; }
         public INode? Parent { get; set; }
         public NodeType Type { get; set; }
         public ExpressionType ExpressionType => ExpressionType.Identifier;
@@ -19,6 +20,7 @@ namespace AST.Nodes
         public IdentifierNode(string value, INode? parent = null)
         {
             Value = value;
+            ILValue = value;
             Parent = parent;
             Type = NodeType.Identifier;
         }
@@ -30,7 +32,7 @@ namespace AST.Nodes
 
         public override string ToString()
         {
-            return Value;
+            return ILValue;
         }
     }
 }

@@ -5,7 +5,7 @@ namespace Symbols.Symbols
     public class PropertySymbol : ISymbol
     {
         public string Name { get; set; }
-        public string ILName { get; set; }
+        public string CsharpName { get; set; }
         public TypeSymbol Type { get; set; }
         public List<ISymbol> Symbols { get; set; }
         public SymbolKind Kind { get; set; } = SymbolKind.Property;
@@ -16,28 +16,16 @@ namespace Symbols.Symbols
 
         public PropertySymbol(
             string name, 
+            string csharpName,
             TypeSymbol type, 
-            AccessLevel getterAccessLevel, 
-            AccessLevel setterAccessLevel,
             bool isStatic,
-            bool isIl = false
+            bool isComputed = true,
+            AccessLevel getterAccessLevel = AccessLevel.Private,
+            AccessLevel setterAccessLevel = AccessLevel.Private
             )
         {
-            // Since C# usually uses PascalCase for function names,
-            // we need convert back and forth between PascalCase and camelCase for Iona
-            if (isIl)
-            {
-                // Lowercase the first letter of the name
-                this.Name = name[0].ToString().ToLower() + name.Substring(1);
-                Name = name;
-                ILName = name;
-            }
-            else
-            {
-                Name = name;
-                ILName = name[0].ToString().ToUpper() + name.Substring(1);
-            }
-
+            Name = name;
+            CsharpName = csharpName;
             Type = type;
             Symbols = new List<ISymbol>();
             GetterAccessLevel = getterAccessLevel;

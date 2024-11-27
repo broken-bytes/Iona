@@ -664,6 +664,11 @@ namespace Symbols
                                 return false;
                             }
 
+                            if (node.Args.Count() != func.Symbols.OfType<ParameterSymbol>().Count())
+                            {
+                                return false;
+                            }
+
                             bool matching = true;
 
                             foreach (var (param, arg) in func
