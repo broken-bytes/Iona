@@ -102,6 +102,7 @@ public static class Utils
             case "string":
                 return "Iona.Builtins.String";
             case "void":
+                case "System.Void":
                 return "Iona.Builtins.Void";
         }
 

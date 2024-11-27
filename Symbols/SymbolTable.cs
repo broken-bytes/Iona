@@ -659,6 +659,7 @@ namespace Symbols
                         .OfType<FuncSymbol>()
                         .Where(func =>
                         {
+                            Console.WriteLine($"Type: {symbol} Query: {node.Target.Value} Iona: {func.Name} CSharp: {func.CsharpName}");
                             if (func.Name != node.Target.Value)
                             {
                                 return false;

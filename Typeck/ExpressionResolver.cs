@@ -30,8 +30,10 @@ namespace Typeck
     {
         private SymbolTable table;
         private IErrorCollector _errorCollector;
-        /// The type an expression shall resolve to. Used in stuff liek assignments or parameters
+        /// The type an expression shall resolve to. Used in stuff like assignments or parameters
         private string? _contextualTypeFqn;
+        /// The type that is the current target, eg. `foo.<>` where the type would be the type of `foo`
+        private string? _currentTypeFqn;
 
         internal ExpressionResolver(IErrorCollector errorCollector)
         {
@@ -144,11 +146,25 @@ namespace Typeck
         public void Visit(FuncCallNode node)
         {
             var hierarchy = ((INode)node).Hierarchy();
+
+            TypeSymbol? typeSymbol = null;
             
-            // Check if the function is a member function or a free function
-            var currentType = hierarchy.OfType<ITypeNode>().FirstOrDefault();
-            var typeSymbol = table.FindTypeByFQN(node.Root, currentType.FullyQualifiedName);
+            // Four different cases:
+            // - Direct function call `foo()`
+            // - Via prop access `prop.foo()`
+            // - Via self `self.foo()`
+            // - Via scope `Foo::foo()`
             
+            if (_currentTypeFqn != null)
+            {
+                typeSymbol = table.FindTypeByFQN(node.Root, _currentTypeFqn);
+            }
+            else
+            {
+                // Check if the function is a member function or a free function
+                var currentType = hierarchy.OfType<ITypeNode>().FirstOrDefault();
+                typeSymbol = table.FindTypeByFQN(node.Root, currentType.FullyQualifiedName);
+            }
             // Check if the function is in scope
             var funcWasFound = table.CheckIfFuncExists(node.Root, typeSymbol, node);
 
@@ -173,7 +189,7 @@ namespace Typeck
                     }
                     else
                     {
-                        var error = CompilerErrorFactory.TypeDoesNotContainMethod(currentType.FullyQualifiedName, node.Target.Value, node.Meta);
+                        var error = CompilerErrorFactory.TypeDoesNotContainMethod(typeSymbol!.FullyQualifiedName, node.Target.Value, node.Target.Meta);
                         
                         _errorCollector.Collect(error);
                     }
@@ -182,25 +198,18 @@ namespace Typeck
                 }
             }
 
-            // Function is inside a type -> member function
-            if (typeSymbol != null)
+            if (funcWasFound.IsSuccess)
             {
-                var self = new SelfNode(node.Parent);
-                var target = new IdentifierNode(typeSymbol.Name, node.Target);
-                var methodCall = new MethodCallNode(self, target, node.Parent);
-                methodCall.Args = node.Args;
-                methodCall.Meta = node.Meta;
-                self.Parent = methodCall;
-                target.Parent = methodCall;
-
-                ReplaceNode(node, methodCall);
+                return;
             }
-            
-                
-            /*
-            var initWasFound = table.CheckIfInitExists(node.Root, node, null);
 
-            if (!initWasFound)
+            var initCallNode = new InitCallNode(typeSymbol.FullyQualifiedName, node.Parent);
+            initCallNode.Args = node.Args;
+            initCallNode.Meta = node.Meta;
+            
+            var initWasFound = table.CheckIfInitExists(node.Root, typeSymbol, initCallNode);
+
+            if (!initWasFound.IsError)
             {
                 node.Status = INode.ResolutionStatus.Failed;
                 var error = CompilerErrorFactory.TopLevelDefinitionError(node.Target.Value, node.Meta);
@@ -214,13 +223,9 @@ namespace Typeck
 
             if (typeSearchResult.IsSuccess)
             {
-                var initCall = new InitCallNode(typeSearchResult.Unwrapped().FullyQualifiedName, node.Parent);
-                initCall.Args = node.Args;
-                initCall.Meta = node.Meta;
 
-                ReplaceNode(node, initCall);
+                ReplaceNode(node, initCallNode);
             }
-            */
         }
 
         public void Visit(FuncNode node)
@@ -364,7 +369,33 @@ namespace Typeck
 
         public void Visit(PropAccessNode node)
         {
+            // Find the object first
+            var objc = table.FindBy(node.Object);
+            TypeSymbol? objType = null;
+
+            if (objc is null)
+            {
+                return;
+            }
+
+            if (objc is PropertySymbol prop)
+            {
+                objType = prop.Type;
+            }
+            else if (objc is VariableSymbol var)
+            {
+                objType = var.Type;
+            }
+            else
+            {
+                return;
+            }
+
+            _currentTypeFqn = objType.FullyQualifiedName;
+            
             CheckNode(node.Property);
+
+            _currentTypeFqn = null;
         }
 
         public void Visit(PropertyNode node)
