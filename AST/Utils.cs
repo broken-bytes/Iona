@@ -1,4 +1,5 @@
-﻿using AST.Nodes;
+﻿using System.Text;
+using AST.Nodes;
 using AST.Types;
 
 namespace AST
@@ -59,6 +60,33 @@ namespace AST
             }
 
             return "";
+        }
+
+        public static string SourceValue(this INode node)
+        {
+            var builder = new StringBuilder();
+            
+            switch (node)
+            {
+                case IdentifierNode identifier:
+                {
+                    builder.Append(identifier.ILValue);
+                    break;
+                }
+                case PropAccessNode propAccess:
+                {
+                    builder.Append(propAccess.Object.SourceValue());
+                    builder.Append(propAccess.Parent.SourceValue());
+                    break;
+                }
+                case VariableNode variable:
+                {
+                    builder.Append(variable.Name);
+                    break;
+                }
+            }
+            
+            return builder.ToString();
         }
     }
 }

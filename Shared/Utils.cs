@@ -100,6 +100,7 @@ public static class Utils
             case "nuint":
                 return "Iona.Builtins.NUInt";
             case "string":
+            case "System.String":
                 return "Iona.Builtins.String";
             case "void":
                 case "System.Void":

@@ -501,6 +501,15 @@ namespace Generator
 
         public void Visit(VariableNode node)
         {
+            // TODO: Emit correct mutability level
+            source.Append("var ");
+            source.Append(node.Name);
+
+            if (node.Value is not null)
+            {
+                source.Append(" = ");
+                HandleNode(node.Value);
+            }
         }
 
         // ---- Helper methods ----
