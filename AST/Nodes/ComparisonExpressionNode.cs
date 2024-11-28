@@ -24,6 +24,10 @@ namespace AST.Nodes
                 node.FullyQualifiedName = "Iona.Builtins.Bool";
                 return node;
             }
+            set
+            {
+                return;
+            }
         }
         public Metadata Meta { get; set; }
 

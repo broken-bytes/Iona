@@ -14,7 +14,7 @@ namespace AST.Nodes
         public FileNode Root => Utils.GetRoot(this);
         public AccessLevel AccessLevel { get; set; }
         public StatementType StatementType { get; set; }
-        public INode? TypeNode { get; set; }
+        public TypeReferenceNode? TypeNode { get; set; }
         public IExpressionNode? Value { get; set; }
         bool IsAssigned { get; set; }
         public ResolutionStatus Status { get; set; } = ResolutionStatus.Unresolved;
@@ -29,6 +29,11 @@ namespace AST.Nodes
             Type = NodeType.Declaration;
             StatementType = StatementType.VariableDeclaration;
             IsAssigned = value != null;
+        }
+
+        public override string ToString()
+        {
+            return Name;
         }
 
         public void Accept(IVariableVisitor visitor)

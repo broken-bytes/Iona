@@ -167,6 +167,12 @@ namespace Symbols
         {
             var astHierarchy = node.Hierarchy();
 
+            // Filenode + First actual node
+            if (astHierarchy.Count < 2)
+            {
+                return [];
+            }
+            
             // Drop the file node
             astHierarchy.RemoveAt(0);
 
@@ -191,6 +197,16 @@ namespace Symbols
                 if (currentNode is BlockNode)
                 {
                    // We skip Block Nodes as they have no representation in the symbol table
+                   astHierarchy.RemoveAt(0);
+
+                   if (astHierarchy.Count == 0)
+                   {
+                       break;
+                   }
+
+                   currentNode = astHierarchy[0];
+                   
+                   continue;
                 }
                 else if (currentNode is InitNode init)
                 {
@@ -214,12 +230,23 @@ namespace Symbols
                     {
                         if (sym is FuncSymbol funcSym)
                         {
-                            return MatchParameters(node.Root, funcSym, func.Parameters);
+                            var parameters = funcSym.Symbols
+                                .OfType<ParameterSymbol>()
+                                .FirstOrDefault(parameter => parameter.Name == node.ToString()) != null;
+
+                            if (parameters)
+                            {
+                                return true;
+                            }
+
+                            if (funcSym.Symbols.OfType<VariableSymbol>()
+                                    .FirstOrDefault(var => var.Name == node.ToString()) != null)
+                            {
+                                return true;
+                            }
                         }
-                        else
-                        {
-                            return false;
-                        }
+                        
+                        return false;
                     });
                 }
                 else if (currentNode is OperatorNode op)

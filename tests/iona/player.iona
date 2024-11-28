@@ -9,7 +9,7 @@ public class Player: MonoBehaviour {
     }
 
     fn onCollisionEnter(collision: Collision) {
-        var name = collision.gameobject.foo
+        var name = collision.gameObject.name
 
         Debug::log(message: name)
     }

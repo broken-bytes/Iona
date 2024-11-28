@@ -21,7 +21,11 @@ namespace AST.Nodes
         public ResolutionStatus Status { get; set; } = ResolutionStatus.Unresolved;
         public Metadata Meta { get; set; }
         public ExpressionType ExpressionType => ExpressionType.ObjectLiteral;
-        public TypeReferenceNode? ResultType => ObjectType;
+        public TypeReferenceNode? ResultType
+        {
+            get => ObjectType;
+            set => ObjectType = value;
+        }
 
         public ObjectLiteralNode(TypeReferenceNode objectType, INode? parent)
         {

@@ -69,7 +69,7 @@ namespace Parser.Parsers
                 stream.Panic(TokenFamily.Keyword);
             }
 
-            INode target;
+            IExpressionNode target;
 
             if (token.Type == TokenType.Self)
             {
@@ -83,7 +83,7 @@ namespace Parser.Parsers
 
             var dot = stream.Consume(TokenType.Dot, TokenFamily.Operator);
 
-            INode member;
+            IExpressionNode member;
             if (funcCallParser.IsFuncCall(stream))
             {
                 var funcCall = funcCallParser.Parse(stream, parent);
@@ -116,7 +116,7 @@ namespace Parser.Parsers
             {
                 stream.Consume(TokenType.Dot, TokenFamily.Keyword);
 
-                INode nextMember;
+                IExpressionNode nextMember;
                 if (funcCallParser.IsFuncCall(stream))
                 {
                     var funcCall = funcCallParser.Parse(stream, parent);
@@ -129,7 +129,7 @@ namespace Parser.Parsers
                     Utils.SetMeta(nextMember, memberIdentifier);
                 }
 
-                propAccess.Property = new PropAccessNode(propAccess.Object, nextMember, parent);
+                propAccess.Property = new PropAccessNode(propAccess.Property, nextMember, parent);
                 propAccess.Object.Parent = propAccess;
                 propAccess.Property.Parent = propAccess;
                 Utils.SetColumnEnd(propAccess, nextMember.Meta.ColumnEnd);

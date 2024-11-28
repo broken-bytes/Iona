@@ -112,7 +112,7 @@ namespace Parser.Parsers
             {
                 stream.Consume(TokenType.Scope, TokenFamily.Keyword);
 
-                INode nextMember;
+                IExpressionNode nextMember;
                 if (funcCallParser.IsFuncCall(stream))
                 {
                     var funcCall = funcCallParser.Parse(stream, parent);

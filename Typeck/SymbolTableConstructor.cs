@@ -186,6 +186,8 @@ namespace Typeck
                 return;
             }
 
+            var lastSymbol = _currentSymbol;
+
             var csharpName = Shared.Utils.IonaToCSharpName(node.Name);
             var symbol = new FuncSymbol(node.Name, csharpName);
             foreach (var param in node.Parameters)
@@ -215,6 +217,8 @@ namespace Typeck
             {
                 node.Body.Accept(this);
             }
+
+            _currentSymbol = lastSymbol;
         }
 
         public void Visit(IdentifierNode node)

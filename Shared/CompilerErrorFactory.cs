@@ -114,7 +114,7 @@ namespace Shared
         public static CompilerError AmbigiousOperatorOverload(string thisType, string otherType, string method, string left, string right, Metadata meta)
         {
             return new CompilerError(
-                CompilerErrorCode.AmbigiousOperatorOverload,
+                CompilerErrorCode.AmbiguousOperatorOverload,
                 $"Both `{thisType}` and `{otherType}` implement binary operation `{method}` taking [lhs: {left}, rhs: {right}]", 
                 meta
             );
@@ -136,7 +136,7 @@ namespace Shared
             var modulesString = modules.Aggregate("", (lhs, rhs) => lhs.ToString() + " and" + rhs.ToString());
             
             return new CompilerError(
-                CompilerErrorCode.AmbigiousFunctionCall,
+                CompilerErrorCode.AmbiguousFunctionCall,
                 $"`Ambiguous call of {functionName}`. It is defined in `{modulesString}`", 
                 meta
             );
@@ -156,6 +156,24 @@ namespace Shared
             return new CompilerError(
                 CompilerErrorCode.MissingColonAfterParameterName,
                 $"Missing colon between parameter name and argument.", 
+                meta
+            );
+        }
+
+        public static CompilerError AmbiguousTypeReference(string name, Metadata meta)
+        {
+            return new CompilerError(
+                CompilerErrorCode.AmbiguousTypeReference,
+                $"Ambiguous type reference. Type `{name}` is defined in multiple modules", 
+                meta
+            );
+        }
+
+        public static CompilerError CannotInferType(string target, Metadata meta)
+        {
+            return new CompilerError(
+                CompilerErrorCode.CannotInferType,
+                $"Type inference for `{target}` failed. Check previous errors for more information.", 
                 meta
             );
         }

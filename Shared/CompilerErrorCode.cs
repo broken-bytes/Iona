@@ -22,14 +22,18 @@
         /// Used when neither type overrides the binary operation used
         NoBinaryOverload,
         /// Used when two types implement the same operator overload
-        AmbigiousOperatorOverload,
+        AmbiguousOperatorOverload,
         /// Used when a type has no constructor that matches the provided arguments
         NoMatchingConstructorForArgs,
         /// Used when a function call uses a function that is defined in multiple modules
-        AmbigiousFunctionCall,
+        AmbiguousFunctionCall,
         /// The name of a parameter was not provided
         MissingParameterName,
         /// The colon between parameter name and argument was not provided
-        MissingColonAfterParameterName
+        MissingColonAfterParameterName,
+        /// The referenced type is found in multiple import modules
+        AmbiguousTypeReference,
+        // The type of a prop or variable cannot get inferred
+        CannotInferType
     }
 }

@@ -1,4 +1,5 @@
 ﻿using AST.Nodes;
+using AST.Visitors;
 using Shared;
 using static AST.Nodes.INode;
 
@@ -21,6 +22,16 @@ namespace AST.Types
             Parent = parent;
             Type = NodeType.Parameter;
             Status = ResolutionStatus.Unresolved;
+        }
+
+        public override string ToString()
+        {
+            return Name;
+        }
+
+        public void Accept(IParameterVisitor visitor)
+        {
+            visitor.Visit(this);
         }
     }
 }

@@ -1,4 +1,5 @@
-﻿using System.Reflection.Metadata;
+﻿using System.ComponentModel;
+using System.Reflection.Metadata;
 using AST;
 using AST.Nodes;
 using AST.Types;
@@ -23,10 +24,12 @@ namespace Typeck
         ILiteralVisitor,
         IModuleVisitor,
         IOperatorVisitor,
+        IParameterVisitor,
         IPropAccessVisitor,
         IPropertyVisitor,
         IScopeResolutionVisitor,
-        IStructVisitor
+        IStructVisitor,
+        IVariableVisitor
     {
         private SymbolTable table;
         private IErrorCollector _errorCollector;
@@ -239,6 +242,11 @@ namespace Typeck
 
         public void Visit(FuncNode node)
         {
+            foreach (var @param in node.Parameters)
+            {
+                CheckNode(@param);
+            }
+            
             if (node.Body == null)
             {
                 return;
@@ -378,15 +386,68 @@ namespace Typeck
             }
         }
 
+        public void Visit(ParameterNode node)
+        {
+            var type = table.FindTypeBySimpleName(node.Root, node.TypeNode.Name);
+
+            if (type.IsSuccess)
+            {
+                var actualType = type.Unwrapped();
+                node.TypeNode = new TypeReferenceNode(actualType.Name, node)
+                {
+                    FullyQualifiedName = actualType.FullyQualifiedName,
+                    Assembly = actualType.Assembly
+                };
+                
+                var symbol = table.FindBy(node);
+
+                if (symbol is ParameterSymbol param)
+                {
+                    param.Type = actualType;
+                }
+                
+                return;
+            }
+
+
+            if (type.Error is SymbolResolutionError.Ambigious)
+            {
+                var error = CompilerErrorFactory.AmbiguousTypeReference(node.TypeNode.Name, node.TypeNode.Meta);
+                
+                _errorCollector.Collect(error);
+                
+                return;
+            }
+        }
+
         public void Visit(PropAccessNode node)
         {
             // Find the object first
-            var objc = table.FindBy(node.Object);
             TypeSymbol? objType = null;
-
-            if (objc is null)
+            ISymbol? objc = null;
+            
+            if (_currentTypeFqn is null)
             {
-                return;
+                objc = table.FindBy(node.Object);
+
+                if (objc is null)
+                {
+                    return;
+                }
+            }
+            else
+            {
+                var typeSymbol = table.FindTypeByFQN(node.Root, _currentTypeFqn);
+                objc = typeSymbol.Symbols.FirstOrDefault(symbol =>
+                {
+                    return symbol switch
+                    {
+                        PropertySymbol prop => prop.Name == node.Object.ToString(),
+                        VariableSymbol var => var.Name == node.Object.ToString(),
+                        ParameterSymbol param => param.Name == node.Object.ToString(),
+                        _ => false
+                    };
+                });
             }
 
             if (objc is PropertySymbol prop)
@@ -397,15 +458,68 @@ namespace Typeck
             {
                 objType = var.Type;
             }
+            else if (objc is ParameterSymbol param)
+            {
+                objType = param.Type;
+            }
             else
             {
+                var error = CompilerErrorFactory.TypeDoesNotContainProperty(
+                    _currentTypeFqn, 
+                    node.Object.ToString(), 
+                    node.Object.Meta
+                );
+                    
+                _errorCollector.Collect(error);
+                    
+                Utils.FailNode(node);
+                
                 return;
             }
 
             _currentTypeFqn = objType.FullyQualifiedName;
-            
-            CheckNode(node.Property);
 
+            node.Object.ResultType = new TypeReferenceNode(objType.Name, node.Object)
+            {
+                FullyQualifiedName = objType.FullyQualifiedName,
+                Assembly = objType.Assembly,
+            };
+
+            if (node.Property is IdentifierNode identifier)
+            {
+                var objcProp = objType.Symbols.OfType<PropertySymbol>()
+                    .FirstOrDefault(prop => prop.Name == identifier.Value);
+
+                if (objcProp is null)
+                {
+                    var error = CompilerErrorFactory.TypeDoesNotContainProperty(objType.FullyQualifiedName, identifier.Value, identifier.Meta);
+                    
+                    _errorCollector.Collect(error);
+                    
+                    Utils.FailNode(node);
+                    
+                    return;
+                }
+                
+                // Assign the result of the prop to the root property access node result type
+                PropAccessNode? root = node.Parent as PropAccessNode;
+
+                while (root != null && root.Parent is PropAccessNode)
+                {
+                    root = root.Parent as PropAccessNode;
+                }
+
+                root.ResultType = new TypeReferenceNode(objcProp.Type.Name, node)
+                {
+                    FullyQualifiedName = objcProp.Type.FullyQualifiedName,
+                    Assembly = objcProp.Type.Assembly,
+                };
+            }
+            else
+            {
+                CheckNode(node.Property);
+            }
+            
             _currentTypeFqn = null;
         }
 
@@ -436,6 +550,8 @@ namespace Typeck
             {
                 // Also update the symbol table
                 var symbol = table.FindBy(node) as PropertySymbol;
+                
+                
                 var type = table.FindTypeByFQN(node.TypeNode.FullyQualifiedName);
                 symbol.Type = type;
                 node.Status = INode.ResolutionStatus.Resolved;
@@ -466,6 +582,59 @@ namespace Typeck
             {
                 CheckNode(child);
             }
+        }
+
+        public void Visit(VariableNode node)
+        {
+            if (node.Status == INode.ResolutionStatus.Resolved)
+            {
+                return;
+            }
+            
+            // Type inference
+            if (node.Value != null)
+            {
+                // Resolve the value
+                CheckNode(node.Value);
+
+                node.TypeNode = node.Value.ResultType;
+            }
+
+            if (node.TypeNode is null && node.Value is null)
+            {
+                node.Status = INode.ResolutionStatus.Failed;
+
+                var error = CompilerErrorFactory.MissingTypeAnnotation(node.Name, node.Meta);
+                _errorCollector.Collect(error);
+                
+                return;
+            }
+
+            // Also update the symbol table
+            var symbol = table.FindBy(node) as VariableSymbol;
+
+            if (node.TypeNode is not null)
+            {
+                var type = table.FindTypeByFQN(node.TypeNode.FullyQualifiedName);
+                symbol.Type = type;
+            }
+            else
+            {
+                if (node.Value.Status == INode.ResolutionStatus.Failed)
+                {
+                    var error = CompilerErrorFactory.CannotInferType(node.Name, node.Meta);
+                    
+                    _errorCollector.Collect(error);
+                    
+                    return;
+                }
+                
+                var resultType = table.FindTypeByFQN(node.Value.ResultType.FullyQualifiedName);
+                symbol.Type = resultType;
+            }
+
+            node.Status = INode.ResolutionStatus.Resolved;
+            
         }
 
         private void CheckNode(INode? node)
@@ -516,6 +685,9 @@ namespace Typeck
                 case OperatorNode operatorNode:
                     operatorNode.Accept(this);
                     break;
+                case ParameterNode parameterNode:
+                    parameterNode.Accept(this);
+                    break;
                 case PropAccessNode propAccessNode:
                     propAccessNode.Accept(this);
                     break;
@@ -527,6 +699,9 @@ namespace Typeck
                     break;
                 case StructNode structNode:
                     structNode.Accept(this);
+                    break;
+                case VariableNode variable:
+                    variable.Accept(this);
                     break;
             }
         }

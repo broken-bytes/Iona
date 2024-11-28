@@ -142,14 +142,18 @@
                     return "C0009";
                 case CompilerErrorCode.NoBinaryOverload:
                     return "C0010";
-                case CompilerErrorCode.AmbigiousOperatorOverload:
+                case CompilerErrorCode.AmbiguousOperatorOverload:
                     return "C0011";
-                case CompilerErrorCode.AmbigiousFunctionCall:
+                case CompilerErrorCode.AmbiguousFunctionCall:
                     return "C0012";
                 case CompilerErrorCode.MissingParameterName:
                     return "C0013";
                 case CompilerErrorCode.MissingColonAfterParameterName:
                     return "C0014";
+                case CompilerErrorCode.AmbiguousTypeReference:
+                    return "C0015";
+                case CompilerErrorCode.CannotInferType:
+                    return "C0016";
                 default:
                     return "UnknownError";
             }

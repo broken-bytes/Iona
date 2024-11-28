@@ -1,4 +1,5 @@
-﻿using AST.Types;
+﻿using AST.Nodes;
+using AST.Types;
 using Symbols.Symbols;
 
 namespace Typeck
@@ -51,6 +52,25 @@ namespace Typeck
             }
 
             return name;
+        }
+        
+        
+        internal static void FailNode(INode node)
+        {
+            // We need to fail all parent prop access nodes in the chain
+            if (node is PropAccessNode propAccess)
+            {
+                node.Status = INode.ResolutionStatus.Failed;
+                
+                var hierachy = ((INode)propAccess).Hierarchy();
+                INode next = propAccess.Parent;
+                // Fail until not prop access
+                while (next != null && next is PropAccessNode)
+                {
+                    next.Status = INode.ResolutionStatus.Failed;
+                    next = next.Parent;
+                }
+            }
         }
     }
 }
