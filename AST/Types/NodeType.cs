@@ -24,6 +24,7 @@
         ObjectLiteral,
         Operator,
         Parameter,
+        ParameterAccess,
         PropAccess,
         ScopeResolution,
         Self,
@@ -44,5 +45,6 @@
         CodeBlock,
         Error,
         TypeReference,
+        VarAccess
     }
 }

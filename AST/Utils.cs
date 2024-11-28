@@ -62,9 +62,14 @@ namespace AST
             return "";
         }
 
-        public static string SourceValue(this INode node)
+        public static string Debug(this INode node)
         {
             var builder = new StringBuilder();
+
+            if (node is null)
+            {
+                builder.Append("<null>");
+            }
             
             switch (node)
             {
@@ -75,15 +80,39 @@ namespace AST
                 }
                 case PropAccessNode propAccess:
                 {
-                    builder.Append(propAccess.Object.SourceValue());
-                    builder.Append(propAccess.Parent.SourceValue());
+                    builder.Append(propAccess.Object.Debug());
+                    builder.Append(propAccess.Parent.Debug());
+                    break;
+                }
+                case PropertyNode property:
+                {
+                    builder.Append(property.Name);
+                    builder.Append(property.Value.Debug());
                     break;
                 }
                 case VariableNode variable:
                 {
                     builder.Append(variable.Name);
+                    if (variable.TypeNode is not null)
+                    {
+                        builder.Append('<');
+                        builder.Append(variable.TypeNode.Debug());
+                        builder.Append('>');
+                    }
+
+                    if (variable.Value is not null)
+                    {
+                        builder.Append('|');
+                        builder.Append(variable.Value.Debug());
+                        builder.Append('|');
+                    }
+
                     break;
                 }
+                
+                default:
+                    builder.Append("<unknown>");
+                    break;
             }
             
             return builder.ToString();

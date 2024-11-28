@@ -2,6 +2,7 @@
 using AST.Nodes;
 using AST.Types;
 using System.Xml.Linq;
+using AST;
 using Shared;
 
 namespace Symbols
@@ -40,9 +41,9 @@ namespace Symbols
             // - A symbol is ALWAYS contained in a block
             // - Blocks are contained in functions, inits, operators, and types
             // Thus we need to check the parent of the node, check if the block contains the symbol
-            // We do this until we reach the root of the tree or we find the symbol
+            // We do this until we reach the root of the tree, or we find the symbol
 
-            // Reverse the hierarchy so we start from the the node itself
+            // Reverse the hierarchy so we start from the node itself
             hierarchy.Reverse();
 
             var symbolHierarchy = SymbolHierarchy(node);
@@ -170,6 +171,7 @@ namespace Symbols
             // Filenode + First actual node
             if (astHierarchy.Count < 2)
             {
+                Console.WriteLine("Failed to find symbol");
                 return [];
             }
             
@@ -184,6 +186,7 @@ namespace Symbols
 
             if (currentSymbol == null)
             {
+                Console.WriteLine("Failed to find symbol");
                 return [];
             }
 
@@ -268,12 +271,16 @@ namespace Symbols
                 {
                     currentSymbol = currentSymbol.Symbols.FirstOrDefault(sym => sym is TypeSymbol && sym.Name == type.Name);
                 }
+                else if (currentNode is PropertyNode prop)
+                {
+                    currentSymbol = currentSymbol.Symbols.OfType<PropertySymbol>().FirstOrDefault(sym => sym.Name == prop.Name);
+                }
                 else
                 {
                     // We hit a node that does not create a scope, thus we end the search
                     break;
                 }
-
+                
                 if (currentSymbol != null)
                 {
                     symbolHierarchy.Add(currentSymbol);
@@ -291,7 +298,7 @@ namespace Symbols
                     return [];
                 }
             }
-
+            
             return symbolHierarchy;
         }
 

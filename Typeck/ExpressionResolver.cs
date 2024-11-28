@@ -278,6 +278,8 @@ namespace Typeck
             {
                 var error = CompilerErrorFactory.TopLevelDefinitionError(node.Value, node.Meta);
                 _errorCollector.Collect(error);
+
+                node.Status = INode.ResolutionStatus.Failed;
                 
                 return;
             }
