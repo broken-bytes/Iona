@@ -295,7 +295,7 @@ namespace Symbols
                 }
                 else
                 {
-                    return [];
+                    return symbolHierarchy;
                 }
             }
             

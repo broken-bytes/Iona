@@ -31,25 +31,21 @@ namespace Typeck
             _mutabilityResolver = mutabilityResolver;
         }
 
-        public SymbolTable BuildSymbolTable(INode node, string assembly)
+        public void BuildSymbolTable(INode node, string assembly, SymbolTable table)
         {
-            SymbolTable table;
-
             // The root node shall be a file node, but we strip it and only add the module
             if (node is not FileNode fileNode)
             {
                 // Panic
-                return new SymbolTable();
+                return;
             }
 
-            _tableConstructor.ConstructSymbolTable(fileNode, out table, assembly);
+            _tableConstructor.ConstructSymbolTable(fileNode, table, assembly);
 
 #if !IONA_BOOTSTRAP
             // Add the builtins module to the imports of the file node
             fileNode.Children.Insert(0, new ImportNode("Iona.Builtins", fileNode));
 #endif
-
-            return table;
         }
 
         public void DoSemanticAnalysis(INode node, SymbolTable table)
@@ -83,10 +79,8 @@ namespace Typeck
             }
         }
 
-        public SymbolTable MergeTables(List<SymbolTable> tables, List<string> assemblies)
+        public void AddImportedAssemblySymbols(SymbolTable table, List<string> assemblies)
         {
-            var mergedTable = new SymbolTable();
-
             List<Assembly> loadedAssemblies = [];
             
             foreach (var path in assemblies)
@@ -103,17 +97,7 @@ namespace Typeck
                 }
             }
             
-            _assemblyResolver.AddAssembliesToSymbolTable(loadedAssemblies, mergedTable);
-            
-            foreach (var table in tables)
-            {
-                foreach (var module in table.Modules)
-                {
-                    mergedTable.Modules.Add(module);
-                }
-            }
-
-            return mergedTable;
+            _assemblyResolver.AddAssembliesToSymbolTable(loadedAssemblies, table);
         }
     }
 }

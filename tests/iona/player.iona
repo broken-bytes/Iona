@@ -5,13 +5,9 @@ use UnityEngine
 public class Player: MonoBehaviour {
     public var health = 100
 
-    fn update() {
-        health += 5
-    }
-
     fn onCollisionEnter(collision: Collision) {
         var name = collision.gameObject.name
 
-        Debug::log(message: name)
+        self.gameObject.addComponent<DamageTicker>()
     }
 }

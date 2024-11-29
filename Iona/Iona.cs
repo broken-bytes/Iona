@@ -55,6 +55,8 @@ class Iona
         
         Console.WriteLine();
 
+        List<CompilationUnit> compilationUnits = []; 
+        
         foreach (var file in options.InputFiles)
         {
             // Read the second arg from the command line
@@ -62,19 +64,21 @@ class Iona
             // Normalize the code(converting \r\n to \n)
             code = code.Replace("\r\n", "\n");
             
+            compilationUnits.Add(new CompilationUnit { Source = code, Name = file });
+            
             Console.ForegroundColor = ConsoleColor.Green;
             Console.WriteLine("Compiling {0}", file);
             Console.ForegroundColor = ConsoleColor.White;
-        
-            compiler.Compile(
-                "App", 
-                new List<CompilationUnit> { new CompilationUnit { Source = code, Name = file }}, 
-                options.Intermediate, 
-                options.Debug,
-                options.AssemblyPaths?.ToList() ?? new List<string>(),
-                options.AssemblyRefs?.ToList() ?? new List<string>()
-            ); 
         }
+        
+        compiler.Compile(
+            "App", 
+            compilationUnits, 
+            options.Intermediate, 
+            options.Debug,
+            options.AssemblyPaths?.ToList() ?? new List<string>(),
+            options.AssemblyRefs?.ToList() ?? new List<string>()
+        ); 
     }
 
     static void OnError(IEnumerable<Error> errors)

@@ -41,11 +41,11 @@ namespace Typeck
         {
         }
 
-        internal void ConstructSymbolTable(FileNode file, out SymbolTable table, string assembly)
+        internal void ConstructSymbolTable(FileNode file, SymbolTable table, string assembly)
         {
-            _symbolTable = new SymbolTable();
+            _currentSymbol = null;
             _assembly = assembly;
-            table = _symbolTable;
+            _symbolTable = table;
 
             // Add the builtins module to the imports of the file node
             file.Children.Insert(0, new ImportNode("Iona.Builtins", file));
@@ -70,8 +70,7 @@ namespace Typeck
                 return;
             }
             
-            // We do not want to have the blocks in out symbol table structure as they are only needed in the AST so we do not add them at all
-
+            // We do not want to have the blocks in our symbol table structure as they are only needed in the AST so we do not add them at all
             foreach (var child in node.Children)
             {
                 switch (child)
@@ -136,6 +135,8 @@ namespace Typeck
             {
                 node.Body.Accept(this);
             }
+            
+            _currentSymbol = null;
         }
 
         public void Visit(ContractNode node)
@@ -317,6 +318,8 @@ namespace Typeck
 
                 _currentSymbol = symbol;
             }
+
+            _currentSymbol = null;
         }
 
         public void Visit(ObjectLiteralNode node)

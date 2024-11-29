@@ -2,20 +2,15 @@ module App
 
 use UnityEngine
 
-public class Test: MonoBehaviour {
-    public var value = 0.0f
-    private var body: Rigidbody
+public class DamageTicker: MonoBehaviour {
+    public var amount = 5.0f
+    public var player: Player
 
     public fn start() {
-        body = getComponent<Rigidbody>()
-        body.addForce(force: Vector3(x: 0.0f, y: 0.0f, z: value), mode: ForceMode::force)
+        player = getComponent<Player>()
     }
 
     public fn update() {
-        value += 1.0f * Time::deltaTime
+        player.health -= amount * Time::deltaTime
     }
-}
-
-public fn freeFunc() {
-
 }

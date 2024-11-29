@@ -52,6 +52,7 @@ namespace Generator
 
         internal CompilationUnitSyntax? Build(INode node)
         {
+            source.Clear();
             if (node is FileNode file)
             {
                 file.Accept(this);

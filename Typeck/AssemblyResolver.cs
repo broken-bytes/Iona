@@ -10,28 +10,24 @@ namespace Typeck
 {
     public class AssemblyResolver
     {
-        private SymbolTable _symbolTable = new();
-
         internal AssemblyResolver()
         {
         }
 
         internal void AddAssembliesToSymbolTable(List<Assembly> assemblies, SymbolTable table)
         {
-            _symbolTable = table;
-
             foreach (var assembly in assemblies)
             {
-                ConstructTypesForAssembly(assembly);
+                ConstructTypesForAssembly(assembly, table);
             }
 
             foreach (var assembly in assemblies)
             {
-                PopulateMembersForAssembly(assembly);
+                PopulateMembersForAssembly(assembly, table);
             }
         }
         
-        private void ConstructTypesForAssembly(Assembly assembly)
+        private void ConstructTypesForAssembly(Assembly assembly, SymbolTable table)
         {
             try
             {
@@ -61,11 +57,11 @@ namespace Typeck
 
                     var split = nspace.Split('.');
 
-                    var module = _symbolTable.Modules.Find(m => m.Name == split.First());
+                    var module = table.Modules.Find(m => m.Name == split.First());
                     if (module == null)
                     {
                         module = new ModuleSymbol(split.First(), assembly.FullName);
-                        _symbolTable.Modules.Add(module);
+                        table.Modules.Add(module);
                     }
 
                     foreach (var name in split.Skip(1))
@@ -116,7 +112,7 @@ namespace Typeck
             }
         }
 
-        private void PopulateMembersForAssembly(Assembly assembly)
+        private void PopulateMembersForAssembly(Assembly assembly, SymbolTable table)
         {
             try
             {
@@ -137,7 +133,7 @@ namespace Typeck
 
                 foreach (var type in types)
                 {
-                    var typeSymbol = _symbolTable.FindTypeByFQN(type.FullName);
+                    var typeSymbol = table.FindTypeByFQN(type.FullName);
 
                     if (typeSymbol == null)
                     {
@@ -183,7 +179,7 @@ namespace Typeck
                                 // Find the type symbol
                                 var unboxed =
                                     Shared.Utils.GetUnboxedName(method.ReturnType.FullName ?? method.ReturnType.Name);
-                                returnType = _symbolTable.FindTypeByFQN(unboxed);
+                                returnType = table.FindTypeByFQN(unboxed);
 
                                 if (returnType is null)
                                 {
@@ -205,7 +201,7 @@ namespace Typeck
                                 }
                                 else
                                 {
-                                    var paramType = _symbolTable.FindTypeByFQN(
+                                    var paramType = table.FindTypeByFQN(
                                         param?.ParameterType.FullName ??
                                         param?.ParameterType.Name);
 
@@ -299,7 +295,7 @@ namespace Typeck
                         {
                             var field = member as FieldInfo;
                             var fieldType =
-                                _symbolTable.FindTypeByFQN(field?.FieldType.FullName ?? field.FieldType.Name);
+                                table.FindTypeByFQN(field?.FieldType.FullName ?? field.FieldType.Name);
 
                             var ionaName = Shared.Utils.CSharpToIonaName(field.Name);
                             
@@ -352,7 +348,7 @@ namespace Typeck
 
                             var ionaName = Shared.Utils.CSharpToIonaName(prop.Name);
                             
-                            var propType = _symbolTable.FindTypeByFQN(unboxed);
+                            var propType = table.FindTypeByFQN(unboxed);
                             var propertySymbol = new PropertySymbol(
                                 ionaName,
                                 prop.Name,
@@ -377,7 +373,7 @@ namespace Typeck
                                 var boxedName =
                                     Shared.Utils.GetUnboxedName(param?.ParameterType.FullName ??
                                                                 param?.ParameterType.Name);
-                                var paramType = _symbolTable.FindTypeByFQN(boxedName);
+                                var paramType = table.FindTypeByFQN(boxedName);
 
                                 var paramSymbol = new ParameterSymbol(param.Name, paramType, initSymbol);
                                 initSymbol.Parent = typeSymbol;

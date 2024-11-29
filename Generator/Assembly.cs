@@ -23,11 +23,26 @@ namespace Generator
             builder = new AssemblyBuilder(table);
         }
 
-        public Assembly Generate(INode node, bool intermediate, List<string> assemblies, List<string> assemblyRefs)
+        public Assembly Generate(List<INode> trees, bool intermediate, List<string> assemblyRefs)
         {
-            var unit = builder.Build(node);
+            List<CompilationUnitSyntax> compilationUnits = [];
+            foreach (var tree in trees)
+            {
+                var unit = builder.Build(tree);
 
-            unit = WithFileHeader(node.ToString(), unit);
+                unit = WithFileHeader(tree.ToString(), unit);
+                compilationUnits.Add(unit);
+
+                if (intermediate)
+                {
+                    File.WriteAllText(tree.ToString() + ".cs", unit.NormalizeWhitespace().ToFullString());
+                }
+            }
+
+            if (intermediate)
+            {
+                return this;
+            }
             
             var references = new List<MetadataReference>();
             foreach (var reference in assemblyRefs)
@@ -46,15 +61,9 @@ namespace Generator
 
             CSharpCompilation compilation = CSharpCompilation.Create(Name)
                 .WithOptions(options)
-                .AddSyntaxTrees(unit.SyntaxTree)
+                .AddSyntaxTrees(compilationUnits.Select(unit => unit.SyntaxTree).ToArray())
                 .AddReferences(ReferenceAssemblies.Net80)
                 .AddReferences(references);
-
-            if (intermediate)
-            {
-                File.WriteAllText(node.ToString() + ".cs", unit.NormalizeWhitespace().ToFullString());
-                return null;
-            }
             
             using (var stream = new MemoryStream())
             {

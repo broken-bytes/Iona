@@ -100,7 +100,6 @@ namespace Compiler
             SymbolTable globalTable = new SymbolTable();
 
             ConcurrentBag<INode> asts = new ConcurrentBag<INode>();
-            ConcurrentBag<SymbolTable> symbols = new ConcurrentBag<SymbolTable>();
 
             var logger = ASTLoggerFactory.Create();
             var visualizer = ASTVisualizerFactory.Create();
@@ -110,16 +109,21 @@ namespace Compiler
                 var tokens = lexer.Tokenize(file.Source, file.Name);
                 var ast = parser.Parse(tokens, assemblyName);
                 asts.Add(ast);
-
-                var fileTable = typeck.BuildSymbolTable(ast, assemblyName);
-                symbols.Add(fileTable);
             });
-            
-            globalTable = typeck.MergeTables(symbols.ToList(), assemblyRefs);
 
-            Parallel.ForEach(asts, ast => typeck.CheckTopLevelScopes(ast, globalTable));
-            Parallel.ForEach(asts, ast => typeck.CheckExpressions(ast, globalTable));
-            Parallel.ForEach(asts, ast => typeck.TypeCheck(ast, globalTable));
+            foreach (var ast in asts)
+            {
+                typeck.BuildSymbolTable(ast, assemblyName, globalTable);
+            }
+            
+            typeck.AddImportedAssemblySymbols(globalTable, assemblyRefs);
+
+            foreach (var ast in asts)
+            {
+                typeck.CheckTopLevelScopes(ast, globalTable);
+                typeck.CheckExpressions(ast, globalTable);
+                typeck.TypeCheck(ast, globalTable);
+            }
 
             if (debug)
             {
@@ -157,7 +161,7 @@ namespace Compiler
             )
         {
             var assembly = generator.CreateAssembly(assemblyName, globalTable);
-            Parallel.ForEach(asts, ast => assembly.Generate(ast, intermediate, assemblyPaths, assemblyRefs));
+            assembly.Generate(asts, intermediate, assemblyRefs);
         }
     }
 }
