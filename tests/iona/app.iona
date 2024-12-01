@@ -11,6 +11,6 @@ public class DamageTicker: MonoBehaviour {
     }
 
     public fn update() {
-        amount = amount * Time::deltaTime
+        player.health -= amount * Time::deltaTime
     }
 }

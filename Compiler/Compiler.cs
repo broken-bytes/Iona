@@ -49,7 +49,8 @@ namespace Compiler
             bool intermediate, 
             bool debug,
             List<string> assemblyPaths, 
-            List<string> assemblyRefs
+            List<string> assemblyRefs,
+            string targetFramework
             )
         {
             // Add IONA SDK to the references
@@ -106,6 +107,9 @@ namespace Compiler
 
             Parallel.ForEach(files, file =>
             {
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine("Compiling {0}", file);
+                Console.ForegroundColor = ConsoleColor.White;
                 var tokens = lexer.Tokenize(file.Source, file.Name);
                 var ast = parser.Parse(tokens, assemblyName);
                 asts.Add(ast);
@@ -146,7 +150,7 @@ namespace Compiler
             }
             
             Console.ForegroundColor = ConsoleColor.Green;
-            GenerateCode(assemblyName, asts.ToList(), globalTable, intermediate, assemblyPaths, assemblyRefs);
+            GenerateCode(assemblyName, asts.ToList(), globalTable, intermediate, assemblyPaths, assemblyRefs, targetFramework);
 
             return true;
         }
@@ -157,11 +161,12 @@ namespace Compiler
             SymbolTable globalTable, 
             bool intermediate, 
             List<string> assemblyPaths, 
-            List<string> assemblyRefs
+            List<string> assemblyRefs,
+            string targetFramework
             )
         {
             var assembly = generator.CreateAssembly(assemblyName, globalTable);
-            assembly.Generate(asts, intermediate, assemblyRefs);
+            assembly.Generate(asts, intermediate, assemblyRefs, targetFramework);
         }
     }
 }

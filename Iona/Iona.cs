@@ -6,15 +6,22 @@ class Iona
     {
         [Value(0, Required = true, HelpText = "Input files separated by whitespace")]
         public IEnumerable<string> InputFiles { get; set; }
+        
         [Option('i', "intermediate", Required = false, HelpText = "Compile to C# only. Do not emit assembly.")]
         public bool Intermediate { get; set; } = false;
         [Option('d', "debug", Required = false, HelpText = "Print debug information (AST)")]
         public bool Debug { get; set; } = false;
+        
         [Option('a', "assemblies", Required = false, HelpText = "Additional paths to check for assemblies")]
         public IEnumerable<string> AssemblyPaths { get; set; }
+        
         [Option('r', "references", Required = false, HelpText = "Assemblies that shall be referenced.")]
-
         public IEnumerable<string> AssemblyRefs { get; set; }
+
+        [Option('f', "framework", Required = false,
+            HelpText =
+                "The .NET framework to use. Allowed values are '.NET Framework', .NET 8, and >NET Standard 2. Default is '.NET 8'")]
+        public string TargetFramework { get; set; } = "";
     }
     
     static void Main(String[] args)
@@ -65,10 +72,6 @@ class Iona
             code = code.Replace("\r\n", "\n");
             
             compilationUnits.Add(new CompilationUnit { Source = code, Name = file });
-            
-            Console.ForegroundColor = ConsoleColor.Green;
-            Console.WriteLine("Compiling {0}", file);
-            Console.ForegroundColor = ConsoleColor.White;
         }
         
         compiler.Compile(
@@ -77,7 +80,8 @@ class Iona
             options.Intermediate, 
             options.Debug,
             options.AssemblyPaths?.ToList() ?? new List<string>(),
-            options.AssemblyRefs?.ToList() ?? new List<string>()
+            options.AssemblyRefs?.ToList() ?? new List<string>(),
+            options.TargetFramework
         ); 
     }
 

@@ -298,6 +298,18 @@ namespace Parser.Parsers
             {
                 return true;
             }
+            
+            // An assigment may also start with a member access, so we need to check for that
+            if (memberAccessParser.IsMemberAccess(stream))
+            {
+                // Check if the next token is an assign operator (=)
+                var op = memberAccessParser.PeekTokenAfterMemberAccess(stream);
+
+                if (IsCompoundOperator(op))
+                {
+                    return true;
+                }
+            }
 
             return false;
         }

@@ -53,18 +53,31 @@ namespace Parser.Parsers
 
         public bool IsExpression(TokenStream stream)
         {
-            // Expressions start with an identifier, operator, paren or a literal
+            // Expressions start with an identifier, paren or a literal
             var token = stream.Peek();
 
             if (
                 token.Family is TokenFamily.Literal ||
                 token.Family is TokenFamily.Identifier ||
                 token.Type is TokenType.ParenLeft ||
-                token.Family is TokenFamily.Operator ||
                 token.Type is TokenType.Self
             )
             {
                 return true;
+            }
+
+            // Some operators may also start an expression
+            if (token.Family is TokenFamily.Operator)
+            {
+                switch (token.Type)
+                {
+                    case TokenType.Increment:
+                        return true;
+                    case TokenType.Decrement:
+                        return true;
+                    case TokenType.Not:
+                        return true;
+                }
             }
 
             return false;
@@ -416,6 +429,7 @@ namespace Parser.Parsers
 
         private INode BuildBinaryExpressionNode(TokenStream stream, INode? parent)
         {
+            Console.WriteLine(stream);
             var stack = new Stack<INode>();
             var token = stream.Peek();
             while (!stream.IsEmpty())
@@ -521,7 +535,7 @@ namespace Parser.Parsers
 
                 token = stream.Peek();
             }
-
+            
             var upperMost = stack.Pop();
             upperMost.Parent = parent;
 

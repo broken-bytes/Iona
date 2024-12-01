@@ -8,7 +8,8 @@
             bool intermediate, 
             bool debug,
             List<string> assemblyPaths,
-            List<string> assemblyRefs
+            List<string> assemblyRefs,
+            string targetFramework
             );
     }
 }

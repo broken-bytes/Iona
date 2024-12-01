@@ -1,4 +1,6 @@
-﻿namespace Lexer.Tokens
+﻿using System.Text;
+
+namespace Lexer.Tokens
 {
     public class TokenStreamException : Exception
     {
@@ -318,6 +320,20 @@
         public TokenStream Copy()
         {
             return new TokenStream(_tokens.ToList());
+        }
+
+        public override string ToString()
+        {
+            var builder = new StringBuilder();
+            
+            builder.Append("TokenStream { Count = ");
+            builder.Append(_tokens.Count.ToString());
+            builder.Append($", First: {_tokens.FirstOrDefault().Value ?? "null"}");
+            builder.Append($", Last: {_tokens.LastOrDefault().Value ?? "null"}");
+            builder.Append(" }");
+            builder.AppendLine();
+            
+            return builder.ToString();
         }
     }
 }

@@ -23,7 +23,7 @@ namespace Generator
             builder = new AssemblyBuilder(table);
         }
 
-        public Assembly Generate(List<INode> trees, bool intermediate, List<string> assemblyRefs)
+        public Assembly Generate(List<INode> trees, bool intermediate, List<string> assemblyRefs, string targetFramework)
         {
             List<CompilationUnitSyntax> compilationUnits = [];
             foreach (var tree in trees)
@@ -62,8 +62,20 @@ namespace Generator
             CSharpCompilation compilation = CSharpCompilation.Create(Name)
                 .WithOptions(options)
                 .AddSyntaxTrees(compilationUnits.Select(unit => unit.SyntaxTree).ToArray())
-                .AddReferences(ReferenceAssemblies.Net80)
                 .AddReferences(references);
+
+            if (targetFramework == "")
+            {
+                compilation = compilation.AddReferences(ReferenceAssemblies.Net80);
+            }
+            else if (targetFramework == ".NET Framework 4")
+            {
+                compilation = compilation.AddReferences(ReferenceAssemblies.Net472);
+            }
+            else
+            {
+                compilation = compilation.AddReferences(ReferenceAssemblies.NetStandard20);
+            }
             
             using (var stream = new MemoryStream())
             {

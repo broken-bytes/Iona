@@ -67,15 +67,7 @@ namespace Generator
         {
             HandleNode(node.Target);
 
-            switch (node.AssignmentType)
-            {
-                case AssignmentType.Assign:
-                    source.Append(" = ");
-                    break;
-                case AssignmentType.AddAssign:
-                    source.Append(" += ");
-                    break;
-            }
+            source.Append(node.AssignmentType.AssignmentString());
 
             HandleNode(node.Value);
         }
@@ -115,7 +107,7 @@ namespace Generator
                 var typeSymbol = _table.FindTypeByFQN(node.BaseType.FullyQualifiedName);
                 if (typeSymbol != null)
                 {
-                    var type = Utils.GetBoxedName(typeSymbol.FullyQualifiedName);
+                    var type = Shared.Utils.GetBoxedName(typeSymbol.FullyQualifiedName);
 
                     source.Append(type);
                 }
@@ -146,7 +138,7 @@ namespace Generator
         public void Visit(FuncCallNode node)
         {
             // First, print the name of the function
-            source.Append(Utils.IonaToCSharpName(node.Target.ILValue));
+            source.Append(Shared.Utils.IonaToCSharpName(node.Target.ILValue));
             if (node.GenericArgs.Any())
             {
                 source.Append('<');
@@ -184,7 +176,7 @@ namespace Generator
             }
             
             var isFree = node.Parent?.Parent is not ITypeNode;
-            var returnType = Utils.GetBoxedName(type.FullyQualifiedName);
+            var returnType = Shared.Utils.GetBoxedName(type.FullyQualifiedName);
             
             // The function is not part of a type and thus a free function
             if (isFree)
@@ -207,13 +199,13 @@ namespace Generator
             source.Append(returnType);
             
             source.Append(' ');
-            source.Append(Utils.IonaToCSharpName(node.Name));
+            source.Append(Shared.Utils.IonaToCSharpName(node.Name));
             source.Append('(');
 
             // Add the parameters to the method
             foreach (var parameter in node.Parameters)
             {
-                var paramType = Utils.GetBoxedName(parameter.TypeNode.FullyQualifiedName);
+                var paramType = Shared.Utils.GetBoxedName(parameter.TypeNode.FullyQualifiedName);
                 source.Append($"{paramType} {parameter.Name}");
             }
             source.Append(')');
@@ -257,7 +249,7 @@ namespace Generator
             // Add the parameters to the method
             foreach (var parameter in node?.Parameters ?? [])
             {
-                var paramType = Utils.GetBoxedName(parameter.TypeNode.FullyQualifiedName);
+                var paramType = Shared.Utils.GetBoxedName(parameter.TypeNode.FullyQualifiedName);
                 source.Append($"{paramType} {parameter.Name}");
             }
             source.Append(')');
@@ -403,7 +395,7 @@ namespace Generator
         public void Visit(PropertyNode node)
         {
             // Get the type of the prop
-            var type = Utils.GetBoxedName(node.TypeNode.FullyQualifiedName);
+            var type = Shared.Utils.GetBoxedName(node.TypeNode.FullyQualifiedName);
             
             switch (node.AccessLevel)
             {

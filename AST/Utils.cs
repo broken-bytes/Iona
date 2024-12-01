@@ -17,7 +17,7 @@ namespace AST
             {
                 throw new NullReferenceException();
             }
-            
+
             return fileNode;
         }
 
@@ -70,7 +70,7 @@ namespace AST
             {
                 builder.Append("<null>");
             }
-            
+
             switch (node)
             {
                 case IdentifierNode identifier:
@@ -109,12 +109,12 @@ namespace AST
 
                     break;
                 }
-                
+
                 default:
                     builder.Append("<unknown>");
                     break;
             }
-            
+
             return builder.ToString();
         }
     }
