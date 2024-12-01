@@ -429,7 +429,6 @@ namespace Parser.Parsers
 
         private INode BuildBinaryExpressionNode(TokenStream stream, INode? parent)
         {
-            Console.WriteLine(stream);
             var stack = new Stack<INode>();
             var token = stream.Peek();
             while (!stream.IsEmpty())

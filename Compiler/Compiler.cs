@@ -108,7 +108,7 @@ namespace Compiler
             Parallel.ForEach(files, file =>
             {
                 Console.ForegroundColor = ConsoleColor.Green;
-                Console.WriteLine("Compiling {0}", file);
+                Console.WriteLine($"Compiling {file.Name}");
                 Console.ForegroundColor = ConsoleColor.White;
                 var tokens = lexer.Tokenize(file.Source, file.Name);
                 var ast = parser.Parse(tokens, assemblyName);

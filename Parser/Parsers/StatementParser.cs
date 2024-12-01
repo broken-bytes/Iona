@@ -214,10 +214,8 @@ namespace Parser.Parsers
 
         private INode ParseCompoundAssignment(TokenStream stream, INode? parent)
         {
-            var target = stream.Consume(TokenFamily.Identifier, TokenFamily.Keyword);
-            var identifierNode = new IdentifierNode(target.Value);
-            Utils.SetMeta(identifierNode, target);
-
+            var target = expressionParser.Parse(stream, parent);
+            
             // Consume the compound operator
             var token = stream.Consume(TokenFamily.Operator, TokenFamily.Keyword);
 
@@ -228,7 +226,7 @@ namespace Parser.Parsers
             {
                 var error = new ErrorNode(
                     "Invalid operator after identifier",
-                    identifierNode,
+                    target,
                     parent
                 );
                 Utils.SetMeta(error, token);
@@ -238,10 +236,11 @@ namespace Parser.Parsers
 
             var value = expressionParser.Parse(stream, parent);
 
-            var assignment = new AssignmentNode(compoundOperation.Value, identifierNode, value, parent);
+            var assignment = new AssignmentNode(compoundOperation.Value, target, value, parent);
             assignment.Value.Parent = assignment;
             assignment.Target.Parent = assignment;
-            Utils.SetMeta(assignment, target);
+            Utils.SetMeta(assignment, target, value);
+
 
             return assignment;
         }

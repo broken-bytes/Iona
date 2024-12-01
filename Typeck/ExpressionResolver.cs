@@ -54,6 +54,13 @@ namespace Typeck
         {
             CheckNode(node.Target);
 
+            if (node.Target.Status == INode.ResolutionStatus.Failed)
+            {
+                node.Status = INode.ResolutionStatus.Failed;
+                
+                return;
+            }
+
             _contextualTypeFqn = node.Target switch
             {
                 PropAccessNode propAccess => propAccess.ResultType.FullyQualifiedName,
@@ -478,7 +485,30 @@ namespace Typeck
                 
                 return;
             }
+            
+            // Search for the type
+            var type = table.FindTypeByFQN(node.Root, objType.FullyQualifiedName);
 
+            if (type is null)
+            {
+                var simpleTypeCheck = table.FindTypeBySimpleName(node.Root, objType.Name);
+
+                if (simpleTypeCheck.IsSuccess)
+                {
+                    type = simpleTypeCheck.Unwrapped();
+                }
+                else
+                {
+                    var error = CompilerErrorFactory.CannotInferType(objType.Name, node.Object.Meta);
+                    
+                    _errorCollector.Collect(error);
+                    
+                    node.Status = INode.ResolutionStatus.Failed;
+                    
+                    return;
+                }
+            }
+            
             _currentTypeFqn = objType.FullyQualifiedName;
 
             node.Object.ResultType = new TypeReferenceNode(objType.Name, node.Object)
@@ -505,6 +535,16 @@ namespace Typeck
                 
                 // Assign the result of the prop to the root property access node result type
                 PropAccessNode? root = node.Parent as PropAccessNode;
+
+                // We are not in a chain
+                if (root is null)
+                {
+                    _currentTypeFqn = null;
+                    
+                    node.ResultType = node.Object.ResultType;
+
+                    return;
+                }
 
                 while (root != null && root.Parent is PropAccessNode)
                 {

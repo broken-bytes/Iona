@@ -69,7 +69,7 @@ namespace Lexer.Processors
                 }
                 else if (c == '.')
                 {
-                    if (hasDot)
+                    if (hasDot || isFloat)
                     {
                         // TODO: Handle error
                         break;
@@ -77,7 +77,7 @@ namespace Lexer.Processors
                     hasDot = true;
                     number.Append(c);
                 }
-                else if (Utils.IsOperator(c))
+                else
                 {
                     break;
                 }

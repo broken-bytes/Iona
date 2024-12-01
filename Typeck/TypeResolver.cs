@@ -774,8 +774,7 @@ namespace Typeck
 
             if (propAccess.Property is IdentifierNode identifier)
             {
-                var block = typeSymbol.Symbols.OfType<BlockSymbol>().First();
-                var prop = block.Symbols.OfType<PropertySymbol>().ToList().Find(symbol => symbol.Name == identifier.Value);
+                var prop = typeSymbol.Symbols.OfType<PropertySymbol>().ToList().Find(symbol => symbol.Name == identifier.Value);
 
                 var typeRef = new TypeReferenceNode(prop.Type.Name, propAccess)
                 {
