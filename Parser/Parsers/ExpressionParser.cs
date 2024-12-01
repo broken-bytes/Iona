@@ -311,7 +311,7 @@ namespace Parser.Parsers
                 {
                     // When we have an identifier followed by a parenthesis without any operator
                     // we have a function call and parse until the closing parenthesis
-                    if (output[^1].Type is TokenType.Identifier or TokenType.Self || hasGenericClause)
+                    if (output.Any() && (output[^1].Type is TokenType.Identifier or TokenType.Self || hasGenericClause))
                     {
                         funcNestingLevel++;
                         hasGenericClause = false;

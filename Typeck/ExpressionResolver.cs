@@ -91,8 +91,8 @@ namespace Typeck
                 return;
             }
 
-            var leftType = table.FindTypeBy(node.Root, node.Left.ResultType.Name, null);
-            var rightType = table.FindTypeBy(node.Root, node.Right.ResultType.Name, null);
+            var leftType = table.FindTypeByFQN(node.Root, node.Left.ResultType.FullyQualifiedName);
+            var rightType = table.FindTypeByFQN(node.Root, node.Right.ResultType.FullyQualifiedName);
 
             if (leftType is null || rightType is null)
             {
@@ -580,6 +580,24 @@ namespace Typeck
 
                 node.TypeNode = node.Value.ResultType;
 
+                // Update the symbol table
+                if (node.Value.Status == INode.ResolutionStatus.Resolved)
+                {
+                    // We have the type
+                    var symbol = table.FindBy(node);
+                    var typeSymbol = table.FindTypeByFQN(node.TypeNode.FullyQualifiedName);
+
+                    if (typeSymbol is null)
+                    {
+                        return;
+                    }
+
+                    if (symbol is PropertySymbol prop)
+                    {
+                        prop.Type = typeSymbol;
+                    }
+                }
+                
                 node.Status = node.Value.Status;
             }
             else if (node.TypeNode is null)
@@ -926,11 +944,11 @@ namespace Typeck
             {
                 if (assignment.Target == node)
                 {
-                    assignment.Target = newNode;
+                    assignment.Target = (IExpressionNode)newNode;
                 }
                 else
                 {
-                    assignment.Value = newNode;
+                    assignment.Value = (IExpressionNode)newNode;
                 }
             }
             // Case 6: Node is value of a binary expression

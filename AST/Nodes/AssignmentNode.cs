@@ -12,15 +12,15 @@ namespace AST.Nodes
         public StatementType StatementType { get; set; }
         public AssignmentType AssignmentType { get; set; }
         public FileNode Root { get => Utils.GetRoot(this); }
-        public INode Target { get; set; }
-        public INode Value { get; set; }
+        public IExpressionNode Target { get; set; }
+        public IExpressionNode Value { get; set; }
         public ResolutionStatus Status { get; set; } = ResolutionStatus.Unresolved;
         public Metadata Meta { get; set; }
 
         public AssignmentNode(
             AssignmentType assignmentType,
-            INode target,
-            INode value,
+            IExpressionNode target,
+            IExpressionNode value,
             INode? parent = null
         )
         {

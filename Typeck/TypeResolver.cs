@@ -64,11 +64,27 @@ namespace Typeck
 
         public void Visit(AssignmentNode node)
         {
-            // Two things to check:
-            // - Check the types of the target and the value
-            // - Check that the target and value have the same type (else add an error node)
-            CheckNode(node.Target);
-            CheckNode(node.Value);
+            // Check that the assignment matches the assignee's type
+            if (node.Status == ResolutionStatus.Failed)
+            {
+                return;
+            }
+
+            if (node.Target.ResultType.FullyQualifiedName == node.Value.ResultType.FullyQualifiedName)
+            {
+                // Finish
+                node.Status = ResolutionStatus.Resolved;
+            }
+            else
+            {
+                // There are a few cases where assignment works with different types, as long as the correct operator is implemented
+                var error = CompilerErrorFactory.TypeMismatchError(node.Target.ResultType.FullyQualifiedName, node.Value.ResultType.FullyQualifiedName, node.Meta);
+                
+                _errorCollector.Collect(error);
+                node.Status = ResolutionStatus.Failed;
+                
+                return;
+            }
         }
 
         public void Visit(BlockNode node)

@@ -3,7 +3,7 @@ module App
 use UnityEngine
 
 public class Player: MonoBehaviour {
-    public var health = 100.0f
+    public var health = 100
 
     fn onCollisionEnter(collision: Collision) {
         var name = collision.gameObject.name
