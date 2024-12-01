@@ -539,9 +539,10 @@ namespace Typeck
                 CheckNode(node.Value);
 
                 node.TypeNode = node.Value.ResultType;
-            }
 
-            if (node.TypeNode is null)
+                node.Status = node.Value.Status;
+            }
+            else if (node.TypeNode is null)
             {
                 node.Status = INode.ResolutionStatus.Failed;
 
@@ -554,9 +555,33 @@ namespace Typeck
                 var symbol = table.FindBy(node) as PropertySymbol;
                 
                 
-                var type = table.FindTypeByFQN(node.TypeNode.FullyQualifiedName);
-                symbol.Type = type;
-                node.Status = INode.ResolutionStatus.Resolved;
+                var type = table.FindTypeByFQN(node.Root, node.TypeNode.FullyQualifiedName);
+
+                if (type is null)
+                {
+                    var simpleName = table.FindTypeBySimpleName(node.Root, node.TypeNode.Name);
+
+                    if (simpleName.IsSuccess)
+                    {
+                        node.Status = INode.ResolutionStatus.Resolved;
+                        symbol.Type = simpleName.Unwrapped();
+                        
+                        return;
+                    }
+                }
+                else
+                {
+                    node.Status = INode.ResolutionStatus.Resolved;
+                    symbol.Type = type;
+                        
+                    return;
+                }
+                
+                node.Status = INode.ResolutionStatus.Failed;
+                
+                var error = CompilerErrorFactory.TopLevelDefinitionError(node.TypeNode.Name, node.TypeNode.Meta);
+                
+                _errorCollector.Collect(error);
             }
         }
 
