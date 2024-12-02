@@ -88,6 +88,8 @@ namespace Typeck
             {
                 node.Status = INode.ResolutionStatus.Resolved;
                 
+                node.ResultType = node.Right.ResultType;
+                
                 return;
             }
 
@@ -106,12 +108,24 @@ namespace Typeck
             {
                 node.Status = INode.ResolutionStatus.Resolved;
                 
+                node.ResultType = new TypeReferenceNode(leftOp.ReturnType.Name, node)
+                {
+                    FullyQualifiedName = leftOp.ReturnType.FullyQualifiedName,
+                    Assembly = leftOp.ReturnType.Assembly
+                };
+                
                 return;
             }
             
             if (rightOp is not null)
             {
                 node.Status = INode.ResolutionStatus.Resolved;
+                
+                node.ResultType = new TypeReferenceNode(rightOp.ReturnType.Name, node)
+                {
+                    FullyQualifiedName = rightOp.ReturnType.FullyQualifiedName,
+                    Assembly = rightOp.ReturnType.Assembly
+                };
                 
                 return;
             }
@@ -205,7 +219,96 @@ namespace Typeck
 
             if (funcWasFound.IsSuccess)
             {
-                node.Target.ILValue = funcWasFound.Unwrapped().CsharpName;
+                var func = funcWasFound.Unwrapped();
+                node.Target.ILValue = func.CsharpName;
+                
+                // Return type checking
+                // - We can either have generic returns, or normal returns
+                if (func.Symbols.OfType<GenericParameterSymbol>().Any(symbol => symbol.Name == func.ReturnType.Name))
+                {
+                    var genericParam = func
+                        .Symbols
+                        .OfType<GenericParameterSymbol>()
+                        .FirstOrDefault(symbol => symbol.Name == func.ReturnType.Name);
+
+                    if (genericParam is null)
+                    {
+                        var error = CompilerErrorFactory.TopLevelDefinitionError(func.ReturnType.FullyQualifiedName, node.Meta);
+                        
+                        _errorCollector.Collect(error);
+                        
+                        node.Status = INode.ResolutionStatus.Failed;
+                        
+                        return;
+                    }
+
+                    var index = func.Symbols.OfType<GenericParameterSymbol>().ToList().IndexOf(genericParam);
+
+                    if (index < node.GenericArgs.Count())
+                    {
+                        // We can try to infer the generic from the surrounding context
+                        if (_currentTypeFqn is not null)
+                        {
+                            var surroundingType = table.FindTypeByFQN(node.Root, _currentTypeFqn);
+
+                            if (surroundingType is not null)
+                            {
+                                node.Status = INode.ResolutionStatus.Resolved;
+                                node.ResultType = new TypeReferenceNode(surroundingType.Name, node)
+                                {
+                                    FullyQualifiedName = surroundingType.FullyQualifiedName,
+                                    Assembly = surroundingType.Assembly
+                                };
+                                
+                                return;
+                            }
+                            else
+                            {
+                                var error = CompilerErrorFactory.CannotInferType(func.ReturnType.FullyQualifiedName, node.Meta);
+                                
+                                _errorCollector.Collect(error);
+                                
+                                node.Status = INode.ResolutionStatus.Failed;
+                                
+                                return;
+                            }
+                        }
+                    }
+                    
+                    var genericReturnArg = node.GenericArgs[index];
+                    
+                    var returnTypeSymbol = table.FindTypeByFQN(node.Root, genericReturnArg.Name);
+
+                    if (returnTypeSymbol is not null)
+                    {
+                        node.Status = INode.ResolutionStatus.Resolved;
+
+                        node.ResultType = new TypeReferenceNode(returnTypeSymbol.Name, node)
+                        {
+                            FullyQualifiedName = returnTypeSymbol.FullyQualifiedName,
+                            Assembly = returnTypeSymbol.Assembly
+                        };
+                    }
+                    else
+                    {
+                        var simpleType = table.FindTypeBySimpleName(node.Root, genericReturnArg.Name);
+
+                        if (simpleType.IsSuccess)
+                        {
+                            node.Status = INode.ResolutionStatus.Resolved;
+
+                            var simpleTypeType = simpleType.Unwrapped();
+                            
+                            node.ResultType = new TypeReferenceNode(simpleTypeType.Name, node)
+                            {
+                                FullyQualifiedName = simpleTypeType.FullyQualifiedName,
+                                Assembly = simpleTypeType.Assembly
+                            };
+                        }
+                    }
+                    
+                }
+                
                 return;
             }
 
@@ -541,7 +644,11 @@ namespace Typeck
                 {
                     _currentTypeFqn = null;
                     
-                    node.ResultType = node.Object.ResultType;
+                    node.Object.ResultType = new TypeReferenceNode(objcProp.Type.Name, node)
+                    {
+                        FullyQualifiedName = objcProp.Type.FullyQualifiedName,
+                        Assembly = objcProp.Type.Assembly,
+                    };
 
                     return;
                 }
@@ -726,7 +833,7 @@ namespace Typeck
         {
             if (node == null)
             {
-                return;
+                return; 
             }
 
             switch (node)

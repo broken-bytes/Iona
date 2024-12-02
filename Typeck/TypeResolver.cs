@@ -64,8 +64,13 @@ namespace Typeck
 
         public void Visit(AssignmentNode node)
         {
+            
             // Check that the assignment matches the assignee's type
-            if (node.Status == ResolutionStatus.Failed)
+            if (
+                node.Status == ResolutionStatus.Failed || 
+                node.Target.Status == ResolutionStatus.Failed||
+                node.Value.Status == ResolutionStatus.Failed
+            )
             {
                 return;
             }
