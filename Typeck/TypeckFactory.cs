@@ -21,7 +21,7 @@ namespace Typeck
             var mutabilityResolver = new MutabilityResolver();
             
             var declPass = DeclPassFactory.Create(expressionResolver, errorCollector);
-            var implPass = ImplPassFactory.Create(expressionResolver, mutabilityResolver, typeResolver);
+            var implPass = ImplPassFactory.Create(errorCollector, expressionResolver, mutabilityResolver, typeResolver);
 
             return new Typeck(
                 declPass,

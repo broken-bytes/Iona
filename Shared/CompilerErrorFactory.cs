@@ -177,5 +177,14 @@ namespace Shared
                 meta
             );
         }
+
+        public static CompilerError VariableNotAllowedInTopLevel(Metadata meta)
+        {
+            return new CompilerError(
+                CompilerErrorCode.VariableNotAllowedInTopLevel,
+                $"Variables are not allowed as top-level statements.", 
+                meta
+            );
+        }
     }
 }

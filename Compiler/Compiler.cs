@@ -102,6 +102,7 @@ namespace Compiler
 
             ConcurrentBag<INode> asts = new ConcurrentBag<INode>();
 
+            
             var logger = ASTLoggerFactory.Create();
             var visualizer = ASTVisualizerFactory.Create();
 

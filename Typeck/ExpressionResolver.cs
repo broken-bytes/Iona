@@ -551,8 +551,20 @@ namespace Typeck
             }
             else
             {
-                var typeSymbol = _table.FindTypeByFQN(node.Root, _currentTypeFqn);
-                objc = typeSymbol.Symbols.FirstOrDefault(symbol =>
+                var typeSymbol = _table.FindType(node.Root, _currentTypeFqn);
+
+                if (typeSymbol.IsError)
+                {
+                    var error = CompilerErrorFactory.TopLevelDefinitionError(_currentTypeFqn, node.Meta);
+                    
+                    _errorCollector.Collect(error);
+                    
+                    node.Status = INode.ResolutionStatus.Failed;
+                    
+                    return;
+                }
+                
+                objc = typeSymbol.Unwrapped().Symbols.FirstOrDefault(symbol =>
                 {
                     return symbol switch
                     {
@@ -592,26 +604,17 @@ namespace Typeck
             }
             
             // Search for the type
-            var type = _table.FindTypeByFQN(node.Root, objType.FullyQualifiedName);
+            var type = _table.FindType(node.Root, objType.FullyQualifiedName);
 
-            if (type is null)
+            if (type.IsError)
             {
-                var simpleTypeCheck = _table.FindTypeBySimpleName(node.Root, objType.Name);
-
-                if (simpleTypeCheck.IsSuccess)
-                {
-                    type = simpleTypeCheck.Unwrapped();
-                }
-                else
-                {
-                    var error = CompilerErrorFactory.CannotInferType(objType.Name, node.Object.Meta);
+                var error = CompilerErrorFactory.CannotInferType(objType.Name, node.Object.Meta);
                     
-                    _errorCollector.Collect(error);
+                _errorCollector.Collect(error);
                     
-                    node.Status = INode.ResolutionStatus.Failed;
+                node.Status = INode.ResolutionStatus.Failed;
                     
-                    return;
-                }
+                return;
             }
             
             _currentTypeFqn = objType.FullyQualifiedName;
@@ -646,7 +649,7 @@ namespace Typeck
                 {
                     _currentTypeFqn = null;
                     
-                    node.Object.ResultType = new TypeReferenceNode(objcProp.Type.Name, node)
+                    node.ResultType = new TypeReferenceNode(objcProp.Type.Name, node)
                     {
                         FullyQualifiedName = objcProp.Type.FullyQualifiedName,
                         Assembly = objcProp.Type.Assembly,

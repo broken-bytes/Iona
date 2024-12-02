@@ -9,7 +9,7 @@ namespace Typeck.Passes.Impl;
 /// <summary>
 /// This pass checks all implementations of bodies (class, function, etc)
 /// </summary>
-public class ImplPassBodyChecksSubPass :
+public class ImplPassExpressionChecksSubPass :
     ISemanticAnalysisPass,
     IBlockVisitor,
     IClassVisitor,
@@ -20,20 +20,13 @@ public class ImplPassBodyChecksSubPass :
     IInitVisitor,
     IModuleVisitor,
     IOperatorVisitor,
-    IStructVisitor,
-    IVariableVisitor
+    IStructVisitor
 {
-    private readonly IErrorCollector _errorCollector;
     private readonly ExpressionResolver _expressionResolver;
     private SymbolTable _symbolTable;
-    private ISymbol? _currentScope;
 
-    internal ImplPassBodyChecksSubPass(
-        IErrorCollector errorCollector,
-        ExpressionResolver expressionResolver
-    )
+    internal ImplPassExpressionChecksSubPass(ExpressionResolver expressionResolver)
     {
-        _errorCollector = errorCollector;
         _expressionResolver = expressionResolver;
         _symbolTable = new SymbolTable();
     }
@@ -65,10 +58,8 @@ public class ImplPassBodyChecksSubPass :
                 case OperatorNode opNode:
                     opNode.Accept(this);
                     break;
-                case VariableNode varNode:
-                    varNode.Accept(this);
-                    break;
                 default:
+                    _expressionResolver.ResolveExpressionType(child, _symbolTable);
                     break;
             }
         }
@@ -88,9 +79,7 @@ public class ImplPassBodyChecksSubPass :
         {
             return;
         }
-
-        _currentScope = classSymbol;
-            
+        
         // For each contract this class conforms to, check if one of them is in fact a class and make it the base type
         foreach (var contract in node.Contracts)
         {
@@ -134,8 +123,6 @@ public class ImplPassBodyChecksSubPass :
         }
 
         node.Body?.Accept(this);
-        
-        _currentScope = null;
     }
 
 
@@ -267,8 +254,6 @@ public class ImplPassBodyChecksSubPass :
             return;
         }
         
-        _currentScope = structSymbol;
-        
         // For each contract this class conforms to, check if one of them is in fact a class and make it the base type
         foreach (var contract in node.Contracts)
         {
@@ -306,91 +291,5 @@ public class ImplPassBodyChecksSubPass :
         }
 
         node.Body?.Accept(this);
-
-        _currentScope = null;
-    }
-
-    public void Visit(VariableNode node)
-    {
-        node.Status = INode.ResolutionStatus.Resolving;
-        var variableSymbol = new VariableSymbol(node.Name, new TypeSymbol("Unknown", TypeKind.Unknown));
-
-        if (_currentScope is ModuleSymbol or null)
-        {
-            var error = CompilerErrorFactory.VariableNotAllowedInTopLevel(node.Meta);
-
-            _errorCollector.Collect(error);
-
-            node.Status = INode.ResolutionStatus.Failed;
-            
-            return;
-        }
-        
-        // Type inference
-        if (node.Value != null)
-        {
-            // Resolve the value
-            _expressionResolver.ResolveExpressionType(node.Value, _symbolTable);
-
-            node.TypeNode = node.Value.ResultType;
-        }
-
-        if (node.TypeNode is null && node.Value is null)
-        {
-            node.Status = INode.ResolutionStatus.Failed;
-
-            var error = CompilerErrorFactory.MissingTypeAnnotation(node.Name, node.Meta);
-            _errorCollector.Collect(error);
-                
-            return;
-        }
-        
-        if (node.TypeNode is not null)
-        {
-            var type = _symbolTable.FindType(node.Root, node.TypeNode.FullyQualifiedName);
-
-            if (type.IsSuccess)
-            {
-                variableSymbol.Type = type.Unwrapped();
-            }
-            else
-            {
-                var error = CompilerErrorFactory.TopLevelDefinitionError(node.TypeNode.FullyQualifiedName, node.TypeNode.Meta);
-                
-                _errorCollector.Collect(error);
-                
-                node.Status = INode.ResolutionStatus.Failed;
-                
-                return;
-            }
-        }
-        else
-        {
-            if (node.Value != null && node.Value.Status == INode.ResolutionStatus.Failed)
-            {
-                var error = CompilerErrorFactory.CannotInferType(node.Name, node.Meta);
-                    
-                _errorCollector.Collect(error);
-                    
-                return;
-            }
-                
-            var resultType = _symbolTable.FindType(node.Root, node.Value.ResultType.FullyQualifiedName);
-
-            if (resultType.IsSuccess)
-            {
-                variableSymbol.Type = resultType.Unwrapped();
-            }
-            else
-            {
-                var error = CompilerErrorFactory.CannotInferType(node.Name, node.Meta);
-                    
-                _errorCollector.Collect(error);
-                    
-                return;
-            }
-        }
-
-        node.Status = INode.ResolutionStatus.Resolved;
     }
 }

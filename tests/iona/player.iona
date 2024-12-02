@@ -8,6 +8,6 @@ public class Player: MonoBehaviour {
     fn onCollisionEnter(collision: Collision) {
         var name = collision.gameObject.name
 
-        self.gameObject.addComponent<DamageTicker>()
+        gameObject.addComponent<DamageTicker>()
     }
 }

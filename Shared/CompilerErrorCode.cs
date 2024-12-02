@@ -34,6 +34,8 @@
         /// The referenced type is found in multiple import modules
         AmbiguousTypeReference,
         // The type of a prop or variable cannot get inferred
-        CannotInferType
+        CannotInferType,
+        /// When a variable/prop is defined at module scope
+        VariableNotAllowedInTopLevel
     }
 }
