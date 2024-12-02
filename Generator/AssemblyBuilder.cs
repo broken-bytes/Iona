@@ -301,7 +301,7 @@ namespace Generator
 
             reference = new TypeReference(
                 returnType.Name,
-                NamespaceOf(returnType.FullyQualifiedName),
+                "",
                 returnType.Assembly,
                 returnType.TypeKind == Kind.Class || returnType.TypeKind == Kind.Contract
             );
@@ -350,7 +350,7 @@ namespace Generator
 
                 reference = new TypeReference(
                     type.Name,
-                    NamespaceOf(type.FullyQualifiedName),
+                    "",
                     type.Assembly,
                     type.TypeKind == Kind.Class || type.TypeKind == Kind.Contract
                 );
@@ -504,47 +504,6 @@ namespace Generator
                 HandleNode(node.Value);
             }
         }
-
-        // ---- Helper methods ----
-        private void SetTypeLayout(TypeDefinition type, int size)
-        {
-        }
-
-        private void AddFieldOffset(FieldDefinition field, int size)
-        {
-        }
-
-        private void EmitGetIdentifier(IdentifierNode node)
-        {
-        }
-
-        private void EmitSetIdentifier(IdentifierNode node)
-        {
-        }
-
-        void EmitSetProperty(PropertyNode prop)
-        {
-
-        }
-
-        private void EmitGetPropAccess(PropAccessNode node)
-        {
-        }
-
-        private string NamespaceOf(string name)
-        {
-            return name.Substring(0, name.LastIndexOf('.'));
-        }
-
-        private PropertyDefinition? GetProperty(PropAccessNode node)
-        {
-            return null;
-        }
-
-        private TypeReference? GetTypeReference(TypeSymbol type)
-        {
-            return null;
-        }
         
         private MemberAccessExpressionSyntax PropAccessToMemberAccess(PropAccessNode node)
         {
@@ -691,6 +650,11 @@ namespace Generator
 
         private void HandleNode(INode node)
         {
+            if (node.Status == INode.ResolutionStatus.Failed)
+            {
+                return;
+            }
+            
             switch (node)
             {
                 case AssignmentNode assignment:
@@ -732,7 +696,6 @@ namespace Generator
                 case ReturnNode ret:
                     ret.Accept(this);
                     break;
-               
                 case ScopeResolutionNode scope:
                     scope.Accept(this);
                     break;

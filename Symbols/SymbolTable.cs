@@ -374,6 +374,20 @@ namespace Symbols
             return false;
         }
 
+        public Result<TypeSymbol, SymbolResolutionError> FindType(FileNode context, string name)
+        {
+            var fqnType = FindTypeByFQN(context, name);
+
+            if (fqnType != null)
+            {
+                return Result<TypeSymbol, SymbolResolutionError>.Ok(fqnType);
+            }
+            
+            var simpleType = FindTypeBySimpleName(context, name);
+
+            return simpleType;
+        }
+        
         public TypeSymbol? FindTypeByFQN(FileNode context, string name)
         {
             ISymbol? symbol = FindModuleByFQN(context, name);

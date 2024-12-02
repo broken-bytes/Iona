@@ -50,6 +50,11 @@ namespace Typeck
             CheckNode(ast);
         }
 
+        public void ResolveExpressionType(INode node)
+        {
+            CheckNode(node);
+        }
+
         public void Visit(AssignmentNode node)
         {
             CheckNode(node.Target);

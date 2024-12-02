@@ -7,10 +7,7 @@ namespace Typeck
 {
     public interface ITypeck
     {
-        public void BuildSymbolTable(INode node, string assembly, SymbolTable symbolTable);
-        public void CheckTopLevelScopes(INode node, SymbolTable table);
-        public void CheckExpressions(INode node, SymbolTable table);
-        public void TypeCheck(INode node, SymbolTable table);
+        public void DoSemanticAnalysis(INode node, string assembly, SymbolTable symbolTable);
         public void AddImportedAssemblySymbols(SymbolTable table, List<string> assemblies);
     }
 }

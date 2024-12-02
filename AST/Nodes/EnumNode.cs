@@ -8,6 +8,7 @@ namespace AST.Nodes
     public class EnumNode : IAccessLevelNode, IStatementNode
     {
         public string Name { get; set; }
+        public string FullyQualifiedName { get; set; }
         public INode? Parent { get; set; }
         public NodeType Type { get; set; }
         public FileNode Root => Utils.GetRoot(this);

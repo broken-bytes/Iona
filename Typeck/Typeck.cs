@@ -2,11 +2,15 @@
 using AST.Nodes;
 using AST.Types;
 using Symbols;
+using Typeck.Passes;
+using Typeck.Passes.Impl;
 
 namespace Typeck
 {
     internal class Typeck : ITypeck
     {
+        private readonly DeclPass _declPass;
+        private readonly ImplPass _implPass;
         private readonly AssemblyResolver _assemblyResolver;
         private readonly SymbolTableConstructor _tableConstructor;
         private readonly TopLevelScopeResolver _topLevelScopeResolver;
@@ -15,6 +19,8 @@ namespace Typeck
         private readonly MutabilityResolver _mutabilityResolver;
 
         internal Typeck(
+            DeclPass declPass,
+            ImplPass implPass,
             AssemblyResolver assemblyResolver,
             SymbolTableConstructor tableConstructor,
             TopLevelScopeResolver topLevelScopeResolver,
@@ -23,6 +29,8 @@ namespace Typeck
             MutabilityResolver mutabilityResolver
         )
         {
+            _declPass = declPass;
+            _implPass = implPass;
             _assemblyResolver = assemblyResolver;
             _tableConstructor = tableConstructor;
             _topLevelScopeResolver = topLevelScopeResolver;
@@ -31,7 +39,7 @@ namespace Typeck
             _mutabilityResolver = mutabilityResolver;
         }
 
-        public void BuildSymbolTable(INode node, string assembly, SymbolTable table)
+        public void DoSemanticAnalysis(INode node, string assembly, SymbolTable table)
         {
             // The root node shall be a file node, but we strip it and only add the module
             if (node is not FileNode fileNode)
@@ -39,44 +47,9 @@ namespace Typeck
                 // Panic
                 return;
             }
-
-            _tableConstructor.ConstructSymbolTable(fileNode, table, assembly);
-
-#if !IONA_BOOTSTRAP
-            // Add the builtins module to the imports of the file node
-            fileNode.Children.Insert(0, new ImportNode("Iona.Builtins", fileNode));
-#endif
-        }
-
-        public void DoSemanticAnalysis(INode node, SymbolTable table)
-        {
-            CheckTopLevelScopes(node, table);
-            TypeCheck(node, table);
-            CheckExpressions(node, table);
-        }
-
-        public void CheckTopLevelScopes(INode node, SymbolTable table)
-        {
-            if (node is FileNode fileNode)
-            {
-                _topLevelScopeResolver.CheckScopes(fileNode, table);
-            }
-        }
-
-        public void CheckExpressions(INode node, SymbolTable table)
-        {
-            if (node is FileNode fileNode)
-            {
-                _expressionResolver.CheckScopes(fileNode, table);
-            }
-        }
-
-        public void TypeCheck(INode node, SymbolTable table)
-        {
-            if (node is FileNode fileNode)
-            {
-                _typeResolver.TypeCheckAST(fileNode, table);
-            }
+            
+            _declPass.Run(fileNode, table, assembly);
+            _implPass.Run(fileNode, table, assembly);
         }
 
         public void AddImportedAssemblySymbols(SymbolTable table, List<string> assemblies)

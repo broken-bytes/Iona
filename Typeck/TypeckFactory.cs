@@ -1,4 +1,7 @@
 ﻿using Shared;
+using Typeck.Passes;
+using Typeck.Passes.Decl;
+using Typeck.Passes.Impl;
 
 namespace Typeck
 {
@@ -16,8 +19,13 @@ namespace Typeck
             var typeResolver = new TypeResolver(errorCollector, warningCollector, fixItCollector);
             var expressionResolver = new ExpressionResolver(errorCollector);
             var mutabilityResolver = new MutabilityResolver();
+            
+            var declPass = DeclPassFactory.Create(expressionResolver);
+            var implPass = ImplPassFactory.Create(expressionResolver, mutabilityResolver, typeResolver);
 
             return new Typeck(
+                declPass,
+                implPass,
                 assemblyResolver,
                 tableConstructor, 
                 topLevelResolver, 

@@ -14,7 +14,7 @@ namespace AST.Nodes
         public FileNode Root => Utils.GetRoot(this);
         public AccessLevel AccessLevel { get; set; }
         public StatementType StatementType { get; set; }
-        public List<INode> Contracts { get; set; } = new List<INode>();
+        public List<ITypeReferenceNode> Contracts { get; set; } = new();
         public List<GenericArgument> GenericArguments { get; set; } = new List<GenericArgument>();
         public BlockNode? Body { get; set; }
         public ResolutionStatus Status { get; set; } = ResolutionStatus.Unresolved;

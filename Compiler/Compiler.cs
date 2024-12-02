@@ -115,18 +115,11 @@ namespace Compiler
                 asts.Add(ast);
             });
 
-            foreach (var ast in asts)
-            {
-                typeck.BuildSymbolTable(ast, assemblyName, globalTable);
-            }
-            
             typeck.AddImportedAssemblySymbols(globalTable, assemblyRefs);
-
+            
             foreach (var ast in asts)
             {
-                typeck.CheckTopLevelScopes(ast, globalTable);
-                typeck.CheckExpressions(ast, globalTable);
-                typeck.TypeCheck(ast, globalTable);
+                typeck.DoSemanticAnalysis(ast, assemblyName, globalTable);
             }
 
             if (debug)
