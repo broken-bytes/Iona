@@ -26,12 +26,15 @@ public class DeclPassMemberRegisterSubPass :
     
     internal DeclPassMemberRegisterSubPass() {}
     
-    public void Run(FileNode root, SymbolTable table, string assemblyName)
+    public void Run(List<FileNode> files, SymbolTable table, string assemblyName)
     {
         _symbolTable = table;
         _assemblyName = assemblyName;
-        
-        root.Accept(this);
+
+        foreach (var file in files)
+        {
+            file.Accept(this);
+        }
     }
 
     public void Visit(BlockNode node)
@@ -115,6 +118,16 @@ public class DeclPassMemberRegisterSubPass :
         
         var csharpName = Shared.Utils.IonaToCSharpName(node.Name);
         var symbol = new FuncSymbol(node.Name, csharpName);
+        
+        RegisterParameters(symbol, node.Parameters);
+
+        foreach (var generic in node.GenericArguments)
+        {
+            var genericSymbol = new GenericParameterSymbol(generic.Name);
+            symbol.Symbols.Add(genericSymbol);
+            genericSymbol.Parent = _currentSymbol;
+        }
+        
         _currentSymbol.Symbols.Add(symbol);
         symbol.Parent = _currentSymbol;
     }
@@ -130,6 +143,8 @@ public class DeclPassMemberRegisterSubPass :
         {
             ReturnType = typeSymbol
         };
+        
+        RegisterParameters(symbol, node.Parameters);
         
         _currentSymbol.Symbols.Add(symbol);
         symbol.Parent = _currentSymbol;
@@ -177,6 +192,9 @@ public class DeclPassMemberRegisterSubPass :
         }
 
         var symbol = new OperatorSymbol(node.Op);
+
+        RegisterParameters(symbol, node.Parameters);
+        
         _currentSymbol.Symbols.Add(symbol);
         symbol.Parent = _currentSymbol;
     }
@@ -228,5 +246,16 @@ public class DeclPassMemberRegisterSubPass :
         _currentSymbol = symbol;
 
         node.Body?.Accept(this);
+    }
+
+    private void RegisterParameters(ISymbol symbol, List<ParameterNode> parameters)
+    {
+        foreach (var param in parameters)
+        {
+            var paramType = new TypeSymbol(param.TypeNode.Name, TypeKind.Unknown);
+            var paramSymbol = new ParameterSymbol(param.Name, paramType, symbol);
+            
+            symbol.Symbols.Add(paramSymbol);
+        }
     }
 }

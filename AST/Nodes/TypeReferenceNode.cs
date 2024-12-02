@@ -21,7 +21,8 @@ namespace AST.Nodes
 
         public TypeReferenceNode(string name, INode? parent = null)
         {
-            this.FullyQualifiedName = "";
+            // Temporarily set the name to the FQN
+            FullyQualifiedName = name;
             Name = name;
             TypeKind = Kind.Unknown;
             Parent = parent;

@@ -5,7 +5,7 @@ namespace Typeck.Passes.Impl;
 
 public class ImplPassMutabilitySubPass : ISemanticAnalysisPass
 {
-    public void Run(FileNode root, SymbolTable table, string assemblyName)
+    public void Run(List<FileNode> files, SymbolTable table, string assemblyName)
     {
         
     }

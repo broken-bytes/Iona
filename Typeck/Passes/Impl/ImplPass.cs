@@ -12,11 +12,11 @@ public class ImplPass : ISemanticAnalysisPass
         _passes = passes;
     }
     
-    public void Run(FileNode root, SymbolTable table, string assemblyName)
+    public void Run(List<FileNode> files, SymbolTable table, string assemblyName)
     {
         foreach (var pass in _passes)
         {
-            pass.Run(root, table, assemblyName);
+            pass.Run(files, table, assemblyName);
         }
     }
 }

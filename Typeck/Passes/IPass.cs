@@ -5,5 +5,5 @@ namespace Typeck.Passes;
 
 public interface ISemanticAnalysisPass
 {
-    public void Run(FileNode root, SymbolTable table, string assemblyName);
+    public void Run(List<FileNode> files, SymbolTable table, string assemblyName);
 }

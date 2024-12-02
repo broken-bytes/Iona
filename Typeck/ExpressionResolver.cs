@@ -31,7 +31,7 @@ namespace Typeck
         IStructVisitor,
         IVariableVisitor
     {
-        private SymbolTable table;
+        private SymbolTable _table;
         private IErrorCollector _errorCollector;
         /// The type an expression shall resolve to. Used in stuff like assignments or parameters
         private string? _contextualTypeFqn;
@@ -40,18 +40,13 @@ namespace Typeck
 
         internal ExpressionResolver(IErrorCollector errorCollector)
         {
-            table = new SymbolTable();
+            _table = new SymbolTable();
             _errorCollector = errorCollector;
         }
 
-        internal void CheckScopes(INode ast, SymbolTable table)
+        public void ResolveExpressionType(INode node, SymbolTable table)
         {
-            this.table = table;
-            CheckNode(ast);
-        }
-
-        public void ResolveExpressionType(INode node)
-        {
+            _table = table;
             CheckNode(node);
         }
 
@@ -98,8 +93,8 @@ namespace Typeck
                 return;
             }
 
-            var leftType = table.FindTypeByFQN(node.Root, node.Left.ResultType.FullyQualifiedName);
-            var rightType = table.FindTypeByFQN(node.Root, node.Right.ResultType.FullyQualifiedName);
+            var leftType = _table.FindTypeByFQN(node.Root, node.Left.ResultType.FullyQualifiedName);
+            var rightType = _table.FindTypeByFQN(node.Root, node.Right.ResultType.FullyQualifiedName);
 
             if (leftType is null || rightType is null)
             {
@@ -199,16 +194,16 @@ namespace Typeck
             
             if (_currentTypeFqn != null)
             {
-                typeSymbol = table.FindTypeByFQN(node.Root, _currentTypeFqn);
+                typeSymbol = _table.FindTypeByFQN(node.Root, _currentTypeFqn);
             }
             else
             {
                 // Check if the function is a member function or a free function
                 var currentType = hierarchy.OfType<ITypeNode>().FirstOrDefault();
-                typeSymbol = table.FindTypeByFQN(node.Root, currentType.FullyQualifiedName);
+                typeSymbol = _table.FindTypeByFQN(node.Root, currentType.FullyQualifiedName);
             }
             // Check if the function is in scope
-            var funcWasFound = table.CheckIfFuncExists(node.Root, typeSymbol, node);
+            var funcWasFound = _table.CheckIfFuncExists(node.Root, typeSymbol, node);
 
             if (funcWasFound.IsError)
             {
@@ -254,7 +249,7 @@ namespace Typeck
                         // We can try to infer the generic from the surrounding context
                         if (_currentTypeFqn is not null)
                         {
-                            var surroundingType = table.FindTypeByFQN(node.Root, _currentTypeFqn);
+                            var surroundingType = _table.FindTypeByFQN(node.Root, _currentTypeFqn);
 
                             if (surroundingType is not null)
                             {
@@ -282,7 +277,7 @@ namespace Typeck
                     
                     var genericReturnArg = node.GenericArgs[index];
                     
-                    var returnTypeSymbol = table.FindTypeByFQN(node.Root, genericReturnArg.Name);
+                    var returnTypeSymbol = _table.FindTypeByFQN(node.Root, genericReturnArg.Name);
 
                     if (returnTypeSymbol is not null)
                     {
@@ -296,7 +291,7 @@ namespace Typeck
                     }
                     else
                     {
-                        var simpleType = table.FindTypeBySimpleName(node.Root, genericReturnArg.Name);
+                        var simpleType = _table.FindTypeBySimpleName(node.Root, genericReturnArg.Name);
 
                         if (simpleType.IsSuccess)
                         {
@@ -321,7 +316,7 @@ namespace Typeck
             initCallNode.Args = node.Args;
             initCallNode.Meta = node.Meta;
             
-            var initWasFound = table.CheckIfInitExists(node.Root, initCallNode);
+            var initWasFound = _table.CheckIfInitExists(node.Root, initCallNode);
 
             if (initWasFound.IsError)
             {
@@ -381,7 +376,7 @@ namespace Typeck
             }
 
             // Find the type
-            var symbol = table.FindBy(node);
+            var symbol = _table.FindBy(node);
             TypeSymbol? type = symbol switch
             {
                 PropertySymbol prop => prop.Type,
@@ -422,7 +417,7 @@ namespace Typeck
             }
             
             // Check in the symbol table if any overload exists for the given parameters
-            var type = table.FindTypeByFQN(node.Root, node.TypeFullName);
+            var type = _table.FindTypeByFQN(node.Root, node.TypeFullName);
 
             if (type is null)
             {
@@ -439,7 +434,7 @@ namespace Typeck
             // Check every init if it has matching name + expression type args
             foreach (var init in type.Symbols.OfType<InitSymbol>())
             {
-                if (table.ArgsMatchParameters(init.Symbols.OfType<ParameterSymbol>().ToList(), node.Args))
+                if (_table.ArgsMatchParameters(init.Symbols.OfType<ParameterSymbol>().ToList(), node.Args))
                 {
                     return;
                 }
@@ -480,6 +475,8 @@ namespace Typeck
             };
             
             node.ResultType = typeNode;
+
+            node.Status = INode.ResolutionStatus.Resolved;
         }
 
         public void Visit(ModuleNode node)
@@ -505,7 +502,7 @@ namespace Typeck
 
         public void Visit(ParameterNode node)
         {
-            var type = table.FindTypeBySimpleName(node.Root, node.TypeNode.Name);
+            var type = _table.FindTypeBySimpleName(node.Root, node.TypeNode.Name);
 
             if (type.IsSuccess)
             {
@@ -516,7 +513,7 @@ namespace Typeck
                     Assembly = actualType.Assembly
                 };
                 
-                var symbol = table.FindBy(node);
+                var symbol = _table.FindBy(node);
 
                 if (symbol is ParameterSymbol param)
                 {
@@ -545,7 +542,7 @@ namespace Typeck
             
             if (_currentTypeFqn is null)
             {
-                objc = table.FindBy(node.Object);
+                objc = _table.FindBy(node.Object);
 
                 if (objc is null)
                 {
@@ -554,7 +551,7 @@ namespace Typeck
             }
             else
             {
-                var typeSymbol = table.FindTypeByFQN(node.Root, _currentTypeFqn);
+                var typeSymbol = _table.FindTypeByFQN(node.Root, _currentTypeFqn);
                 objc = typeSymbol.Symbols.FirstOrDefault(symbol =>
                 {
                     return symbol switch
@@ -595,11 +592,11 @@ namespace Typeck
             }
             
             // Search for the type
-            var type = table.FindTypeByFQN(node.Root, objType.FullyQualifiedName);
+            var type = _table.FindTypeByFQN(node.Root, objType.FullyQualifiedName);
 
             if (type is null)
             {
-                var simpleTypeCheck = table.FindTypeBySimpleName(node.Root, objType.Name);
+                var simpleTypeCheck = _table.FindTypeBySimpleName(node.Root, objType.Name);
 
                 if (simpleTypeCheck.IsSuccess)
                 {
@@ -696,8 +693,8 @@ namespace Typeck
                 if (node.Value.Status == INode.ResolutionStatus.Resolved)
                 {
                     // We have the type
-                    var symbol = table.FindBy(node);
-                    var typeSymbol = table.FindTypeByFQN(node.TypeNode.FullyQualifiedName);
+                    var symbol = _table.FindBy(node);
+                    var typeSymbol = _table.FindTypeByFQN(node.TypeNode.FullyQualifiedName);
 
                     if (typeSymbol is null)
                     {
@@ -722,14 +719,14 @@ namespace Typeck
             else
             {
                 // Also update the symbol table
-                var symbol = table.FindBy(node) as PropertySymbol;
+                var symbol = _table.FindBy(node) as PropertySymbol;
                 
                 
-                var type = table.FindTypeByFQN(node.Root, node.TypeNode.FullyQualifiedName);
+                var type = _table.FindTypeByFQN(node.Root, node.TypeNode.FullyQualifiedName);
 
                 if (type is null)
                 {
-                    var simpleName = table.FindTypeBySimpleName(node.Root, node.TypeNode.Name);
+                    var simpleName = _table.FindTypeBySimpleName(node.Root, node.TypeNode.Name);
 
                     if (simpleName.IsSuccess)
                     {
@@ -808,11 +805,11 @@ namespace Typeck
             }
 
             // Also update the symbol table
-            var symbol = table.FindBy(node) as VariableSymbol;
+            var symbol = _table.FindBy(node) as VariableSymbol;
 
             if (node.TypeNode is not null)
             {
-                var type = table.FindTypeByFQN(node.TypeNode.FullyQualifiedName);
+                var type = _table.FindTypeByFQN(node.TypeNode.FullyQualifiedName);
                 symbol.Type = type;
             }
             else
@@ -826,7 +823,7 @@ namespace Typeck
                     return;
                 }
                 
-                var resultType = table.FindTypeByFQN(node.Value.ResultType.FullyQualifiedName);
+                var resultType = _table.FindTypeByFQN(node.Value.ResultType.FullyQualifiedName);
                 symbol.Type = resultType;
             }
 
@@ -953,7 +950,7 @@ namespace Typeck
             ISymbol? symbol;
             if (parent == null)
             {
-                symbol = table.FindTypeBy(node.Root, node.Scope.Value, null);
+                symbol = _table.FindTypeBy(node.Root, node.Scope.Value, null);
             }
             else
             {

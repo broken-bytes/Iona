@@ -116,11 +116,7 @@ namespace Compiler
             });
 
             typeck.AddImportedAssemblySymbols(globalTable, assemblyRefs);
-            
-            foreach (var ast in asts)
-            {
-                typeck.DoSemanticAnalysis(ast, assemblyName, globalTable);
-            }
+            typeck.DoSemanticAnalysis(asts.OfType<FileNode>().ToList(), assemblyName, globalTable);
 
             if (debug)
             {

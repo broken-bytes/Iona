@@ -39,17 +39,10 @@ namespace Typeck
             _mutabilityResolver = mutabilityResolver;
         }
 
-        public void DoSemanticAnalysis(INode node, string assembly, SymbolTable table)
+        public void DoSemanticAnalysis(List<FileNode> files, string assembly, SymbolTable table)
         {
-            // The root node shall be a file node, but we strip it and only add the module
-            if (node is not FileNode fileNode)
-            {
-                // Panic
-                return;
-            }
-            
-            _declPass.Run(fileNode, table, assembly);
-            _implPass.Run(fileNode, table, assembly);
+            _declPass.Run(files, table, assembly);
+            _implPass.Run(files, table, assembly);
         }
 
         public void AddImportedAssemblySymbols(SymbolTable table, List<string> assemblies)

@@ -29,10 +29,14 @@ public class ImplPassBodyChecksSubPass :
         _symbolTable = new SymbolTable();
     }
     
-    public void Run(FileNode root, SymbolTable table, string assemblyName)
+    public void Run(List<FileNode> files, SymbolTable table, string assemblyName)
     {
         _symbolTable = table;
-        root.Accept(this);
+        
+        foreach (var file in files)
+        {
+            file.Accept(this);
+        }
     }
     
     public void Visit(BlockNode node)

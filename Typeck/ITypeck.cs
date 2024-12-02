@@ -7,7 +7,7 @@ namespace Typeck
 {
     public interface ITypeck
     {
-        public void DoSemanticAnalysis(INode node, string assembly, SymbolTable symbolTable);
+        public void DoSemanticAnalysis(List<FileNode> files, string assembly, SymbolTable symbolTable);
         public void AddImportedAssemblySymbols(SymbolTable table, List<string> assemblies);
     }
 }

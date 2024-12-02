@@ -12,11 +12,11 @@ public class DeclPass : ISemanticAnalysisPass
         _subPasses = subPasses;
     }
     
-    public void Run(FileNode root, SymbolTable table, string assemblyName)
+    public void Run(List<FileNode> files, SymbolTable table, string assemblyName)
     {
         foreach (var pass in _subPasses)
         {
-            pass.Run(root, table, assemblyName);
+            pass.Run(files, table, assemblyName);
         }
     }
 }

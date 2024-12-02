@@ -33,12 +33,15 @@ public class DeclPassMemberReferenceResolveSubPass :
         _expressionResolver = expressionResolver;
     }
     
-    public void Run(FileNode root, SymbolTable table, string assemblyName)
+    public void Run(List<FileNode> files, SymbolTable table, string assemblyName)
     {
         _symbolTable = table;
         _assemblyName = assemblyName;
-        
-        root.Accept(this);
+
+        foreach (var file in files)
+        {
+            file.Accept(this);
+        }
     }
 
     public void Visit(BlockNode node)
@@ -69,6 +72,8 @@ public class DeclPassMemberReferenceResolveSubPass :
         _currentSymbol = symbol;
 
         node.Body?.Accept(this);
+        
+        _currentSymbol = null;
     }
     
     public void Visit(ContractNode node)
@@ -386,7 +391,7 @@ public class DeclPassMemberReferenceResolveSubPass :
         }
         else
         {
-            _expressionResolver.ResolveExpressionType(node);
+            _expressionResolver.ResolveExpressionType(node, _symbolTable);
         }
     }
     

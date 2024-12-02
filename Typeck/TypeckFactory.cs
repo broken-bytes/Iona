@@ -20,7 +20,7 @@ namespace Typeck
             var expressionResolver = new ExpressionResolver(errorCollector);
             var mutabilityResolver = new MutabilityResolver();
             
-            var declPass = DeclPassFactory.Create(expressionResolver);
+            var declPass = DeclPassFactory.Create(expressionResolver, errorCollector);
             var implPass = ImplPassFactory.Create(expressionResolver, mutabilityResolver, typeResolver);
 
             return new Typeck(
