@@ -188,8 +188,7 @@ namespace Typeck
 
                                 funcSymbol.ReturnType = returnType;
                             }
-
-
+                            
                             var parameters = new List<ParameterSymbol>();
                             foreach (var param in method.GetParameters())
                             {

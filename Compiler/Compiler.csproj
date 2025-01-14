@@ -25,7 +25,18 @@
 	<ItemGroup>
 		<ProjectReference Include="..\Typeck\Typeck.csproj" />
 	</ItemGroup>
-
+	<ItemGroup>
+		<ProjectReference Include="..\Shared\Shared.csproj" />
+	</ItemGroup>
+	<ItemGroup>
+		<ProjectReference Include="..\AST\AST.csproj" />
+	</ItemGroup>
+	<ItemGroup>
+		<ProjectReference Include="..\Symbols\Symbols.csproj" />
+	</ItemGroup>
+	<ItemGroup>
+		<ProjectReference Include="..\Lexer\Lexer.csproj" />
+	</ItemGroup>
 	<ItemGroup>
 		<ProjectReference Include="..\Generator\Generator.csproj" />
 	</ItemGroup>

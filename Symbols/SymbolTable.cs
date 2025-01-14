@@ -594,7 +594,7 @@ namespace Symbols
                 }
                 
                 // TODO: Add error for imported module that doesnt exist
-                Console.WriteLine("Import not found");
+                Console.WriteLine($"Import not found {import.Name}");
             }
 
             return modules;

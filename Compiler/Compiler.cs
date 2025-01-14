@@ -55,7 +55,7 @@ namespace Compiler
         {
             // Add IONA SDK to the references
             assemblyRefs.Add("Iona.Builtins");
-            assemblyPaths.Add(Environment.GetEnvironmentVariable("IONA_SDK_DIR"));
+            assemblyPaths.Add(Environment.GetEnvironmentVariable("IONA_SDK_DIR") ?? "");
             // The compiler is made up of several passes:
             // - Lexing
             // - Parsing
@@ -101,7 +101,6 @@ namespace Compiler
             SymbolTable globalTable = new SymbolTable();
 
             ConcurrentBag<INode> asts = new ConcurrentBag<INode>();
-
             
             var logger = ASTLoggerFactory.Create();
             var visualizer = ASTVisualizerFactory.Create();
