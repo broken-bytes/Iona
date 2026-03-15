@@ -66,8 +66,7 @@ public class DeclPassMemberReferenceResolveSubPass :
 
         var symbol = _symbolTable.FindTypeByFQN(node.FullyQualifiedName);
         
-        _currentSymbol.Symbols.Add(symbol!);
-        symbol!.Parent = _currentSymbol;
+        _currentSymbol.AddSymbol(symbol!);
         
         _currentSymbol = symbol;
 
@@ -85,8 +84,7 @@ public class DeclPassMemberReferenceResolveSubPass :
 
         var symbol = _symbolTable.FindTypeByFQN(node.FullyQualifiedName);
         
-        _currentSymbol.Symbols.Add(symbol!);
-        symbol!.Parent = _currentSymbol;
+        _currentSymbol.AddSymbol(symbol!);
         
         _currentSymbol = symbol;
 
@@ -102,8 +100,7 @@ public class DeclPassMemberReferenceResolveSubPass :
 
         var symbol = _symbolTable.FindTypeByFQN(node.FullyQualifiedName);
         
-        _currentSymbol.Symbols.Add(symbol!);
-        symbol!.Parent = _currentSymbol;
+        _currentSymbol.AddSymbol(symbol!);
         
         _currentSymbol = symbol;
 
@@ -150,7 +147,7 @@ public class DeclPassMemberReferenceResolveSubPass :
             if (paramType.IsSuccess)
             {
                 var parameter = new ParameterSymbol(param.Name, paramType.Unwrapped(), symbol);
-                symbol!.Symbols.Add(parameter);
+                symbol!.AddSymbol(parameter);
             }
             else
             {
@@ -190,8 +187,7 @@ public class DeclPassMemberReferenceResolveSubPass :
             }
         }
 
-        _currentSymbol.Symbols.Add(symbol!);
-        symbol!.Parent = _currentSymbol;
+        _currentSymbol.AddSymbol(symbol!);
     }
     
     public void Visit(InitNode node)
@@ -226,7 +222,7 @@ public class DeclPassMemberReferenceResolveSubPass :
             if (paramType.IsSuccess)
             {
                 var parameter = new ParameterSymbol(param.Name, paramType.Unwrapped(), symbol);
-                symbol!.Symbols.Add(parameter);
+                symbol!.AddSymbol(parameter);
             }
             else
             {
@@ -241,18 +237,17 @@ public class DeclPassMemberReferenceResolveSubPass :
             }
         }
 
-        _currentSymbol.Symbols.Add(symbol!);
-        symbol!.Parent = _currentSymbol;
+        _currentSymbol.AddSymbol(symbol!);
     }
 
     public void Visit(ModuleNode node)
     {
-        var symbol = _symbolTable.Modules.Find(module => module.Name == node.Name);
+        _symbolTable.ModulesByName.TryGetValue(node.Name, out var symbol);
 
         if (symbol == null)
         {
             symbol = new ModuleSymbol(node.Name, _assemblyName);
-            _symbolTable.Modules.Add(symbol);
+            _symbolTable.AddModule(symbol);
         }
 
         _currentSymbol = symbol;
@@ -310,7 +305,7 @@ public class DeclPassMemberReferenceResolveSubPass :
             if (paramType.IsSuccess)
             {
                 var parameter = new ParameterSymbol(param.Name, paramType.Unwrapped(), symbol);
-                symbol!.Symbols.Add(parameter);
+                symbol!.AddSymbol(parameter);
             }
             else
             {
@@ -350,8 +345,7 @@ public class DeclPassMemberReferenceResolveSubPass :
             }
         }
 
-        _currentSymbol.Symbols.Add(symbol!);
-        symbol!.Parent = _currentSymbol;
+        _currentSymbol.AddSymbol(symbol!);
     }
 
     public void Visit(PropertyNode node)
@@ -361,7 +355,7 @@ public class DeclPassMemberReferenceResolveSubPass :
             return;
         }
 
-        var symbol = _currentSymbol.Symbols.OfType<PropertySymbol>().FirstOrDefault(prop => prop.Name == node.Name);
+        var symbol = _currentSymbol.LookupAllSymbols(node.Name).OfType<PropertySymbol>().FirstOrDefault();
 
         if (node.TypeNode is not null)
         {
@@ -404,9 +398,8 @@ public class DeclPassMemberReferenceResolveSubPass :
 
         var symbol = new TypeSymbol(node.Name, TypeKind.Struct);
         
-        _currentSymbol.Symbols.Add(symbol);
-        symbol.Parent = _currentSymbol;
-        
+        _currentSymbol.AddSymbol(symbol);
+
         _currentSymbol = symbol;
 
         node.Body?.Accept(this);

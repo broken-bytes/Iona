@@ -36,6 +36,11 @@ namespace Lexer.Processors
                 return Utils.MakeToken(TokenType.For, Keyword.For.AsString());
             }
 
+            if (Utils.CheckMatchingSequence(source, Keyword.In.AsString()))
+            {
+                return Utils.MakeToken(TokenType.In, Keyword.In.AsString());
+            }
+
             if (Utils.CheckMatchingSequence(source, Keyword.Break.AsString()))
             {
                 return Utils.MakeToken(TokenType.Break, Keyword.Break.AsString());

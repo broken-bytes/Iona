@@ -16,9 +16,12 @@ namespace Typeck
         IAssignmentVisitor,
         IBlockVisitor,
         IBinaryExpressionVisitor,
+        IBreakVisitor,
         IClassVisitor,
+        IContinueVisitor,
         IContractVisitor,
         IFileVisitor,
+        IForVisitor,
         IFuncVisitor,
         IIdentifierVisitor,
         IImportVisitor,
@@ -416,6 +419,28 @@ namespace Typeck
             }
         }
 
+        public void Visit(BreakNode node)
+        {
+            node.Status = ResolutionStatus.Resolved;
+        }
+
+        public void Visit(ContinueNode node)
+        {
+            node.Status = ResolutionStatus.Resolved;
+        }
+
+        public void Visit(ForNode node)
+        {
+            node.Status = ResolutionStatus.Resolving;
+
+            if (node.Body != null)
+            {
+                node.Body.Accept(this);
+            }
+
+            node.Status = ResolutionStatus.Resolved;
+        }
+
         public void Visit(ReturnNode node)
         {
             node.Status = ResolutionStatus.Resolving;
@@ -595,14 +620,23 @@ namespace Typeck
                 case BlockNode blockNode:
                     blockNode.Accept(this);
                     break;
+                case BreakNode breakNode:
+                    breakNode.Accept(this);
+                    break;
                 case ClassNode classNode:
                     classNode.Accept(this);
+                    break;
+                case ContinueNode continueNode:
+                    continueNode.Accept(this);
                     break;
                 case ContractNode contractNode:
                     contractNode.Accept(this);
                     break;
                 case FileNode fileNode:
                     fileNode.Accept(this);
+                    break;
+                case ForNode forNode:
+                    forNode.Accept(this);
                     break;
                 case FuncNode funcNode:
                     funcNode.Accept(this);
@@ -738,7 +772,7 @@ namespace Typeck
                 }
                 else
                 {
-                    parent.Symbols.Find(s => s.Name == target.Value);
+                    symbol = parent.LookupSymbol(target.Value);
                 }
 
                 if (symbol == null)
@@ -795,7 +829,7 @@ namespace Typeck
 
             if (propAccess.Property is IdentifierNode identifier)
             {
-                var prop = typeSymbol.Symbols.OfType<PropertySymbol>().ToList().Find(symbol => symbol.Name == identifier.Value);
+                var prop = typeSymbol.LookupAllSymbols(identifier.Value).OfType<PropertySymbol>().FirstOrDefault();
 
                 var typeRef = new TypeReferenceNode(prop.Type.Name, propAccess)
                 {

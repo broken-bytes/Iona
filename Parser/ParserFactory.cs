@@ -36,6 +36,7 @@ namespace Parser
             var moduleParser = new ModuleParser();
             var operatorParser = new OperatorParser(accessLevelParser, blockParser, typeParser);
             var statementParser = new StatementParser(
+                blockParser,
                 classParser,
                 contractParser,
                 expressionParser,

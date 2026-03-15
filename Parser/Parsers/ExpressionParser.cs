@@ -94,17 +94,12 @@ namespace Parser.Parsers
             var nextState = NextState(ExpressionState.Any, token);
             while (!stream.IsEmpty())
             {
-                if (nextState is ExpressionState.Finish)
+                if (nextState is ExpressionState.Finish or ExpressionState.Invalid)
                 {
                     break;
                 }
                 switch (nextState)
                 {
-                    case ExpressionState.Invalid:
-                    {
-                        // TODO: Expression parsing should not break fucntion parsing even when bad input
-                        break;
-                    }
                     case ExpressionState.Skip:
                         stream.Consume();
                         break;

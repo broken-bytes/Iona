@@ -5,6 +5,7 @@
         public string Name { get; set; }
         public string Assembly { get; set; }
         public List<ISymbol> Symbols { get; set; }
+        public Dictionary<string, List<ISymbol>> SymbolsByName { get; set; }
         public SymbolKind Kind { get; set; } = SymbolKind.Module;
         public ISymbol? Parent { get; set; }
 
@@ -13,6 +14,7 @@
             Name = name;
             Assembly = assembly;
             Symbols = new List<ISymbol>();
+            SymbolsByName = new Dictionary<string, List<ISymbol>>();
             Parent = parent;
         }
     }

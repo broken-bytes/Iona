@@ -57,23 +57,21 @@ namespace Typeck
 
                     var split = nspace.Split('.');
 
-                    var module = table.Modules.Find(m => m.Name == split.First());
+                    table.ModulesByName.TryGetValue(split.First(), out var module);
                     if (module == null)
                     {
                         module = new ModuleSymbol(split.First(), assembly.FullName);
-                        table.Modules.Add(module);
+                        table.AddModule(module);
                     }
 
                     foreach (var name in split.Skip(1))
                     {
-                        var nextModule = module.Symbols.OfType<ModuleSymbol>()
-                            .ToList()
-                            .FirstOrDefault(m => m.Name == name);
+                        var nextModule = module.LookupAllSymbols(name)
+                            .OfType<ModuleSymbol>().FirstOrDefault();
                         if (nextModule == null)
                         {
                             var newModule = new ModuleSymbol(name, assembly.FullName);
-                            newModule.Parent = module;
-                            module.Symbols.Add(newModule);
+                            module.AddSymbol(newModule);
                             module = newModule;
                         }
                         else
@@ -102,8 +100,7 @@ namespace Typeck
                     }
 
                     var symbol = new TypeSymbol(type.Name, kind);
-                    symbol.Parent = module;
-                    module.Symbols.Add(symbol);
+                    module.AddSymbol(symbol);
                 }
             }
             catch (Exception ex)
@@ -160,8 +157,7 @@ namespace Typeck
                                 foreach (var arg in args)
                                 {
                                     var generic = new GenericParameterSymbol(arg.Name);
-                                    generic.Parent = typeSymbol;
-                                    funcSymbol.Symbols.Add(generic);
+                                    funcSymbol.AddSymbol(generic);
                                 }
                             }
 
@@ -274,9 +270,12 @@ namespace Typeck
                                 };
 
 
-                                opSymbol.Symbols.AddRange(parameters);
+                                foreach (var param in parameters)
+                                {
+                                    opSymbol.AddSymbol(param);
+                                }
 
-                                typeSymbol.Symbols.Add(opSymbol);
+                                typeSymbol.AddSymbol(opSymbol);
 
                                 continue;
                             }
@@ -284,11 +283,10 @@ namespace Typeck
                             // If the func is a regular func and not an operator, add it
                             foreach (var parameter in parameters)
                             {
-                                funcSymbol.Symbols.Add(parameter);
-                                parameter.Parent = funcSymbol;
+                                funcSymbol.AddSymbol(parameter);
                             }
 
-                            typeSymbol.Symbols.Add(funcSymbol);
+                            typeSymbol.AddSymbol(funcSymbol);
                         }
                         else if (member.MemberType == MemberTypes.Field)
                         {
@@ -302,19 +300,17 @@ namespace Typeck
                             if (type.IsEnum)
                             {
                                 var enumCase = new EnumCaseSymbol(ionaName, field.Name);
-                                typeSymbol.Symbols.Add(enumCase);
-                                enumCase.Parent = typeSymbol;
+                                typeSymbol.AddSymbol(enumCase);
                                 
                                 continue;
                             }
                             
                             var fieldSymbol = new PropertySymbol(
-                                ionaName, 
-                                field.Name, 
-                                fieldType, 
+                                ionaName,
+                                field.Name,
+                                fieldType,
                                 field.IsStatic, false);
-                            fieldSymbol.Parent = typeSymbol;
-                            typeSymbol.Symbols.Add(fieldSymbol);
+                            typeSymbol.AddSymbol(fieldSymbol);
                         }
                         else if (member.MemberType == MemberTypes.Property)
                         {
@@ -357,8 +353,7 @@ namespace Typeck
                                 getterAccessLevel,
                                 setterAccessLevel
                             );
-                            propertySymbol.Parent = typeSymbol;
-                            typeSymbol.Symbols.Add(propertySymbol);
+                            typeSymbol.AddSymbol(propertySymbol);
                         }
                         else if (member.MemberType == MemberTypes.Constructor)
                         {
@@ -375,11 +370,11 @@ namespace Typeck
                                 var paramType = table.FindTypeByFQN(boxedName);
 
                                 var paramSymbol = new ParameterSymbol(param.Name, paramType, initSymbol);
-                                initSymbol.Parent = typeSymbol;
-                                initSymbol.Symbols.Add(paramSymbol);
+                                initSymbol.AddSymbol(paramSymbol);
                             }
 
-                            typeSymbol.Symbols.Add(initSymbol);
+                            initSymbol.Parent = typeSymbol;
+                            typeSymbol.AddSymbol(initSymbol);
                         }
                     }
                 }

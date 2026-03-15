@@ -7,6 +7,7 @@ namespace Parser.Parsers
 {
     internal class StatementParser
     {
+        private readonly BlockParser blockParser;
         private readonly ClassParser classParser;
         private readonly ContractParser contractParser;
         private readonly ExpressionParser expressionParser;
@@ -21,6 +22,7 @@ namespace Parser.Parsers
         private readonly IErrorCollector _errorCollector;
 
         internal StatementParser(
+            BlockParser blockParser,
             ClassParser classParser,
             ContractParser contractParser,
             ExpressionParser expressionParser,
@@ -35,6 +37,7 @@ namespace Parser.Parsers
             IErrorCollector errorCollector
         )
         {
+            this.blockParser = blockParser;
             this.classParser = classParser;
             this.contractParser = contractParser;
             this.expressionParser = expressionParser;
@@ -127,6 +130,31 @@ namespace Parser.Parsers
                 return new ImportNode(moduleImport, parent);
             }
 
+            if (token.Type == TokenType.If)
+            {
+                return ParseIf(stream, parent);
+            }
+
+            if (token.Type == TokenType.While)
+            {
+                return ParseWhile(stream, parent);
+            }
+
+            if (token.Type == TokenType.For)
+            {
+                return ParseFor(stream, parent);
+            }
+
+            if (token.Type == TokenType.Break)
+            {
+                return ParseBreak(stream, parent);
+            }
+
+            if (token.Type == TokenType.Continue)
+            {
+                return ParseContinue(stream, parent);
+            }
+
             if (token.Type == TokenType.Return)
             {
                 return ParseReturn(stream, parent);
@@ -162,11 +190,16 @@ namespace Parser.Parsers
 
         public bool IsStatement(TokenStream stream)
         {
-            return 
-                IsCompoundAssignment(stream) || 
-                IsBasicAssignment(stream) || 
-                IsReturnStatement(stream) || 
-                IsVariable(stream) || 
+            return
+                IsCompoundAssignment(stream) ||
+                IsBasicAssignment(stream) ||
+                IsIfStatement(stream) ||
+                IsWhileStatement(stream) ||
+                IsForStatement(stream) ||
+                IsBreakStatement(stream) ||
+                IsContinueStatement(stream) ||
+                IsReturnStatement(stream) ||
+                IsVariable(stream) ||
                 IsProperty(stream);
         }
 
@@ -333,6 +366,207 @@ namespace Parser.Parsers
                 default:
                     return false;
             }
+        }
+
+        /// <summary>
+        /// Parses: if condition { block } [else if condition { block }]* [else { block }]
+        /// </summary>
+        private INode ParseIf(TokenStream stream, INode? parent)
+        {
+            var ifToken = stream.Consume(TokenType.If, TokenFamily.Keyword);
+
+            // Parse the condition expression
+            var condition = (IExpressionNode)expressionParser.Parse(stream, parent);
+
+            // Skip linebreaks before block
+            while (stream.Peek().Type == TokenType.Linebreak)
+            {
+                stream.Consume(TokenType.Linebreak, TokenFamily.Keyword);
+            }
+
+            // Parse the body block
+            var body = (BlockNode)blockParser.Parse(stream, parent);
+
+            var ifNode = new IfNode(condition, body, parent);
+            body.Parent = ifNode;
+            condition.Parent = ifNode;
+            Utils.SetMeta(ifNode, ifToken);
+
+            // Parse else if / else clauses
+            while (true)
+            {
+                // Skip linebreaks
+                while (!stream.IsEmpty() && stream.Peek().Type == TokenType.Linebreak)
+                {
+                    stream.Consume(TokenType.Linebreak, TokenFamily.Keyword);
+                }
+
+                if (stream.IsEmpty() || stream.Peek().Type != TokenType.Else)
+                {
+                    break;
+                }
+
+                stream.Consume(TokenType.Else, TokenFamily.Keyword);
+
+                // Check if this is "else if" or plain "else"
+                if (!stream.IsEmpty() && stream.Peek().Type == TokenType.If)
+                {
+                    stream.Consume(TokenType.If, TokenFamily.Keyword);
+
+                    var elseIfCondition = (IExpressionNode)expressionParser.Parse(stream, parent);
+
+                    while (!stream.IsEmpty() && stream.Peek().Type == TokenType.Linebreak)
+                    {
+                        stream.Consume(TokenType.Linebreak, TokenFamily.Keyword);
+                    }
+
+                    var elseIfBody = (BlockNode)blockParser.Parse(stream, parent);
+                    elseIfBody.Parent = ifNode;
+                    elseIfCondition.Parent = ifNode;
+
+                    ifNode.ElseClauses.Add(new ElseClause(elseIfCondition, elseIfBody));
+                }
+                else
+                {
+                    // Plain else
+                    while (!stream.IsEmpty() && stream.Peek().Type == TokenType.Linebreak)
+                    {
+                        stream.Consume(TokenType.Linebreak, TokenFamily.Keyword);
+                    }
+
+                    var elseBody = (BlockNode)blockParser.Parse(stream, parent);
+                    elseBody.Parent = ifNode;
+
+                    ifNode.ElseClauses.Add(new ElseClause(null, elseBody));
+                    break; // else is always the last clause
+                }
+            }
+
+            return ifNode;
+        }
+
+        /// <summary>
+        /// Parses: while condition { block }
+        /// </summary>
+        private INode ParseWhile(TokenStream stream, INode? parent)
+        {
+            var whileToken = stream.Consume(TokenType.While, TokenFamily.Keyword);
+
+            // Parse the condition expression
+            var condition = (IExpressionNode)expressionParser.Parse(stream, parent);
+
+            // Skip linebreaks before block
+            while (stream.Peek().Type == TokenType.Linebreak)
+            {
+                stream.Consume(TokenType.Linebreak, TokenFamily.Keyword);
+            }
+
+            // Parse the body block
+            var body = (BlockNode)blockParser.Parse(stream, parent);
+
+            var whileNode = new WhileNode(condition, body, parent);
+            body.Parent = whileNode;
+            condition.Parent = whileNode;
+            Utils.SetMeta(whileNode, whileToken);
+
+            return whileNode;
+        }
+
+        /// <summary>
+        /// Parses: for identifier in expression { block }
+        /// </summary>
+        private INode ParseFor(TokenStream stream, INode? parent)
+        {
+            var forToken = stream.Consume(TokenType.For, TokenFamily.Keyword);
+
+            // Parse iterator variable name (identifier or "_")
+            var iteratorToken = stream.Consume();
+            var iteratorName = iteratorToken.Value;
+
+            // Consume 'in' keyword
+            stream.Consume(TokenType.In, TokenFamily.Keyword);
+
+            // Parse the iterable expression — could be a range (0...3) or a collection
+            var iterable = ParseIterableExpression(stream, parent);
+
+            // Skip linebreaks before block
+            while (stream.Peek().Type == TokenType.Linebreak)
+            {
+                stream.Consume(TokenType.Linebreak, TokenFamily.Keyword);
+            }
+
+            // Parse the body block
+            var body = (BlockNode)blockParser.Parse(stream, parent);
+
+            var forNode = new ForNode(iteratorName, iterable, body, parent);
+            body.Parent = forNode;
+            iterable.Parent = forNode;
+            Utils.SetMeta(forNode, forToken);
+
+            return forNode;
+        }
+
+        /// <summary>
+        /// Parses the iterable part of a for loop.
+        /// Handles range expressions (start...end) and regular expressions.
+        /// </summary>
+        private IExpressionNode ParseIterableExpression(TokenStream stream, INode? parent)
+        {
+            var start = (IExpressionNode)expressionParser.Parse(stream, parent);
+
+            // Check if this is a range expression
+            if (!stream.IsEmpty() && stream.Peek().Type == TokenType.Range)
+            {
+                stream.Consume(TokenType.Range, TokenFamily.Keyword);
+                var end = (IExpressionNode)expressionParser.Parse(stream, parent);
+
+                var range = new RangeExpressionNode(start, end, parent);
+                Utils.SetMeta(range, start, end);
+                return range;
+            }
+
+            return start;
+        }
+
+        private INode ParseBreak(TokenStream stream, INode? parent)
+        {
+            var token = stream.Consume(TokenType.Break, TokenFamily.Keyword);
+            var breakNode = new BreakNode(parent);
+            Utils.SetMeta(breakNode, token);
+            return breakNode;
+        }
+
+        private INode ParseContinue(TokenStream stream, INode? parent)
+        {
+            var token = stream.Consume(TokenType.Continue, TokenFamily.Keyword);
+            var continueNode = new ContinueNode(parent);
+            Utils.SetMeta(continueNode, token);
+            return continueNode;
+        }
+
+        private bool IsIfStatement(TokenStream stream)
+        {
+            return stream.Peek().Type == TokenType.If;
+        }
+
+        private bool IsWhileStatement(TokenStream stream)
+        {
+            return stream.Peek().Type == TokenType.While;
+        }
+
+        private bool IsForStatement(TokenStream stream)
+        {
+            return stream.Peek().Type == TokenType.For;
+        }
+
+        private bool IsBreakStatement(TokenStream stream)
+        {
+            return stream.Peek().Type == TokenType.Break;
+        }
+
+        private bool IsContinueStatement(TokenStream stream)
+        {
+            return stream.Peek().Type == TokenType.Continue;
         }
 
         private bool IsProperty(TokenStream stream)

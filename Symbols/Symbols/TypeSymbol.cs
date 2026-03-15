@@ -10,6 +10,7 @@
         public bool IsGeneric => false;
         public TypeKind TypeKind { get; set; }
         public List<ISymbol> Symbols { get; set; }
+        public Dictionary<string, List<ISymbol>> SymbolsByName { get; set; }
         public SymbolKind Kind { get; set; } = SymbolKind.Type;
         public ISymbol? Parent { get; set; }
         public TypeSymbol? BaseType { get; set; }
@@ -20,10 +21,11 @@
             Name = name;
             TypeKind = kind;
             Symbols = new List<ISymbol>();
+            SymbolsByName = new Dictionary<string, List<ISymbol>>();
         }
 
         public ISymbol? FindMember(string name) =>
-            Symbols.First(child => child is BlockSymbol).Symbols.Find(symbol => symbol.Name == name);
+            Symbols.First(child => child is BlockSymbol).LookupSymbol(name);
 
         private static string GetFullyQualifiedName(ISymbol symbol)
         {

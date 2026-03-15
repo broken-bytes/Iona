@@ -27,6 +27,7 @@ public class ImplPassBodyChecksSubPass :
     private readonly ExpressionResolver _expressionResolver;
     private SymbolTable _symbolTable;
     private ISymbol? _currentScope;
+    private ISymbol? _currentCallableScope;
 
     internal ImplPassBodyChecksSubPass(
         IErrorCollector errorCollector,
@@ -56,6 +57,44 @@ public class ImplPassBodyChecksSubPass :
         {
             switch (child)
             {
+                case IfNode ifNode:
+                    ifNode.Body?.Accept(this);
+                    foreach (var clause in ifNode.ElseClauses)
+                    {
+                        clause.Body?.Accept(this);
+                    }
+                    break;
+                case WhileNode whileNode:
+                    whileNode.Body?.Accept(this);
+                    break;
+                case ForNode forNode:
+                    // Register the iterator in the expression resolver's loop scope
+                    if (forNode.IteratorName != "_")
+                    {
+                        TypeSymbol? iteratorType = null;
+
+                        if (forNode.Iterable is RangeExpressionNode range)
+                        {
+                            _expressionResolver.ResolveExpressionType(range.Start, _symbolTable);
+                            if (range.Start.ResultType != null)
+                            {
+                                var typeResult = _symbolTable.FindType(forNode.Root, range.Start.ResultType.FullyQualifiedName);
+                                if (typeResult.IsSuccess)
+                                {
+                                    iteratorType = typeResult.Unwrapped();
+                                }
+                            }
+                        }
+
+                        iteratorType ??= new TypeSymbol("Unknown", TypeKind.Unknown);
+                        _expressionResolver.EnterLoopScope(forNode.IteratorName, iteratorType);
+                    }
+                    forNode.Body?.Accept(this);
+                    if (forNode.IteratorName != "_")
+                    {
+                        _expressionResolver.ExitLoopScope();
+                    }
+                    break;
                 case FuncNode funcNode:
                     funcNode.Accept(this);
                     break;
@@ -167,7 +206,7 @@ public class ImplPassBodyChecksSubPass :
     public void Visit(FuncNode node)
     {
         node.Status = INode.ResolutionStatus.Resolving;
-        
+
         if (node.ReturnType is not null)
         {
             var symbol = _symbolTable.FindType(node.Root, node.ReturnType.FullyQualifiedName);
@@ -183,6 +222,14 @@ public class ImplPassBodyChecksSubPass :
             }
         }
 
+        // Track the function scope so variables can be registered under it
+        var previousCallableScope = _currentCallableScope;
+        if (_currentScope != null)
+        {
+            _currentCallableScope = _currentScope.LookupAllSymbols(node.Name)
+                .OfType<FuncSymbol>().FirstOrDefault();
+        }
+
         var isResolved = node.Parameters.TrueForAll(p => p.TypeNode.Status == INode.ResolutionStatus.Resolved);
 
         if (node.Body != null)
@@ -190,6 +237,8 @@ public class ImplPassBodyChecksSubPass :
             node.Body.Accept(this);
             isResolved &= node.Body.Status == INode.ResolutionStatus.Resolved;
         }
+
+        _currentCallableScope = previousCallableScope;
 
         if (isResolved)
         {
@@ -199,7 +248,15 @@ public class ImplPassBodyChecksSubPass :
 
     public void Visit(InitNode node)
     {
+        var previousCallableScope = _currentCallableScope;
+        if (_currentScope is TypeSymbol typeSymbol)
+        {
+            _currentCallableScope = typeSymbol.LookupAllSymbols("init").OfType<InitSymbol>().FirstOrDefault();
+        }
+
         node.Body?.Accept(this);
+
+        _currentCallableScope = previousCallableScope;
     }
     
     public void Visit(ModuleNode node)
@@ -232,7 +289,13 @@ public class ImplPassBodyChecksSubPass :
     public void Visit(OperatorNode node)
     {
         node.Status = INode.ResolutionStatus.Resolving;
-        
+
+        var previousCallableScope = _currentCallableScope;
+        if (_currentScope != null)
+        {
+            _currentCallableScope = _currentScope.Symbols.OfType<OperatorSymbol>()
+                .FirstOrDefault(o => o.Operator == node.Op);
+        }
 
         if (node.ReturnType is not null)
         {
@@ -248,8 +311,10 @@ public class ImplPassBodyChecksSubPass :
                 // TODO: Show error
             }
         }
-        
+
         node.Body?.Accept(this);
+
+        _currentCallableScope = previousCallableScope;
     }
 
     public void Visit(StructNode node)
@@ -389,6 +454,12 @@ public class ImplPassBodyChecksSubPass :
                     
                 return;
             }
+        }
+
+        // Register the variable in the symbol table under the current callable scope
+        if (_currentCallableScope != null)
+        {
+            _currentCallableScope.AddSymbol(variableSymbol);
         }
 
         node.Status = INode.ResolutionStatus.Resolved;

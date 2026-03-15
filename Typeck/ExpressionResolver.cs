@@ -14,8 +14,11 @@ namespace Typeck
         IAssignmentVisitor,
         IBinaryExpressionVisitor,
         IBlockVisitor,
+        IBreakVisitor,
         IClassVisitor,
+        IContinueVisitor,
         IFileVisitor,
+        IForVisitor,
         IFuncCallVisitor,
         IFuncVisitor,
         IIdentifierVisitor,
@@ -27,6 +30,7 @@ namespace Typeck
         IParameterVisitor,
         IPropAccessVisitor,
         IPropertyVisitor,
+        IReturnVisitor,
         IScopeResolutionVisitor,
         IStructVisitor,
         IVariableVisitor
@@ -37,6 +41,8 @@ namespace Typeck
         private string? _contextualTypeFqn;
         /// The type that is the current target, eg. `foo.<>` where the type would be the type of `foo`
         private string? _currentTypeFqn;
+        /// Loop-scoped iterator variables, only visible inside their for-loop body
+        private readonly Stack<(string Name, TypeSymbol Type)> _loopIterators = new();
 
         internal ExpressionResolver(IErrorCollector errorCollector)
         {
@@ -48,6 +54,19 @@ namespace Typeck
         {
             _table = table;
             CheckNode(node);
+        }
+
+        public void EnterLoopScope(string iteratorName, TypeSymbol type)
+        {
+            _loopIterators.Push((iteratorName, type));
+        }
+
+        public void ExitLoopScope()
+        {
+            if (_loopIterators.Count > 0)
+            {
+                _loopIterators.Pop();
+            }
         }
 
         public void Visit(AssignmentNode node)
@@ -164,6 +183,66 @@ namespace Typeck
             foreach (var child in node.Children)
             {
                 CheckNode(child);
+            }
+        }
+
+        public void Visit(ForNode node)
+        {
+            // Resolve expressions in the iterable
+            if (node.Iterable is RangeExpressionNode range)
+            {
+                CheckNode(range.Start);
+                CheckNode(range.End);
+            }
+            else
+            {
+                CheckNode(node.Iterable);
+            }
+
+            // Register the iterator in loop scope for body resolution
+            if (node.IteratorName != "_")
+            {
+                TypeSymbol? iteratorType = null;
+
+                if (node.Iterable is RangeExpressionNode rangeExpr && rangeExpr.Start.ResultType != null)
+                {
+                    iteratorType = _table.FindTypeByFQN(rangeExpr.Start.ResultType.FullyQualifiedName);
+                }
+
+                iteratorType ??= new TypeSymbol("Unknown", TypeKind.Unknown);
+                EnterLoopScope(node.IteratorName, iteratorType);
+            }
+
+            // Resolve expressions in the body
+            if (node.Body != null)
+            {
+                foreach (var child in node.Body.Children)
+                {
+                    CheckNode(child);
+                }
+            }
+
+            if (node.IteratorName != "_")
+            {
+                ExitLoopScope();
+            }
+        }
+
+        public void Visit(BreakNode node)
+        {
+            // Nothing to resolve
+        }
+
+        public void Visit(ContinueNode node)
+        {
+            // Nothing to resolve
+        }
+
+        public void Visit(ReturnNode node)
+        {
+            if (node.Value != null)
+            {
+                CheckNode(node.Value);
             }
         }
 
@@ -375,6 +454,21 @@ namespace Typeck
                 return;
             }
 
+            // Check loop-scoped iterators first
+            foreach (var iter in _loopIterators)
+            {
+                if (iter.Name == node.Value)
+                {
+                    node.ResultType = new TypeReferenceNode(iter.Type.Name, node)
+                    {
+                        FullyQualifiedName = iter.Type.FullyQualifiedName,
+                        Assembly = iter.Type.Assembly,
+                    };
+                    node.Status = INode.ResolutionStatus.Resolved;
+                    return;
+                }
+            }
+
             // Find the type
             var symbol = _table.FindBy(node);
             TypeSymbol? type = symbol switch
@@ -564,16 +658,11 @@ namespace Typeck
                     return;
                 }
                 
-                objc = typeSymbol.Unwrapped().Symbols.FirstOrDefault(symbol =>
-                {
-                    return symbol switch
-                    {
-                        PropertySymbol prop => prop.Name == node.Object.ToString(),
-                        VariableSymbol var => var.Name == node.Object.ToString(),
-                        ParameterSymbol param => param.Name == node.Object.ToString(),
-                        _ => false
-                    };
-                });
+                var objName = node.Object.ToString();
+                var candidates = typeSymbol.Unwrapped().LookupAllSymbols(objName);
+                objc = candidates.FirstOrDefault(symbol =>
+                    symbol is PropertySymbol or VariableSymbol or ParameterSymbol
+                );
             }
 
             if (objc is PropertySymbol prop)
@@ -627,8 +716,8 @@ namespace Typeck
 
             if (node.Property is IdentifierNode identifier)
             {
-                var objcProp = objType.Symbols.OfType<PropertySymbol>()
-                    .FirstOrDefault(prop => prop.Name == identifier.Value);
+                var objcProp = objType.LookupAllSymbols(identifier.Value)
+                    .OfType<PropertySymbol>().FirstOrDefault();
 
                 if (objcProp is null)
                 {
@@ -852,11 +941,20 @@ namespace Typeck
                 case BlockNode blockNode:
                     blockNode.Accept(this);
                     break;
+                case BreakNode breakNode:
+                    breakNode.Accept(this);
+                    break;
                 case ClassNode classNode:
                     classNode.Accept(this);
                     break;
+                case ContinueNode continueNode:
+                    continueNode.Accept(this);
+                    break;
                 case FileNode fileNode:
                     fileNode.Accept(this);
+                    break;
+                case ForNode forNode:
+                    forNode.Accept(this);
                     break;
                 case FuncCallNode funcCallNode:
                     funcCallNode.Accept(this);
@@ -890,6 +988,9 @@ namespace Typeck
                     break;
                 case PropertyNode propertyNode:
                     propertyNode.Accept(this);
+                    break;
+                case ReturnNode returnNode:
+                    returnNode.Accept(this);
                     break;
                 case ScopeResolutionNode scopeResolution:
                     scopeResolution.Accept(this);
@@ -957,7 +1058,7 @@ namespace Typeck
             }
             else
             {
-                symbol = parent.Symbols.FirstOrDefault(symbolSymbol => symbolSymbol.Name == node.Scope.Value);
+                symbol = parent.LookupSymbol(node.Scope.Value);
             }
 
             if (symbol is null)
@@ -972,7 +1073,7 @@ namespace Typeck
             if (node.Property is IdentifierNode property)
             {
                 // Could be a static prop:
-                var propSymbol = symbol.Symbols.OfType<PropertySymbol>().FirstOrDefault(member => member.Name == property.Value);
+                var propSymbol = symbol.LookupAllSymbols(property.Value).OfType<PropertySymbol>().FirstOrDefault();
 
                 if (propSymbol is not null)
                 {
@@ -988,8 +1089,8 @@ namespace Typeck
                     return type;
                 }
 
-                var caseSymbol = symbol.Symbols.OfType<EnumCaseSymbol>()
-                    .FirstOrDefault(@case => @case.Name == property.Value);
+                var caseSymbol = symbol.LookupAllSymbols(property.Value)
+                    .OfType<EnumCaseSymbol>().FirstOrDefault();
 
                 if (caseSymbol is not null && symbol is TypeSymbol typeSymbol)
                 {

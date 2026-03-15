@@ -8,6 +8,7 @@
         public bool IsGenericParameter { get; set; } = false;
         public ISymbol? Parent { get; set; }
         public List<ISymbol> Symbols { get; set; } = new List<ISymbol>();
+        public Dictionary<string, List<ISymbol>> SymbolsByName { get; set; } = new Dictionary<string, List<ISymbol>>();
 
         public ParameterSymbol(string name, TypeSymbol type, ISymbol? parent)
         {

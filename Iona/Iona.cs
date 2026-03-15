@@ -11,6 +11,9 @@ class Iona
         public bool Intermediate { get; set; } = false;
         [Option('d', "debug", Required = false, HelpText = "Print debug information (AST)")]
         public bool Debug { get; set; } = false;
+
+        [Option("emit-ir", Required = false, HelpText = "Emit the raw IR to terminal output during compilation.")]
+        public bool EmitIr { get; set; } = false;
         
         [Option('a', "assemblies", Required = false, HelpText = "Additional paths to check for assemblies")]
         public IEnumerable<string> AssemblyPaths { get; set; }
@@ -75,10 +78,11 @@ class Iona
         }
         
         compiler.Compile(
-            "App", 
-            compilationUnits, 
-            options.Intermediate, 
+            "App",
+            compilationUnits,
+            options.Intermediate,
             options.Debug,
+            options.EmitIr,
             options.AssemblyPaths?.ToList() ?? new List<string>(),
             options.AssemblyRefs?.ToList() ?? new List<string>(),
             options.TargetFramework

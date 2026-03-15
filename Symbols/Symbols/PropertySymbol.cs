@@ -8,6 +8,7 @@ namespace Symbols.Symbols
         public string CsharpName { get; set; }
         public TypeSymbol Type { get; set; }
         public List<ISymbol> Symbols { get; set; }
+        public Dictionary<string, List<ISymbol>> SymbolsByName { get; set; }
         public SymbolKind Kind { get; set; } = SymbolKind.Property;
         public ISymbol? Parent { get; set; }
         public AccessLevel GetterAccessLevel { get; set; }
@@ -28,6 +29,7 @@ namespace Symbols.Symbols
             CsharpName = csharpName;
             Type = type;
             Symbols = new List<ISymbol>();
+            SymbolsByName = new Dictionary<string, List<ISymbol>>();
             GetterAccessLevel = getterAccessLevel;
             SetterAccessLevel = setterAccessLevel;
             IsStatic = isStatic;

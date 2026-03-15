@@ -5,6 +5,7 @@
         public string Name { get; set; }
         public TypeSymbol ReturnType { get; set; }
         public List<ISymbol> Symbols { get; set; }
+        public Dictionary<string, List<ISymbol>> SymbolsByName { get; set; }
         public SymbolKind Kind { get; set; } = SymbolKind.Init;
         public ISymbol? Parent { get; set; }
 
@@ -13,6 +14,7 @@
             Name = "init";
             ReturnType = new TypeSymbol("", TypeKind.Unknown);
             Symbols = new List<ISymbol>();
+            SymbolsByName = new Dictionary<string, List<ISymbol>>();
         }
     }
 }

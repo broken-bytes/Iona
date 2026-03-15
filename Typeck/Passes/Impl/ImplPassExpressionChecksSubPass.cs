@@ -49,6 +49,45 @@ public class ImplPassExpressionChecksSubPass :
         {
             switch (child)
             {
+                case IfNode ifNode:
+                    _expressionResolver.ResolveExpressionType(ifNode.Condition, _symbolTable);
+                    ifNode.Body?.Accept(this);
+                    foreach (var clause in ifNode.ElseClauses)
+                    {
+                        if (clause.Condition != null)
+                        {
+                            _expressionResolver.ResolveExpressionType(clause.Condition, _symbolTable);
+                        }
+                        clause.Body?.Accept(this);
+                    }
+                    break;
+                case WhileNode whileNode:
+                    _expressionResolver.ResolveExpressionType(whileNode.Condition, _symbolTable);
+                    whileNode.Body?.Accept(this);
+                    break;
+                case ForNode forNode:
+                    if (forNode.IteratorName != "_")
+                    {
+                        TypeSymbol? iteratorType = null;
+
+                        if (forNode.Iterable is RangeExpressionNode range && range.Start.ResultType != null)
+                        {
+                            var typeResult = _symbolTable.FindType(forNode.Root, range.Start.ResultType.FullyQualifiedName);
+                            if (typeResult.IsSuccess)
+                            {
+                                iteratorType = typeResult.Unwrapped();
+                            }
+                        }
+
+                        iteratorType ??= new TypeSymbol("Unknown", TypeKind.Unknown);
+                        _expressionResolver.EnterLoopScope(forNode.IteratorName, iteratorType);
+                    }
+                    forNode.Body?.Accept(this);
+                    if (forNode.IteratorName != "_")
+                    {
+                        _expressionResolver.ExitLoopScope();
+                    }
+                    break;
                 case FuncNode funcNode:
                     funcNode.Accept(this);
                     break;

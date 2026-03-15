@@ -44,11 +44,12 @@ namespace Compiler
         }
 
         public bool Compile(
-            string assemblyName, 
-            List<CompilationUnit> files, 
-            bool intermediate, 
+            string assemblyName,
+            List<CompilationUnit> files,
+            bool intermediate,
             bool debug,
-            List<string> assemblyPaths, 
+            bool emitIr,
+            List<string> assemblyPaths,
             List<string> assemblyRefs,
             string targetFramework
             )
@@ -112,6 +113,20 @@ namespace Compiler
                 Console.ForegroundColor = ConsoleColor.White;
                 var tokens = lexer.Tokenize(file.Source, file.Name);
                 var ast = parser.Parse(tokens, assemblyName);
+
+                // Auto-inject `use Iona.Builtins` so builtin types resolve without an explicit import
+                if (ast is FileNode fileNode)
+                {
+                    var hasBuiltinsImport = fileNode.Children
+                        .OfType<ImportNode>()
+                        .Any(i => i.Name == "Iona.Builtins");
+
+                    if (!hasBuiltinsImport)
+                    {
+                        fileNode.Children.Insert(0, new ImportNode("Iona.Builtins", fileNode));
+                    }
+                }
+
                 asts.Add(ast);
             });
 
@@ -138,6 +153,20 @@ namespace Compiler
                 return false;
             }
             
+            if (emitIr)
+            {
+                var lowering = new IR.IrLowering();
+                var printer = new IR.IrPrinter();
+
+                foreach (var ast in asts.OfType<FileNode>())
+                {
+                    var irModule = lowering.Build(ast);
+                    Console.ForegroundColor = ConsoleColor.Cyan;
+                    Console.WriteLine(printer.Print(irModule));
+                    Console.ResetColor();
+                }
+            }
+
             Console.ForegroundColor = ConsoleColor.Green;
             GenerateCode(assemblyName, asts.ToList(), globalTable, intermediate, assemblyPaths, assemblyRefs, targetFramework);
 

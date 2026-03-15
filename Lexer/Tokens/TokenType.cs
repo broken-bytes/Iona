@@ -101,6 +101,9 @@
         LessEqual,
         NotEqual,
 
+        // Range
+        Range, // ...
+
         // Other Operators
         Annotation,
         Arrow,

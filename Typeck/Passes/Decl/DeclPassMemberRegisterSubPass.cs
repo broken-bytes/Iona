@@ -59,8 +59,7 @@ public class DeclPassMemberRegisterSubPass :
 
         var symbol = new TypeSymbol(node.Name, TypeKind.Class);
         
-        _currentSymbol.Symbols.Add(symbol);
-        symbol.Parent = _currentSymbol;
+        _currentSymbol.AddSymbol(symbol);
         
         _currentSymbol = symbol;
 
@@ -76,8 +75,7 @@ public class DeclPassMemberRegisterSubPass :
 
         var symbol = new TypeSymbol(node.Name, TypeKind.Contract);
         
-        _currentSymbol.Symbols.Add(symbol);
-        symbol.Parent = _currentSymbol;
+        _currentSymbol.AddSymbol(symbol);
         
         _currentSymbol = symbol;
 
@@ -93,8 +91,7 @@ public class DeclPassMemberRegisterSubPass :
 
         var symbol = new TypeSymbol(node.Name, TypeKind.Enum);
         
-        _currentSymbol.Symbols.Add(symbol);
-        symbol.Parent = _currentSymbol;
+        _currentSymbol.AddSymbol(symbol);
         
         _currentSymbol = symbol;
 
@@ -124,12 +121,10 @@ public class DeclPassMemberRegisterSubPass :
         foreach (var generic in node.GenericArguments)
         {
             var genericSymbol = new GenericParameterSymbol(generic.Name);
-            symbol.Symbols.Add(genericSymbol);
-            genericSymbol.Parent = _currentSymbol;
+            symbol.AddSymbol(genericSymbol);
         }
         
-        _currentSymbol.Symbols.Add(symbol);
-        symbol.Parent = _currentSymbol;
+        _currentSymbol.AddSymbol(symbol);
     }
     
     public void Visit(InitNode node)
@@ -146,18 +141,17 @@ public class DeclPassMemberRegisterSubPass :
         
         RegisterParameters(symbol, node.Parameters);
         
-        _currentSymbol.Symbols.Add(symbol);
-        symbol.Parent = _currentSymbol;
+        _currentSymbol.AddSymbol(symbol);
     }
 
     public void Visit(ModuleNode node)
     {
-        var symbol = _symbolTable.Modules.Find(module => module.Name == node.Name);
+        _symbolTable.ModulesByName.TryGetValue(node.Name, out var symbol);
 
         if (symbol == null)
         {
             symbol = new ModuleSymbol(node.Name, _assemblyName);
-            _symbolTable.Modules.Add(symbol);
+            _symbolTable.AddModule(symbol);
         }
 
         _currentSymbol = symbol;
@@ -195,8 +189,7 @@ public class DeclPassMemberRegisterSubPass :
 
         RegisterParameters(symbol, node.Parameters);
         
-        _currentSymbol.Symbols.Add(symbol);
-        symbol.Parent = _currentSymbol;
+        _currentSymbol.AddSymbol(symbol);
     }
 
     public void Visit(PropertyNode node)
@@ -227,8 +220,7 @@ public class DeclPassMemberRegisterSubPass :
             symbol.Type = new TypeSymbol(type.Name, TypeKind.Unknown);
         }
 
-        _currentSymbol.Symbols.Add(symbol);
-        symbol.Parent = _currentSymbol;
+        _currentSymbol.AddSymbol(symbol);
     }
     
     public void Visit(StructNode node)
@@ -240,8 +232,7 @@ public class DeclPassMemberRegisterSubPass :
 
         var symbol = new TypeSymbol(node.Name, TypeKind.Struct);
         
-        _currentSymbol.Symbols.Add(symbol);
-        symbol.Parent = _currentSymbol;
+        _currentSymbol.AddSymbol(symbol);
         
         _currentSymbol = symbol;
 
@@ -255,7 +246,7 @@ public class DeclPassMemberRegisterSubPass :
             var paramType = new TypeSymbol(param.TypeNode.Name, TypeKind.Unknown);
             var paramSymbol = new ParameterSymbol(param.Name, paramType, symbol);
             
-            symbol.Symbols.Add(paramSymbol);
+            symbol.AddSymbol(paramSymbol);
         }
     }
 }

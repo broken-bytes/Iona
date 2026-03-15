@@ -12,6 +12,7 @@ namespace Symbols.Symbols
         public string Name { get; set; }
         public string FullName => Name;
         public List<ISymbol> Symbols { get; set; } = new List<ISymbol>();
+        public Dictionary<string, List<ISymbol>> SymbolsByName { get; set; } = new Dictionary<string, List<ISymbol>>();
         public SymbolKind Kind { get; set; } = SymbolKind.Assembly;
         public ISymbol? Parent { get; set; } = null;
 

@@ -12,8 +12,9 @@ namespace Lexer.Processors
         {
             var number = new StringBuilder();
 
-            foreach (char c in source)
+            for (int idx = 0; idx < source.Length; idx++)
             {
+                char c = source[idx];
                 if (char.IsDigit(c))
                 {
                     number.Append(c);
@@ -25,6 +26,12 @@ namespace Lexer.Processors
                 }
                 else if (c == '.')
                 {
+                    // Check if this is a range operator (...) rather than a decimal point
+                    if (idx + 1 < source.Length && source[idx + 1] == '.')
+                    {
+                        // This is a range operator, not a float — stop here
+                        break;
+                    }
                     // Potential float, let `process_float` handle it
                     return null;
                 }

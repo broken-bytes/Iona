@@ -6,6 +6,7 @@
         public string CsharpName { get; set; }
         public TypeSymbol ReturnType { get; set; }
         public List<ISymbol> Symbols { get; set; }
+        public Dictionary<string, List<ISymbol>> SymbolsByName { get; set; }
         public SymbolKind Kind { get; set; } = SymbolKind.Function;
         public ISymbol? Parent { get; set; }
 
@@ -15,6 +16,7 @@
             CsharpName = csharpName;
             ReturnType = new TypeSymbol("", TypeKind.Unknown);
             Symbols = new List<ISymbol>();
+            SymbolsByName = new Dictionary<string, List<ISymbol>>();
         }
     }
 }

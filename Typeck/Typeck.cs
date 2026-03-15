@@ -1,6 +1,5 @@
 ﻿using System.Reflection;
 using AST.Nodes;
-using AST.Types;
 using Symbols;
 using Typeck.Passes;
 using Typeck.Passes.Impl;
@@ -12,31 +11,16 @@ namespace Typeck
         private readonly DeclPass _declPass;
         private readonly ImplPass _implPass;
         private readonly AssemblyResolver _assemblyResolver;
-        private readonly SymbolTableConstructor _tableConstructor;
-        private readonly TopLevelScopeResolver _topLevelScopeResolver;
-        private readonly TypeResolver _typeResolver;
-        private readonly ExpressionResolver _expressionResolver;
-        private readonly MutabilityResolver _mutabilityResolver;
 
         internal Typeck(
             DeclPass declPass,
             ImplPass implPass,
-            AssemblyResolver assemblyResolver,
-            SymbolTableConstructor tableConstructor,
-            TopLevelScopeResolver topLevelScopeResolver,
-            TypeResolver typeResolver,
-            ExpressionResolver expressionResolver,
-            MutabilityResolver mutabilityResolver
+            AssemblyResolver assemblyResolver
         )
         {
             _declPass = declPass;
             _implPass = implPass;
             _assemblyResolver = assemblyResolver;
-            _tableConstructor = tableConstructor;
-            _topLevelScopeResolver = topLevelScopeResolver;
-            _typeResolver = typeResolver;
-            _expressionResolver = expressionResolver;
-            _mutabilityResolver = mutabilityResolver;
         }
 
         public void DoSemanticAnalysis(List<FileNode> files, string assembly, SymbolTable table)

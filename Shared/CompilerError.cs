@@ -9,16 +9,21 @@
         public List<(int, string)> Context { get; set; }
 
         public CompilerError(CompilerErrorCode code, string message, Metadata meta) {
-            
+
             Code = GetCodeString(code);
             Message = message;
             Meta = meta;
             Context = new ();
-            
+
+            if (string.IsNullOrEmpty(meta.File) || !File.Exists(meta.File))
+            {
+                return;
+            }
+
             // Read LineEnd - LineStart + 2 Lines Starting At LineStart - 1
             var lineStart = meta.LineStart - 1;
             var lineEnd = meta.LineEnd + 1;
-            
+
             var lines = File.ReadLines(meta.File);
 
             var current = 0;

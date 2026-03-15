@@ -1,4 +1,4 @@
-﻿using Symbols.Symbols;
+using Symbols.Symbols;
 using AST.Nodes;
 using AST.Types;
 using System.Xml.Linq;
@@ -10,10 +10,18 @@ namespace Symbols
     public class SymbolTable
     {
         public List<ModuleSymbol> Modules;
+        public Dictionary<string, ModuleSymbol> ModulesByName;
 
         public SymbolTable()
         {
             Modules = new List<ModuleSymbol>();
+            ModulesByName = new Dictionary<string, ModuleSymbol>();
+        }
+
+        public void AddModule(ModuleSymbol module)
+        {
+            Modules.Add(module);
+            ModulesByName[module.Name] = module;
         }
 
         /// <summary>
@@ -59,7 +67,7 @@ namespace Symbols
 
             while (currentSymbol != null)
             {
-                var foundSymbol = currentSymbol.Symbols.FirstOrDefault(symbol => symbol.Name == name);
+                var foundSymbol = currentSymbol.LookupSymbol(name);
 
                 if (foundSymbol != null)
                 {
@@ -68,12 +76,12 @@ namespace Symbols
 
                 currentSymbol = currentSymbol.Parent;
             }
-            
+
             // Not in the current hierarchy. This means we can have three cases:
             // - Does in fact not exist
             // - Is a type in another module
             // - Is another module name
-            
+
             return null;
         }
 
@@ -81,7 +89,7 @@ namespace Symbols
         {
             return FindTypeBy(context, node.Name, module);
         }
-        
+
         public TypeSymbol? FindTypeBy(FileNode context, string name, ModuleSymbol? module)
         {
             var imported = GetImportedModules(context);
@@ -89,7 +97,9 @@ namespace Symbols
 
             if (module != null)
             {
-                symbol = module.Symbols.OfType<TypeSymbol>().FirstOrDefault(symbol => symbol.Name == name);
+                // Use dictionary lookup for TypeSymbol by name
+                var candidates = module.LookupAllSymbols(name);
+                symbol = candidates.OfType<TypeSymbol>().FirstOrDefault();
 
                 if (symbol == null)
                 {
@@ -106,12 +116,17 @@ namespace Symbols
 
                 return symbol;
             }
-            
-            symbol = imported
-                .SelectMany(module => module.Symbols)
-                .OfType<TypeSymbol>()
-                .ToList()
-                .FirstOrDefault(symbol => symbol.Name == name);
+
+            // Search across imported modules using dictionary lookup
+            foreach (var mod in imported)
+            {
+                var candidates = mod.LookupAllSymbols(name);
+                symbol = candidates.OfType<TypeSymbol>().FirstOrDefault();
+                if (symbol != null)
+                {
+                    return symbol;
+                }
+            }
 
             if (symbol == null)
             {
@@ -174,7 +189,7 @@ namespace Symbols
                 Console.WriteLine("Failed to find symbol");
                 return [];
             }
-            
+
             // Drop the file node
             astHierarchy.RemoveAt(0);
 
@@ -182,7 +197,8 @@ namespace Symbols
 
             var currentNode = astHierarchy[0];
             // Get all modules from all assemblies and select the one that matches the current node
-            ISymbol? currentSymbol = Modules.FirstOrDefault(mod => mod.Name == ((ModuleNode)currentNode).Name);
+            ModulesByName.TryGetValue(((ModuleNode)currentNode).Name, out var moduleSymbol);
+            ISymbol? currentSymbol = moduleSymbol;
 
             if (currentSymbol == null)
             {
@@ -208,7 +224,7 @@ namespace Symbols
                    }
 
                    currentNode = astHierarchy[0];
-                   
+
                    continue;
                 }
                 else if (currentNode is InitNode init)
@@ -233,22 +249,20 @@ namespace Symbols
                     {
                         if (sym is FuncSymbol funcSym)
                         {
-                            var parameters = funcSym.Symbols
-                                .OfType<ParameterSymbol>()
-                                .FirstOrDefault(parameter => parameter.Name == node.ToString()) != null;
+                            var parameters = funcSym.LookupSymbol(node.ToString()) is ParameterSymbol;
 
                             if (parameters)
                             {
                                 return true;
                             }
 
-                            if (funcSym.Symbols.OfType<VariableSymbol>()
-                                    .FirstOrDefault(var => var.Name == node.ToString()) != null)
+                            var variable = funcSym.LookupSymbol(node.ToString()) is VariableSymbol;
+                            if (variable)
                             {
                                 return true;
                             }
                         }
-                        
+
                         return false;
                     });
                 }
@@ -269,18 +283,21 @@ namespace Symbols
                 }
                 else if (currentNode is ITypeNode type)
                 {
-                    currentSymbol = currentSymbol.Symbols.FirstOrDefault(sym => sym is TypeSymbol && sym.Name == type.Name);
+                    // Use dictionary lookup for type by name, then filter by TypeSymbol
+                    var candidates = currentSymbol.LookupAllSymbols(type.Name);
+                    currentSymbol = candidates.OfType<TypeSymbol>().FirstOrDefault();
                 }
                 else if (currentNode is PropertyNode prop)
                 {
-                    currentSymbol = currentSymbol.Symbols.OfType<PropertySymbol>().FirstOrDefault(sym => sym.Name == prop.Name);
+                    var candidates = currentSymbol.LookupAllSymbols(prop.Name);
+                    currentSymbol = candidates.OfType<PropertySymbol>().FirstOrDefault();
                 }
                 else
                 {
                     // We hit a node that does not create a scope, thus we end the search
                     break;
                 }
-                
+
                 if (currentSymbol != null)
                 {
                     symbolHierarchy.Add(currentSymbol);
@@ -298,7 +315,7 @@ namespace Symbols
                     return symbolHierarchy;
                 }
             }
-            
+
             return symbolHierarchy;
         }
 
@@ -329,7 +346,7 @@ namespace Symbols
         private bool MatchType(FileNode context, ITypeSymbol symbol, ITypeReferenceNode node)
         {
             var imported = GetImportedModules(context);
-            
+
             if (symbol.IsConcrete && node is TypeReferenceNode type)
             {
                 var typeSymbol = symbol as TypeSymbol;
@@ -348,18 +365,20 @@ namespace Symbols
                 }
 
                 var imports = ((FileNode)type.Root).Children.OfType<ImportNode>().Select(import => import.Name).ToList();
-                
+
                 var importedModules = new List<ModuleSymbol>();
 
                 foreach (var import in imports)
                 {
                     importedModules.AddRange(imported.Where(m => m.Name == import));
                 }
-                
+
                 // If the fully qualified name doesn't match, we need to check in each module if the type is defined
                 foreach (var module in importedModules)
                 {
-                    var foundSymbol = module.Symbols.OfType<TypeSymbol>().FirstOrDefault(sym => sym.Name == type.Name);
+                    // Use dictionary lookup
+                    var candidates = module.LookupAllSymbols(type.Name);
+                    var foundSymbol = candidates.OfType<TypeSymbol>().FirstOrDefault();
 
                     if (foundSymbol != null)
                     {
@@ -382,12 +401,12 @@ namespace Symbols
             {
                 return Result<TypeSymbol, SymbolResolutionError>.Ok(fqnType);
             }
-            
+
             var simpleType = FindTypeBySimpleName(context, name);
 
             return simpleType;
         }
-        
+
         public TypeSymbol? FindTypeByFQN(FileNode context, string name)
         {
             ISymbol? symbol = FindModuleByFQN(context, name);
@@ -408,7 +427,7 @@ namespace Symbols
 
             while (typeSplit.Length > 0)
             {
-                symbol = symbol.Symbols.FirstOrDefault(sym => sym.Name == typeSplit[0]);
+                symbol = symbol.LookupSymbol(typeSplit[0]);
 
                 if (symbol == null)
                 {
@@ -425,7 +444,7 @@ namespace Symbols
 
             return null;
         }
-        
+
         public TypeSymbol? FindTypeByFQN(string name)
         {
             ISymbol? symbol = FindModuleByFQN(name);
@@ -446,7 +465,7 @@ namespace Symbols
 
             while (typeSplit.Length > 0)
             {
-                symbol = symbol.Symbols.FirstOrDefault(sym => sym.Name == typeSplit[0]);
+                symbol = symbol.LookupSymbol(typeSplit[0]);
 
                 if (symbol == null)
                 {
@@ -486,7 +505,7 @@ namespace Symbols
                 return null;
             }
 
-            // We need to find the module of thye fqn first. 
+            // We need to find the module of thye fqn first.
             // Edge case: Modules can also have multiple parts in their name (e.g. std.io)
             // So we check the fqn minus the last part, then minus the second last part, etc. until we find a module
             var moduleName = parts.Aggregate((current, next) => current + "." + next);
@@ -498,7 +517,8 @@ namespace Symbols
             {
                 parts = parts.Take(parts.Length - 1).ToArray();
                 moduleName = parts.Aggregate((current, next) => current + "." + next);
-                module = Modules.FirstOrDefault(mod => mod.Name == moduleName);
+                // Use dictionary lookup for modules
+                ModulesByName.TryGetValue(moduleName, out module);
             }
 
             if (module == null)
@@ -508,29 +528,30 @@ namespace Symbols
 
             return module;
         }
-        
+
         public ModuleSymbol? FindModuleByFQN(string name)
         {
             // First, break the fully qualified name into parts
             var parts = name.Split('.');
-            
+
             if (parts.Length == 0)
             {
                 return null;
             }
-            
-            // We need to find the module of thye fqn first. 
+
+            // We need to find the module of thye fqn first.
             // Edge case: Modules can also have multiple parts in their name (e.g. std.io)
             // So we check the fqn minus the last part, then minus the second last part, etc. until we find a module
             var moduleName = parts.Aggregate((current, next) => current + "." + next);
 
-            ModuleSymbol? module = Modules.FirstOrDefault(mod => mod.Name == moduleName);
+            // Use dictionary lookup
+            ModulesByName.TryGetValue(moduleName, out var module);
 
             while (module == null && parts.Length > 1)
             {
                 parts = parts.Take(parts.Length - 1).ToArray();
                 moduleName = parts.Aggregate((current, next) => current + "." + next);
-                module = Modules.FirstOrDefault(mod => mod.Name == moduleName);
+                ModulesByName.TryGetValue(moduleName, out module);
             }
 
             if (module == null)
@@ -546,7 +567,7 @@ namespace Symbols
             List<TypeSymbol> results = new();
 
             List<ISymbol> querySymbols;
-            
+
             if (parent != null)
             {
                 querySymbols = [parent];
@@ -556,10 +577,12 @@ namespace Symbols
                 var imported = GetImportedModules(context);
                 querySymbols = [..imported];
             }
-            
+
             foreach (var target in querySymbols)
             {
-                var found = target.Symbols.OfType<TypeSymbol>().FirstOrDefault(sym => sym.Name == name);
+                // Use dictionary lookup
+                var candidates = target.LookupAllSymbols(name);
+                var found = candidates.OfType<TypeSymbol>().FirstOrDefault();
 
                 if (found != null)
                 {
@@ -574,17 +597,17 @@ namespace Symbols
 
             return results;
         }
-        
+
         public List<ModuleSymbol> GetImportedModules(INode node)
         {
             var modules = new List<ModuleSymbol>();
 
             // All imported modules
             var reachableModules = node.Root.Children.OfType<ImportNode>().ToList();
-            
+
             // Add the module the node is part of as well
             reachableModules.Add(new ImportNode(node.Module.Name, node.Root));
-            
+
             foreach (var import in reachableModules)
             {
                 if (FindModuleByFQN(import.Name) is ModuleSymbol module)
@@ -592,16 +615,16 @@ namespace Symbols
                     modules.Add(module);
                     continue;
                 }
-                
+
                 // TODO: Add error for imported module that doesnt exist
                 Console.WriteLine($"Import not found {import.Name}");
             }
 
             return modules;
         }
-        
+
         /// <summary>
-        /// Check if the symbol table contains the function. This does not check if any overload matches the args. 
+        /// Check if the symbol table contains the function. This does not check if any overload matches the args.
         /// </summary>
         /// <param name="funcCallNode">The function call</param>
         /// <param name="parent">Possible parent to use for check</param>
@@ -610,9 +633,9 @@ namespace Symbols
         {
             return FindFunc(context, type, funcCallNode);
         }
-        
+
         /// <summary>
-        /// Check if the symbol table contains the init. This does not check if any overload matches the args. 
+        /// Check if the symbol table contains the init. This does not check if any overload matches the args.
         /// </summary>
         /// <param name="funcCallNode">The function call</param>
         /// <param name="parent">Possible parent to use for check</param>
@@ -621,7 +644,7 @@ namespace Symbols
         {
             return FindInit(context, initCallNode);
         }
-        
+
         public bool ArgsMatchParameters(List<ParameterSymbol> parameters, List<FuncCallArg> args)
         {
             bool matchingArgs = true;
@@ -652,12 +675,12 @@ namespace Symbols
                 {
                     return Result<FuncSymbol, SymbolResolutionResult>.Ok(results.First());
                 }
-                
+
                 if (type.BaseType != null)
                 {
                     results.AddRange(FindFuncs(type.BaseType, node));
                 }
-                
+
                 if (results.Any())
                 {
                     return Result<FuncSymbol, SymbolResolutionResult>.Ok(results.First());
@@ -668,7 +691,7 @@ namespace Symbols
             {
                 return Result<FuncSymbol, SymbolResolutionResult>.Ok(results.First());
             }
-            
+
             var imports = GetImportedModules(context);
 
             foreach (var import in imports)
@@ -689,7 +712,7 @@ namespace Symbols
             {
                 return Result<FuncSymbol, SymbolResolutionResult>.Ok(results.First());
             }
-            
+
             return Result<FuncSymbol, SymbolResolutionResult>.Err(new SymbolResolutionResult
             {
                 Error = SymbolResolutionError.NotFound,
@@ -701,17 +724,15 @@ namespace Symbols
         {
             List<FuncSymbol> results = new();
 
+            // Use dictionary lookup to narrow down to funcs with matching name first
+            var candidates = symbol.LookupAllSymbols(node.Target.Value);
+
             results
                 .AddRange(
-                    symbol.Symbols
+                    candidates
                         .OfType<FuncSymbol>()
                         .Where(func =>
                         {
-                            if (func.Name != node.Target.Value)
-                            {
-                                return false;
-                            }
-
                             if (node.Args.Count() != func.Symbols.OfType<ParameterSymbol>().Count())
                             {
                                 return false;
@@ -725,7 +746,7 @@ namespace Symbols
                                          .Zip(node.Args, (p, a) => (p, a)))
                             {
                                 if (
-                                    param.Type.FullyQualifiedName != arg.Value.ResultType.FullyQualifiedName || 
+                                    param.Type.FullyQualifiedName != arg.Value.ResultType.FullyQualifiedName ||
                                     param.Name != arg.Name
                                 )
                                 {
@@ -741,19 +762,19 @@ namespace Symbols
 
             return results;
         }
-        
+
         public Result<InitSymbol, SymbolResolutionResult> FindInit(FileNode context, InitCallNode node)
         {
             List<InitSymbol> results = new();
-            
+
             var imports = GetImportedModules(context);
 
             foreach (var import in imports)
             {
-                var types = import
-                    .Symbols.OfType<TypeSymbol>()
-                    .Where(symbol => symbol.Name == node.TypeFullName);
-                
+                // Use dictionary lookup for types with the matching name
+                var candidates = import.LookupAllSymbols(node.TypeFullName);
+                var types = candidates.OfType<TypeSymbol>();
+
                 foreach (var type in types)
                 {
                     results.AddRange(FindInits(type, node));
@@ -773,7 +794,7 @@ namespace Symbols
             {
                 return Result<InitSymbol, SymbolResolutionResult>.Ok(results.First());
             }
-            
+
             return Result<InitSymbol, SymbolResolutionResult>.Err(new SymbolResolutionResult
             {
                 Error = SymbolResolutionError.NotFound,
@@ -785,9 +806,12 @@ namespace Symbols
         {
             List<InitSymbol> results = new();
 
+            // Use dictionary lookup to get init symbols
+            var candidates = symbol.LookupAllSymbols("init");
+
             results
                 .AddRange(
-                    symbol.Symbols
+                    candidates
                         .OfType<InitSymbol>()
                         .Where(func =>
                         {
@@ -802,7 +826,7 @@ namespace Symbols
                                          .Zip(node.Args, (p, a) => (p, a)))
                             {
                                 if (
-                                    param.Type.FullyQualifiedName != arg.Value.ResultType!.FullyQualifiedName || 
+                                    param.Type.FullyQualifiedName != arg.Value.ResultType!.FullyQualifiedName ||
                                     param.Name != arg.Name
                                 )
                                 {

@@ -51,6 +51,7 @@ namespace Lexer
                 case TokenType.PlusAssign:
                 case TokenType.Pipe:
                 case TokenType.Or:
+                case TokenType.Range:
                 case TokenType.Xor:
                     return TokenFamily.Operator;
 
@@ -205,6 +206,7 @@ namespace Lexer
                 case Keyword.From: return "from";
                 case Keyword.Fn: return "fn";
                 case Keyword.If: return "if";
+                case Keyword.In: return "in";
                 case Keyword.Use: return "use";
                 case Keyword.Init: return "init";
                 case Keyword.Internal: return "internal";

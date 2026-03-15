@@ -243,12 +243,13 @@ namespace Lexer.Tokens
         {
             if (count > _tokens.Count)
             {
+                var file = _tokens.Count > 0 ? _tokens.First().File : "";
                 var errorToken = new Token
                 {
                     Family = TokenFamily.Error,
                     Type = TokenType.Error,
                     Value = "",
-                    File = this.First().File,
+                    File = file,
                     Line = 0,
                     ColumnStart = 0,
                     ColumnEnd = 0,

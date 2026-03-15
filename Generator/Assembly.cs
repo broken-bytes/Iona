@@ -1,12 +1,7 @@
-﻿using System.Reflection;
-using System.Runtime.Versioning;
 using AST.Nodes;
 using Basic.Reference.Assemblies;
-using Generator.Types;
 using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.CSharp;
-using Microsoft.CodeAnalysis.CSharp.Syntax;
-using Microsoft.CodeAnalysis.Emit;
+using Mono.Cecil;
 using Symbols;
 
 namespace Generator
@@ -14,85 +9,77 @@ namespace Generator
     public class Assembly
     {
         public string Name { get; set; }
-        private readonly AssemblyBuilder builder;
-        CSharpSyntaxTree syntaxTree;
+        private readonly AssemblyBuilder _builder;
 
         public Assembly(string name, SymbolTable table)
         {
             Name = name;
-            builder = new AssemblyBuilder(table);
+            _builder = new AssemblyBuilder(table);
         }
 
         public Assembly Generate(List<INode> trees, bool intermediate, List<string> assemblyRefs, string targetFramework)
         {
-            List<CompilationUnitSyntax> compilationUnits = [];
-            foreach (var tree in trees)
+            // Create the Mono.Cecil assembly definition
+            var assemblyName = new AssemblyNameDefinition(Name, new Version(1, 0, 0, 0));
+            var moduleParams = new ModuleParameters
             {
-                var unit = builder.Build(tree);
+                Kind = ModuleKind.Dll,
+                Runtime = TargetRuntime.Net_4_0 // Cecil uses this for PE format; actual TFM is set via references
+            };
 
-                unit = WithFileHeader(tree.ToString(), unit);
-                compilationUnits.Add(unit);
+            var assemblyDef = AssemblyDefinition.CreateAssembly(assemblyName, Name, moduleParams);
+            var module = assemblyDef.MainModule;
 
-                if (intermediate)
-                {
-                    File.WriteAllText(tree.ToString() + ".cs", unit.NormalizeWhitespace().ToFullString());
-                }
+            // Resolve .NET reference assemblies using Basic.Reference.Assemblies (from Roslyn helper package)
+            var resolver = (DefaultAssemblyResolver)module.AssemblyResolver;
+            var referenceDirs = GetReferenceAssemblyDirs(targetFramework);
+
+            foreach (var dir in referenceDirs)
+            {
+                resolver.AddSearchDirectory(dir);
             }
 
-            if (intermediate)
-            {
-                return this;
-            }
-            
-            var references = new List<MetadataReference>();
+            // Add custom assembly references
             foreach (var reference in assemblyRefs)
             {
-                var ass = System.Reflection.Assembly.Load(reference);
-
-                if (ass != null)
+                try
                 {
-                    references.Add(MetadataReference.CreateFromFile(ass.Location));
-                }
-            }
-            
-            var options = new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary)
-                .WithPlatform(Platform.AnyCpu)
-                .WithNullableContextOptions(NullableContextOptions.Enable);
-
-            CSharpCompilation compilation = CSharpCompilation.Create(Name)
-                .WithOptions(options)
-                .AddSyntaxTrees(compilationUnits.Select(unit => unit.SyntaxTree).ToArray())
-                .AddReferences(references);
-
-            if (targetFramework == "")
-            {
-                compilation = compilation.AddReferences(ReferenceAssemblies.Net80);
-            }
-            else if (targetFramework == ".NET Framework 4")
-            {
-                compilation = compilation.AddReferences(ReferenceAssemblies.Net472);
-            }
-            else
-            {
-                compilation = compilation.AddReferences(ReferenceAssemblies.NetStandard20);
-            }
-            
-            using (var stream = new MemoryStream())
-            {
-                EmitResult result = compilation.Emit(stream);
-                if (result.Success)
-                {
-                    File.WriteAllBytes($"{Name}.dll", stream.ToArray());
-                    Console.WriteLine($"Assembly written to {Name}.dll");
-                }
-                else
-                {
-                    Console.ForegroundColor = ConsoleColor.Red;
-                    foreach (var diagnostic in result.Diagnostics)
+                    var ass = System.Reflection.Assembly.Load(reference);
+                    if (ass != null)
                     {
-                        Console.Error.WriteLine($"Roslyn: {diagnostic}");
+                        resolver.AddSearchDirectory(Path.GetDirectoryName(ass.Location)!);
                     }
                 }
+                catch
+                {
+                    // Assembly not found at load time; may still resolve via search dirs
+                }
+            }
+
+            // Set the target framework attribute on the assembly
+            SetTargetFrameworkAttribute(assemblyDef, targetFramework);
+
+            // Initialize the builder with the assembly
+            _builder.Init(assemblyDef);
+
+            // Build all AST trees into CIL
+            foreach (var tree in trees)
+            {
+                _builder.Build(tree);
+            }
+
+            // Write the assembly to disk
+            try
+            {
+                var writerParams = new WriterParameters();
+                assemblyDef.Write($"{Name}.dll", writerParams);
+                Console.WriteLine($"Assembly written to {Name}.dll");
+            }
+            catch (Exception ex)
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.Error.WriteLine($"Failed to write assembly: {ex.Message}");
+                Console.ResetColor();
             }
 
             return this;
@@ -102,64 +89,54 @@ namespace Generator
         {
         }
 
-        private CompilationUnitSyntax WithFileHeader(string file, CompilationUnitSyntax unit)
+        /// <summary>
+        /// Uses the Basic.Reference.Assemblies NuGet package (Roslyn helper) to get
+        /// the correct reference assembly search directories for the target .NET version.
+        /// This ensures the emitted assembly targets the right runtime.
+        /// </summary>
+        private static HashSet<string> GetReferenceAssemblyDirs(string targetFramework)
         {
-             var line1 = "Generated by the Iona Compiler";
-                var line2 = "Version: v0.0.1";
-                var line3 = $"Source: {file}";
-                var line4 = $"Date: {DateTime.Now}";
-                var line5 = "Caution: Do not manually edit this file!";
-                
-                var neededWidth = Int32.Max(line1.Count(), line2.Count());
-                neededWidth = Int32.Max(neededWidth, line3.Count());
-                neededWidth = Int32.Max(neededWidth, line4.Count());
-                neededWidth = Int32.Max(neededWidth, line5.Count());
+            IEnumerable<PortableExecutableReference> refs = targetFramework switch
+            {
+                ".NET Framework 4" => ReferenceAssemblies.Net472,
+                "netstandard2.0" => ReferenceAssemblies.NetStandard20,
+                _ => Basic.Reference.Assemblies.Net100.References.All
+            };
 
-                // Padding
-                var paddingLeft = 2;
-                var paddingRight = 4;
-                
-                var headerComment1 = SyntaxFactory.Comment($"// ┌{new string('─', neededWidth + paddingLeft + paddingRight)}┐");
-                var headerComment2 = SyntaxFactory.Comment($"// │{new string(' ', paddingLeft)}{line1}{new string(' ', neededWidth - line1.Count() + paddingRight - 1)} │");
-                var headerComment3 = SyntaxFactory.Comment($"// │{new string(' ', paddingLeft)}{line2}{new string(' ', neededWidth - line2.Count() + paddingRight - 1)} │");
-                var headerComment4 = SyntaxFactory.Comment($"// │{new string(' ', paddingLeft)}{line3}{new string(' ', neededWidth - line3.Count() + paddingRight - 1)} │");
-                var headerComment5 = SyntaxFactory.Comment($"// │{new string(' ', paddingLeft)}{line4}{new string(' ', neededWidth - line4.Count() + paddingRight - 1)} │");
-                var headerComment6 = SyntaxFactory.Comment($"// │{new string(' ', paddingLeft)}{line5}{new string(' ', neededWidth - line5.Count() + paddingRight - 1)} │");
-                var headerComment7 = SyntaxFactory.Comment($"// └{new string('─', neededWidth + paddingLeft + paddingRight)}┘");
+            var dirs = new HashSet<string>();
+            foreach (var r in refs)
+            {
+                if (r.FilePath != null)
+                {
+                    var dir = Path.GetDirectoryName(r.FilePath);
+                    if (dir != null) dirs.Add(dir);
+                }
+            }
 
-                var newLine = SyntaxFactory.CarriageReturnLineFeed;
-
-                // Create a SyntaxTriviaList with the comments and new lines
-                var leadingTrivia = SyntaxFactory.TriviaList(
-                    headerComment1,
-                    newLine,
-                    headerComment2,
-                    newLine,
-                    headerComment3,
-                    newLine,
-                    headerComment4,
-                    newLine,
-                    headerComment5,
-                    newLine,
-                    headerComment6,
-                    newLine,
-                    headerComment7,
-                    newLine,
-                    newLine
-                );
-                
-                return unit.WithLeadingTrivia(leadingTrivia);
+            return dirs;
         }
 
-        private CompilationUnitSyntax AssemblyInfo()
+        private static void SetTargetFrameworkAttribute(AssemblyDefinition assembly, string targetFramework)
         {
-            var assemblyInfo = SyntaxFactory.CompilationUnit()
-                .AddUsings(SyntaxFactory.UsingDirective(SyntaxFactory.ParseName("System.Runtime.Versioning")))
-                .AddUsings(SyntaxFactory.UsingDirective(SyntaxFactory.ParseName("System.Reflection")))
-                .AddUsings(SyntaxFactory.UsingDirective(SyntaxFactory.ParseName("System.Runtime.CompilerServices")))
-                .NormalizeWhitespace();
+            var module = assembly.MainModule;
+            var tfm = targetFramework switch
+            {
+                ".NET Framework 4" => ".NETFramework,Version=v4.7.2",
+                "netstandard2.0" => ".NETStandard,Version=v2.0",
+                _ => ".NETCoreApp,Version=v10.0"
+            };
 
-            return assemblyInfo;
+            // Import the TargetFrameworkAttribute constructor
+            var attrType = module.ImportReference(typeof(System.Runtime.Versioning.TargetFrameworkAttribute));
+            var attrCtor = module.ImportReference(
+                typeof(System.Runtime.Versioning.TargetFrameworkAttribute)
+                    .GetConstructor(new[] { typeof(string) }));
+
+            var attribute = new CustomAttribute(attrCtor);
+            attribute.ConstructorArguments.Add(
+                new CustomAttributeArgument(module.ImportReference(typeof(string)), tfm));
+
+            assembly.CustomAttributes.Add(attribute);
         }
     }
 }
