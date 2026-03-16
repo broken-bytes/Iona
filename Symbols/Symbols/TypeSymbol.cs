@@ -15,6 +15,9 @@
         public ISymbol? Parent { get; set; }
         public TypeSymbol? BaseType { get; set; }
         public List<TypeSymbol> Contracts { get; set; } = new();
+        public bool IsOptional { get; set; }
+        public bool IsImplicitlyUnwrapped { get; set; }
+        public TypeSymbol? InnerType { get; set; }
 
         public TypeSymbol(string name, TypeKind kind)
         {

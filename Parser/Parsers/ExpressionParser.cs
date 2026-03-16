@@ -96,6 +96,25 @@ namespace Parser.Parsers
             {
                 if (nextState is ExpressionState.Finish or ExpressionState.Invalid)
                 {
+                    // Array access: when state machine stops at `[`, collect bracket-delimited tokens
+                    if (nextState == ExpressionState.Invalid && token.Type == TokenType.BracketLeft)
+                    {
+                        tokens.Add(token);
+                        stream.Consume();
+                        int bracketDepth = 1;
+                        while (!stream.IsEmpty() && bracketDepth > 0)
+                        {
+                            token = stream.Peek();
+                            tokens.Add(token);
+                            stream.Consume();
+                            if (token.Type == TokenType.BracketLeft) bracketDepth++;
+                            if (token.Type == TokenType.BracketRight) bracketDepth--;
+                        }
+                        if (stream.IsEmpty()) break;
+                        token = stream.Peek();
+                        nextState = NextState(ExpressionState.Operand, token);
+                        continue;
+                    }
                     break;
                 }
                 switch (nextState)
@@ -115,7 +134,7 @@ namespace Parser.Parsers
                 {
                     break;
                 }
-                
+
                 nextState = NextState(nextState, token);
             }
 
@@ -295,7 +314,7 @@ namespace Parser.Parsers
             while (!stream.IsEmpty())
             {   
                 var token = stream.Consume();
-                if (token.Type is TokenType.Identifier or TokenType.Self or TokenType.Dot or TokenType.Comma|| token.Family is TokenFamily.Literal)
+                if (token.Type is TokenType.Identifier or TokenType.Self or TokenType.Dot or TokenType.SoftUnwrap or TokenType.Comma|| token.Family is TokenFamily.Literal)
                 {
                     output.Add(token);
                     continue;
@@ -380,8 +399,22 @@ namespace Parser.Parsers
                     }
                 }
 
+                // Force unwrap (!) passes through to tree building
+                if (token.Type is TokenType.Not or TokenType.HardUnwrap)
+                {
+                    output.Add(token);
+                    continue;
+                }
+
                 // We need to check if the operator is just a dot for property access
                 if (token.Type is TokenType.Dot or TokenType.Scope)
+                {
+                    output.Add(token);
+                    continue;
+                }
+
+                // Array access brackets pass through to tree building
+                if (token.Type is TokenType.BracketLeft or TokenType.BracketRight)
                 {
                     output.Add(token);
                     continue;
@@ -428,7 +461,36 @@ namespace Parser.Parsers
             var token = stream.Peek();
             while (!stream.IsEmpty())
             {
-                if (token.Type is TokenType.Identifier or TokenType.Self)
+                if (token.Type is TokenType.BracketLeft)
+                {
+                    // Array access: pop array operand, parse index sub-expression until `]`
+                    stream.Consume(); // consume '['
+                    var arrayNode = (IExpressionNode)stack.Pop();
+
+                    // Collect tokens until matching ']'
+                    var indexTokens = new List<Token>();
+                    int depth = 1;
+                    while (!stream.IsEmpty() && depth > 0)
+                    {
+                        var t = stream.Peek();
+                        if (t.Type == TokenType.BracketLeft) depth++;
+                        if (t.Type == TokenType.BracketRight) depth--;
+                        if (depth > 0)
+                        {
+                            indexTokens.Add(t);
+                        }
+                        stream.Consume();
+                    }
+
+                    var indexStream = new TokenStream(indexTokens);
+                    var indexExpr = (IExpressionNode)BuildBinaryExpressionNode(indexStream, parent);
+
+                    var accessNode = new ArrayAccessNode(arrayNode, indexExpr, parent);
+                    arrayNode.Parent = accessNode;
+                    indexExpr.Parent = accessNode;
+                    stack.Push(accessNode);
+                }
+                else if (token.Type is TokenType.Identifier or TokenType.Self)
                 {
                     // We don't consume from the stream here, as the member access parser does that
                     if (IsMemberAccess(stream))
@@ -522,6 +584,57 @@ namespace Parser.Parsers
                     stream.Consume();
                 }
 
+                // Check for force unwrap postfix (!) and optional chaining (?.)
+                while (!stream.IsEmpty() && stack.Any())
+                {
+                    var next = stream.Peek();
+                    if (next.Type is TokenType.Not or TokenType.HardUnwrap)
+                    {
+                        stream.Consume();
+                        var expr = (IExpressionNode)stack.Pop();
+                        var forceUnwrap = new ForceUnwrapNode(expr, parent);
+                        expr.Parent = forceUnwrap;
+                        forceUnwrap.Meta = expr.Meta;
+                        stack.Push(forceUnwrap);
+                    }
+                    else if (next.Type == TokenType.SoftUnwrap && !stream.IsEmpty())
+                    {
+                        // Optional chaining: consume ? then expect .member
+                        stream.Consume(); // consume ?
+                        if (stream.IsEmpty() || stream.Peek().Type != TokenType.Dot) break;
+                        stream.Consume(); // consume .
+                        if (stream.IsEmpty()) break;
+                        var memberToken = stream.Consume(TokenType.Identifier, TokenFamily.Identifier);
+                        var obj = (IExpressionNode)stack.Pop();
+                        var memberNode = new IdentifierNode(memberToken.Value, parent);
+                        Utils.SetMeta(memberNode, memberToken);
+                        var propAccess = new PropAccessNode(obj, memberNode, parent) { IsOptionalChain = true };
+                        obj.Parent = propAccess;
+                        memberNode.Parent = propAccess;
+                        propAccess.Meta = obj.Meta;
+                        stack.Push(propAccess);
+                    }
+                    else if (next.Type == TokenType.Dot)
+                    {
+                        // Regular member access on result (e.g., foo!.name)
+                        stream.Consume(); // consume .
+                        if (stream.IsEmpty()) break;
+                        var memberToken = stream.Consume(TokenType.Identifier, TokenFamily.Identifier);
+                        var obj = (IExpressionNode)stack.Pop();
+                        var memberNode = new IdentifierNode(memberToken.Value, parent);
+                        Utils.SetMeta(memberNode, memberToken);
+                        var propAccess = new PropAccessNode(obj, memberNode, parent);
+                        obj.Parent = propAccess;
+                        memberNode.Parent = propAccess;
+                        propAccess.Meta = obj.Meta;
+                        stack.Push(propAccess);
+                    }
+                    else
+                    {
+                        break;
+                    }
+                }
+
                 if (stream.IsEmpty())
                 {
                     break;
@@ -529,7 +642,7 @@ namespace Parser.Parsers
 
                 token = stream.Peek();
             }
-            
+
             var upperMost = stack.Pop();
             upperMost.Parent = parent;
 
@@ -596,7 +709,7 @@ namespace Parser.Parsers
                         return ExpressionState.EndGroup;
                     }
 
-                    if (token.Type is TokenType.Dot)
+                    if (token.Type is TokenType.Dot or TokenType.SoftUnwrap)
                     {
                         return ExpressionState.MemberAccess;
                     }
@@ -606,16 +719,23 @@ namespace Parser.Parsers
                         return ExpressionState.ScopeResolution;
                     }
 
+                    // Force unwrap (!) after an operand stays in Operand state
+                    // Note: ! is lexed as Not when standalone, HardUnwrap when followed by .
+                    if (token.Type is TokenType.Not or TokenType.HardUnwrap)
+                    {
+                        return ExpressionState.Operand;
+                    }
+
                     if (IsBinaryOperator(token))
                     {
                         return ExpressionState.Operator;
                     }
-                    
+
                     if (token.Type is TokenType.Colon)
                     {
                         return ExpressionState.Param;
                     }
-                    
+
                     if (token.Family is TokenFamily.Operator)
                     {
                         // Any operator that is NOT a binary or unary operator ends the expression (=, +=, etc.)
@@ -626,7 +746,7 @@ namespace Parser.Parsers
                     {
                         return ExpressionState.ParamNext;
                     }
-                    
+
                     return ExpressionState.Invalid;
                 }
                 case ExpressionState.ParamNext:
@@ -731,6 +851,12 @@ namespace Parser.Parsers
                     if (token.Type is TokenType.Identifier)
                     {
                         return ExpressionState.Operand;
+                    }
+
+                    // After `?` in optional chaining, expect `.`
+                    if (token.Type is TokenType.Dot)
+                    {
+                        return ExpressionState.MemberAccess;
                     }
 
                     return ExpressionState.Invalid;

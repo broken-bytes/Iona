@@ -25,6 +25,10 @@ class Iona
             HelpText =
                 "The .NET framework to use. Allowed values are '.NET Framework', .NET 8, and >NET Standard 2. Default is '.NET 8'")]
         public string TargetFramework { get; set; } = "";
+
+        [Option('o', "output-type", Required = false,
+            HelpText = "Output type: 'dll' (library, default) or 'exe' (console application with main entry point).")]
+        public string OutputType { get; set; } = "dll";
     }
     
     static void Main(String[] args)
@@ -85,7 +89,8 @@ class Iona
             options.EmitIr,
             options.AssemblyPaths?.ToList() ?? new List<string>(),
             options.AssemblyRefs?.ToList() ?? new List<string>(),
-            options.TargetFramework
+            options.TargetFramework,
+            options.OutputType
         ); 
     }
 

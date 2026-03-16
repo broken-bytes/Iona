@@ -51,11 +51,14 @@ namespace Compiler
             bool emitIr,
             List<string> assemblyPaths,
             List<string> assemblyRefs,
-            string targetFramework
+            string targetFramework,
+            string outputType
             )
         {
-            // Add IONA SDK to the references
-            assemblyRefs.Add("Iona.Builtins");
+            // Add core System assembly to the references
+            // Builtin types (Int32, String, Bool, etc.) are registered programmatically — no Iona.Builtins.dll needed
+            if (!assemblyRefs.Contains("System.Runtime"))
+                assemblyRefs.Add("System.Runtime");
             assemblyPaths.Add(Environment.GetEnvironmentVariable("IONA_SDK_DIR") ?? "");
             // The compiler is made up of several passes:
             // - Lexing
@@ -117,13 +120,17 @@ namespace Compiler
                 // Auto-inject `use Iona.Builtins` so builtin types resolve without an explicit import
                 if (ast is FileNode fileNode)
                 {
-                    var hasBuiltinsImport = fileNode.Children
-                        .OfType<ImportNode>()
-                        .Any(i => i.Name == "Iona.Builtins");
-
-                    if (!hasBuiltinsImport)
+                    // Auto-inject `use Iona.Builtins` and `use System` so core types resolve without explicit imports
+                    foreach (var autoImport in new[] { "Iona.Builtins", "System" })
                     {
-                        fileNode.Children.Insert(0, new ImportNode("Iona.Builtins", fileNode));
+                        var hasImport = fileNode.Children
+                            .OfType<ImportNode>()
+                            .Any(i => i.Name == autoImport);
+
+                        if (!hasImport)
+                        {
+                            fileNode.Children.Insert(0, new ImportNode(autoImport, fileNode));
+                        }
                     }
                 }
 
@@ -168,23 +175,24 @@ namespace Compiler
             }
 
             Console.ForegroundColor = ConsoleColor.Green;
-            GenerateCode(assemblyName, asts.ToList(), globalTable, intermediate, assemblyPaths, assemblyRefs, targetFramework);
+            GenerateCode(assemblyName, asts.ToList(), globalTable, intermediate, assemblyPaths, assemblyRefs, targetFramework, outputType);
 
             return true;
         }
 
         private void GenerateCode(
-            string assemblyName, 
-            List<INode> asts, 
-            SymbolTable globalTable, 
-            bool intermediate, 
-            List<string> assemblyPaths, 
+            string assemblyName,
+            List<INode> asts,
+            SymbolTable globalTable,
+            bool intermediate,
+            List<string> assemblyPaths,
             List<string> assemblyRefs,
-            string targetFramework
+            string targetFramework,
+            string outputType
             )
         {
             var assembly = generator.CreateAssembly(assemblyName, globalTable);
-            assembly.Generate(asts, intermediate, assemblyRefs, targetFramework);
+            assembly.Generate(asts, intermediate, assemblyRefs, targetFramework, outputType);
         }
     }
 }

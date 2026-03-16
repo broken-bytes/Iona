@@ -1,4 +1,6 @@
-﻿namespace Symbols.Symbols
+﻿using AST.Types;
+
+namespace Symbols.Symbols
 {
     public class FuncSymbol : ISymbol
     {
@@ -9,6 +11,8 @@
         public Dictionary<string, List<ISymbol>> SymbolsByName { get; set; }
         public SymbolKind Kind { get; set; } = SymbolKind.Function;
         public ISymbol? Parent { get; set; }
+        public AccessLevel AccessLevel { get; set; } = AccessLevel.Private;
+        public bool IsMutating { get; set; }
 
         public FuncSymbol(string ionaName, string csharpName)
         {

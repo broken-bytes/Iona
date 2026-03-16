@@ -20,6 +20,7 @@ public class ImplPassExpressionChecksSubPass :
     IInitVisitor,
     IModuleVisitor,
     IOperatorVisitor,
+    IRecordVisitor,
     IStructVisitor
 {
     private readonly ExpressionResolver _expressionResolver;
@@ -49,6 +50,17 @@ public class ImplPassExpressionChecksSubPass :
         {
             switch (child)
             {
+                case GuardNode guardNode:
+                    if (guardNode.Condition != null)
+                    {
+                        _expressionResolver.ResolveExpressionType(guardNode.Condition, _symbolTable);
+                    }
+                    if (guardNode.BindingExpression != null)
+                    {
+                        _expressionResolver.ResolveExpressionType(guardNode.BindingExpression, _symbolTable);
+                    }
+                    guardNode.Body?.Accept(this);
+                    break;
                 case IfNode ifNode:
                     _expressionResolver.ResolveExpressionType(ifNode.Condition, _symbolTable);
                     ifNode.Body?.Accept(this);
@@ -167,12 +179,12 @@ public class ImplPassExpressionChecksSubPass :
 
     public void Visit(ContractNode node)
     {
-        throw new NotImplementedException();
+        // Contract members are declarations only — no expressions to check
     }
 
     public void Visit(EnumNode node)
     {
-        throw new NotImplementedException();
+        // Enums don't have expression checks yet
     }
 
     public void Visit(FileNode node)
@@ -248,6 +260,9 @@ public class ImplPassExpressionChecksSubPass :
                 case FuncNode funcNode:
                     funcNode.Accept(this);
                     break;
+                case RecordNode recordNode:
+                    recordNode.Accept(this);
+                    break;
                 case StructNode structNode:
                     structNode.Accept(this);
                     break;
@@ -275,6 +290,58 @@ public class ImplPassExpressionChecksSubPass :
             }
         }
         
+        node.Body?.Accept(this);
+    }
+
+    public void Visit(RecordNode node)
+    {
+        TypeSymbol? recordSymbol = null;
+
+        var recordResult = _symbolTable.FindType(node.Root, node.FullyQualifiedName);
+
+        if (recordResult.IsSuccess)
+        {
+            recordSymbol = recordResult.Unwrapped();
+        }
+        else
+        {
+            return;
+        }
+
+        foreach (var contract in node.Contracts)
+        {
+            TypeSymbol? typeSymbol = null;
+
+            var result = _symbolTable.FindType(node.Root, contract.Name);
+
+            if (result.IsSuccess)
+            {
+                typeSymbol = result.Unwrapped();
+            }
+            else
+            {
+                return;
+            }
+
+            contract.FullyQualifiedName = typeSymbol.FullyQualifiedName;
+            contract.TypeKind = Utils.SymbolKindToASTKind(typeSymbol.TypeKind);
+            contract.Assembly = typeSymbol.Assembly;
+
+            var contractSymbol = _symbolTable.FindType(node.Root, contract.FullyQualifiedName);
+
+            if (contractSymbol.IsSuccess)
+            {
+                if (typeSymbol.TypeKind == TypeKind.Class)
+                {
+                    // TODO: Show error because record cannot inherit from classes
+                }
+                else
+                {
+                    recordSymbol!.Contracts.Add(typeSymbol!);
+                }
+            }
+        }
+
         node.Body?.Accept(this);
     }
 

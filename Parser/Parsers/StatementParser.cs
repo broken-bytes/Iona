@@ -17,6 +17,7 @@ namespace Parser.Parsers
         private readonly ModuleParser moduleParser;
         private readonly OperatorParser operatorParser;
         private readonly PropertyParser propertyParser;
+        private readonly RecordParser recordParser;
         private readonly StructParser structParser;
         private readonly VariableParser variableParser;
         private readonly IErrorCollector _errorCollector;
@@ -32,6 +33,7 @@ namespace Parser.Parsers
             ModuleParser moduleParser,
             OperatorParser operatorParser,
             PropertyParser propertyParser,
+            RecordParser recordParser,
             StructParser structParser,
             VariableParser variableParser,
             IErrorCollector errorCollector
@@ -47,6 +49,7 @@ namespace Parser.Parsers
             this.moduleParser = moduleParser;
             this.operatorParser = operatorParser;
             this.propertyParser = propertyParser;
+            this.recordParser = recordParser;
             this.structParser = structParser;
             this.variableParser = variableParser;
             _errorCollector = errorCollector;
@@ -97,6 +100,11 @@ namespace Parser.Parsers
                 return operatorParser.Parse(stream, parent);
             }
 
+            if (recordParser.IsRecord(stream))
+            {
+                return recordParser.Parse(stream, parent);
+            }
+
             if (structParser.IsStruct(stream))
             {
                 return structParser.Parse(stream, parent);
@@ -104,7 +112,7 @@ namespace Parser.Parsers
 
             if (propertyParser.IsProperty(stream) || variableParser.IsVariable(stream))
             {
-                if (parent != null && parent.Parent is ClassNode or ContractNode or StructNode)
+                if (parent != null && parent.Parent is ClassNode or ContractNode or RecordNode or StructNode)
                 {
                     return propertyParser.Parse(stream, parent);
                 }
@@ -128,6 +136,11 @@ namespace Parser.Parsers
                 }
 
                 return new ImportNode(moduleImport, parent);
+            }
+
+            if (token.Type == TokenType.Guard)
+            {
+                return ParseGuard(stream, parent);
             }
 
             if (token.Type == TokenType.If)
@@ -193,6 +206,7 @@ namespace Parser.Parsers
             return
                 IsCompoundAssignment(stream) ||
                 IsBasicAssignment(stream) ||
+                IsGuardStatement(stream) ||
                 IsIfStatement(stream) ||
                 IsWhileStatement(stream) ||
                 IsForStatement(stream) ||
@@ -285,9 +299,13 @@ namespace Parser.Parsers
             var returnNode = new ReturnNode(parent);
             Utils.SetMeta(returnNode, token);
 
-            // Parse the return value
-            var expression = (IExpressionNode)expressionParser.Parse(stream, parent);
-            returnNode.Value = expression;
+            // Check if this is a void return (next meaningful token is } or linebreak followed by })
+            var next = stream.Peek();
+            if (next.Type != TokenType.CurlyRight && next.Type != TokenType.Linebreak)
+            {
+                var expression = (IExpressionNode)expressionParser.Parse(stream, parent);
+                returnNode.Value = expression;
+            }
 
             return returnNode;
         }
@@ -366,6 +384,93 @@ namespace Parser.Parsers
                 default:
                     return false;
             }
+        }
+
+        /// <summary>
+        /// Parses: guard condition else { block }
+        ///     or: guard var/let name = expression else { block }
+        /// The body executes when the condition is false (or binding is null) and must contain an early exit.
+        /// </summary>
+        private INode ParseGuard(TokenStream stream, INode? parent)
+        {
+            var guardToken = stream.Consume(TokenType.Guard, TokenFamily.Keyword);
+
+            // Check if this is a binding guard (guard var/let name = expr else { ... })
+            var next = stream.Peek();
+            if (next.Type is TokenType.Var or TokenType.Let)
+            {
+                return ParseGuardBinding(stream, guardToken, parent);
+            }
+
+            // Condition guard: guard condition else { block }
+            var condition = (IExpressionNode)expressionParser.Parse(stream, parent);
+
+            // Skip linebreaks before 'else'
+            while (stream.Peek().Type == TokenType.Linebreak)
+            {
+                stream.Consume(TokenType.Linebreak, TokenFamily.Keyword);
+            }
+
+            // Consume the required 'else' keyword
+            stream.Consume(TokenType.Else, TokenFamily.Keyword);
+
+            // Skip linebreaks before block
+            while (stream.Peek().Type == TokenType.Linebreak)
+            {
+                stream.Consume(TokenType.Linebreak, TokenFamily.Keyword);
+            }
+
+            // Parse the else body block
+            var body = (BlockNode)blockParser.Parse(stream, parent);
+
+            var guardNode = new GuardNode(condition, body, parent);
+            body.Parent = guardNode;
+            condition.Parent = guardNode;
+            Utils.SetMeta(guardNode, guardToken);
+
+            return guardNode;
+        }
+
+        /// <summary>
+        /// Parses: guard var/let name = expression else { block }
+        /// </summary>
+        private INode ParseGuardBinding(TokenStream stream, Token guardToken, INode? parent)
+        {
+            var varLetToken = stream.Consume();
+            bool isMutable = varLetToken.Type == TokenType.Var;
+
+            var identifier = stream.Consume(TokenType.Identifier, TokenFamily.Identifier);
+
+            // Consume '='
+            stream.Consume(TokenType.Assign, TokenFamily.Keyword);
+
+            // Parse the expression to unwrap
+            var expression = (IExpressionNode)expressionParser.Parse(stream, parent);
+
+            // Skip linebreaks before 'else'
+            while (stream.Peek().Type == TokenType.Linebreak)
+            {
+                stream.Consume(TokenType.Linebreak, TokenFamily.Keyword);
+            }
+
+            // Consume the required 'else' keyword
+            stream.Consume(TokenType.Else, TokenFamily.Keyword);
+
+            // Skip linebreaks before block
+            while (stream.Peek().Type == TokenType.Linebreak)
+            {
+                stream.Consume(TokenType.Linebreak, TokenFamily.Keyword);
+            }
+
+            // Parse the else body block
+            var body = (BlockNode)blockParser.Parse(stream, parent);
+
+            var guardNode = new GuardNode(identifier.Value, isMutable, expression, body, parent);
+            body.Parent = guardNode;
+            expression.Parent = guardNode;
+            Utils.SetMeta(guardNode, guardToken);
+
+            return guardNode;
         }
 
         /// <summary>
@@ -542,6 +647,11 @@ namespace Parser.Parsers
             var continueNode = new ContinueNode(parent);
             Utils.SetMeta(continueNode, token);
             return continueNode;
+        }
+
+        private bool IsGuardStatement(TokenStream stream)
+        {
+            return stream.Peek().Type == TokenType.Guard;
         }
 
         private bool IsIfStatement(TokenStream stream)

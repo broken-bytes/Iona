@@ -1,4 +1,5 @@
 using AST.Nodes;
+using AST.Types;
 using Tests.Helpers;
 
 namespace Tests;
@@ -155,5 +156,40 @@ public class Foo {
         var (errors, _) = TestHelpers.RunTypeck(source);
 
         Assert.Empty(errors.Errors);
+    }
+
+    [Fact]
+    public void ArrayAccess_ParsesIntoArrayAccessNode()
+    {
+        var source = @"
+module TestModule
+
+public class Foo {
+    public var items = 0
+
+    public fn get_first() -> Int32 {
+        var arr = items
+        return arr[0]
+    }
+}
+";
+        var (_, _, ast) = TestHelpers.RunTypeckWithAst(source);
+
+        var moduleNode = ast.Children.OfType<ModuleNode>().First();
+        var classNode = moduleNode.Children.OfType<ClassNode>().First();
+        var funcNode = classNode.Body!.Children.OfType<FuncNode>().First(f => f.Name == "get_first");
+        var returnNode = funcNode.Body!.Children.OfType<ReturnNode>().First();
+
+        // The return value should be an ArrayAccessNode
+        Assert.IsType<ArrayAccessNode>(returnNode.Value);
+        var arrayAccess = (ArrayAccessNode)returnNode.Value;
+
+        // The array target should be the identifier "arr"
+        Assert.IsType<IdentifierNode>(arrayAccess.Array);
+        Assert.Equal("arr", ((IdentifierNode)arrayAccess.Array).Value);
+
+        // The index should be the literal 0
+        Assert.IsType<LiteralNode>(arrayAccess.Index);
+        Assert.Equal("0", ((LiteralNode)arrayAccess.Index).Value);
     }
 }

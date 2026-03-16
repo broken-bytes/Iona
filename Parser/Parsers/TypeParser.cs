@@ -42,7 +42,7 @@ namespace Parser.Parsers
                 Utils.SetStart(arrayRef, token);
                 Utils.SetEnd(arrayRef, end);
 
-                return arrayRef;
+                return ApplyOptionalOrWeak(stream, arrayRef);
             }
 
             // We need to be able to parse types and generics
@@ -99,13 +99,31 @@ namespace Parser.Parsers
                 token = stream.Consume(TokenType.ArrowRight, TokenFamily.Operator);
                 Utils.SetEnd(genericType, token);
 
-                return genericType;
+                return ApplyOptionalOrWeak(stream, genericType);
             }
 
             var type = new TypeReferenceNode(nameBuilder.ToString(), parent);
 
             Utils.SetStart(type, token);
             Utils.SetEnd(type, endToken);
+
+            return ApplyOptionalOrWeak(stream, type);
+        }
+
+        private TypeReferenceNode ApplyOptionalOrWeak(TokenStream stream, TypeReferenceNode type)
+        {
+            if (!stream.IsEmpty() && stream.Peek().Type == TokenType.SoftUnwrap)
+            {
+                var token = stream.Consume(TokenType.SoftUnwrap, TokenFamily.Keyword);
+                type.IsOptional = true;
+                Utils.SetEnd(type, token);
+            }
+            else if (!stream.IsEmpty() && (stream.Peek().Type == TokenType.Not || stream.Peek().Type == TokenType.HardUnwrap))
+            {
+                var token = stream.Consume();
+                type.IsImplicitlyUnwrapped = true;
+                Utils.SetEnd(type, token);
+            }
 
             return type;
         }

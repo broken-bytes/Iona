@@ -10,7 +10,8 @@
             bool emitIr,
             List<string> assemblyPaths,
             List<string> assemblyRefs,
-            string targetFramework
+            string targetFramework,
+            string outputType
             );
     }
 }

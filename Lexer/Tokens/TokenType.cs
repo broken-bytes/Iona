@@ -13,6 +13,7 @@
         Contract,
         Enum,
         Module,
+        Record,
         Self,
         Struct,
 

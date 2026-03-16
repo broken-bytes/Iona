@@ -19,6 +19,7 @@ public class DeclPassMemberReferenceResolveSubPass :
     IModuleVisitor,
     IOperatorVisitor,
     IPropertyVisitor,
+    IRecordVisitor,
     IStructVisitor
 {
     private readonly IErrorCollector _errorCollector;
@@ -51,6 +52,16 @@ public class DeclPassMemberReferenceResolveSubPass :
             func.Accept(this);
         }
 
+        foreach (var init in node.Children.OfType<InitNode>())
+        {
+            init.Accept(this);
+        }
+
+        foreach (var op in node.Children.OfType<OperatorNode>())
+        {
+            op.Accept(this);
+        }
+
         foreach (var prop in node.Children.OfType<PropertyNode>())
         {
             prop.Accept(this);
@@ -65,16 +76,15 @@ public class DeclPassMemberReferenceResolveSubPass :
         }
 
         var symbol = _symbolTable.FindTypeByFQN(node.FullyQualifiedName);
-        
-        _currentSymbol.AddSymbol(symbol!);
-        
+
+        var previous = _currentSymbol;
         _currentSymbol = symbol;
 
         node.Body?.Accept(this);
-        
-        _currentSymbol = null;
+
+        _currentSymbol = previous;
     }
-    
+
     public void Visit(ContractNode node)
     {
         if (_currentSymbol == null)
@@ -83,12 +93,13 @@ public class DeclPassMemberReferenceResolveSubPass :
         }
 
         var symbol = _symbolTable.FindTypeByFQN(node.FullyQualifiedName);
-        
-        _currentSymbol.AddSymbol(symbol!);
-        
+
+        var previous = _currentSymbol;
         _currentSymbol = symbol;
 
         node.Body?.Accept(this);
+
+        _currentSymbol = previous;
     }
 
     public void Visit(EnumNode node)
@@ -99,12 +110,13 @@ public class DeclPassMemberReferenceResolveSubPass :
         }
 
         var symbol = _symbolTable.FindTypeByFQN(node.FullyQualifiedName);
-        
-        _currentSymbol.AddSymbol(symbol!);
-        
+
+        var previous = _currentSymbol;
         _currentSymbol = symbol;
 
         node.Body?.Accept(this);
+
+        _currentSymbol = previous;
     }
 
     public void Visit(FileNode node)
@@ -124,6 +136,11 @@ public class DeclPassMemberReferenceResolveSubPass :
         
         var symbol = _currentSymbol.Symbols.OfType<FuncSymbol>().FirstOrDefault(func =>
         {
+            if (func.Name != node.Name)
+            {
+                return false;
+            }
+
             if (func.Symbols.OfType<ParameterSymbol>().Count() != node.Parameters.Count)
             {
                 return false;
@@ -139,15 +156,17 @@ public class DeclPassMemberReferenceResolveSubPass :
 
             return true;
         });
-        
+
+        if (symbol == null) return;
+
         foreach (var param in node.Parameters)
         {
             var paramType = _symbolTable.FindType(node.Root, param.TypeNode.FullyQualifiedName);
-            
+
             if (paramType.IsSuccess)
             {
                 var parameter = new ParameterSymbol(param.Name, paramType.Unwrapped(), symbol);
-                symbol!.AddSymbol(parameter);
+                symbol.AddSymbol(parameter);
             }
             else
             {
@@ -169,27 +188,29 @@ public class DeclPassMemberReferenceResolveSubPass :
             if (returnType.IsSuccess)
             {
                 symbol!.ReturnType = returnType.Unwrapped();
+                var retIsOptional = node.ReturnType.IsOptional;
+                var retIsIUO = node.ReturnType.IsImplicitlyUnwrapped;
                 node.ReturnType = new TypeReferenceNode(returnType.Unwrapped().Name, node)
                 {
                     FullyQualifiedName = returnType.Unwrapped().FullyQualifiedName,
-                    Assembly = returnType.Unwrapped().Assembly
+                    Assembly = returnType.Unwrapped().Assembly,
+                    IsOptional = retIsOptional,
+                    IsImplicitlyUnwrapped = retIsIUO,
                 };
             }
             else
             {
                 node.Status = INode.ResolutionStatus.Failed;
-                
+
                 var error = CompilerErrorFactory.TopLevelDefinitionError(node.ReturnType.FullyQualifiedName, node.ReturnType.Meta);
-                
+
                 _errorCollector.Collect(error);
-                
+
                 return;
             }
         }
-
-        _currentSymbol.AddSymbol(symbol!);
     }
-    
+
     public void Visit(InitNode node)
     {
         if (_currentSymbol is not TypeSymbol)
@@ -236,8 +257,6 @@ public class DeclPassMemberReferenceResolveSubPass :
                 break;
             }
         }
-
-        _currentSymbol.AddSymbol(symbol!);
     }
 
     public void Visit(ModuleNode node)
@@ -262,6 +281,9 @@ public class DeclPassMemberReferenceResolveSubPass :
                 case ContractNode contractNode:
                     contractNode.Accept(this);
                     break;
+                case RecordNode recordNode:
+                    recordNode.Accept(this);
+                    break;
                 case StructNode structNode:
                     structNode.Accept(this);
                     break;
@@ -273,7 +295,7 @@ public class DeclPassMemberReferenceResolveSubPass :
             func.Accept(this);
         }
     }
-    
+
     public void Visit(OperatorNode node)
     {
         if (_currentSymbol == null)
@@ -327,25 +349,28 @@ public class DeclPassMemberReferenceResolveSubPass :
             if (returnType.IsSuccess)
             {
                 symbol!.ReturnType = returnType.Unwrapped();
+                var retIsOptional = node.ReturnType.IsOptional;
+                var retIsIUO = node.ReturnType.IsImplicitlyUnwrapped;
                 node.ReturnType = new TypeReferenceNode(returnType.Unwrapped().Name, node)
                 {
                     FullyQualifiedName = returnType.Unwrapped().FullyQualifiedName,
-                    Assembly = returnType.Unwrapped().Assembly
+                    Assembly = returnType.Unwrapped().Assembly,
+                    IsOptional = retIsOptional,
+                    IsImplicitlyUnwrapped = retIsIUO,
                 };
             }
             else
             {
                 node.Status = INode.ResolutionStatus.Failed;
-                
+
                 var error = CompilerErrorFactory.TopLevelDefinitionError(node.ReturnType.FullyQualifiedName, node.ReturnType.Meta);
-                
+
                 _errorCollector.Collect(error);
-                
+
                 return;
             }
         }
 
-        _currentSymbol.AddSymbol(symbol!);
     }
 
     public void Visit(PropertyNode node)
@@ -365,11 +390,19 @@ public class DeclPassMemberReferenceResolveSubPass :
             {
                 symbol!.Type = type.Unwrapped();
 
+                var isOptional = node.TypeNode.IsOptional;
+                var isIUO = node.TypeNode.IsImplicitlyUnwrapped;
+
                 node.TypeNode = new TypeReferenceNode(type.Unwrapped().Name, node)
                 {
                     FullyQualifiedName = type.Unwrapped().FullyQualifiedName,
-                    Assembly = type.Unwrapped().Assembly
+                    Assembly = type.Unwrapped().Assembly,
+                    IsOptional = isOptional,
+                    IsImplicitlyUnwrapped = isIUO,
                 };
+
+                symbol!.IsOptional = isOptional;
+                symbol!.IsImplicitlyUnwrapped = isIUO;
             }
             else
             {
@@ -389,6 +422,23 @@ public class DeclPassMemberReferenceResolveSubPass :
         }
     }
     
+    public void Visit(RecordNode node)
+    {
+        if (_currentSymbol == null)
+        {
+            return;
+        }
+
+        var symbol = _symbolTable.FindTypeByFQN(node.FullyQualifiedName);
+
+        var previous = _currentSymbol;
+        _currentSymbol = symbol;
+
+        node.Body?.Accept(this);
+
+        _currentSymbol = previous;
+    }
+
     public void Visit(StructNode node)
     {
         if (_currentSymbol == null)
@@ -396,12 +446,13 @@ public class DeclPassMemberReferenceResolveSubPass :
             return;
         }
 
-        var symbol = new TypeSymbol(node.Name, TypeKind.Struct);
-        
-        _currentSymbol.AddSymbol(symbol);
+        var symbol = _symbolTable.FindTypeByFQN(node.FullyQualifiedName);
 
+        var previous = _currentSymbol;
         _currentSymbol = symbol;
 
         node.Body?.Accept(this);
+
+        _currentSymbol = previous;
     }
 }

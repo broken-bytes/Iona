@@ -487,6 +487,16 @@ namespace Symbols
         {
             var results = FindTypeByName(context, name, null);
 
+            if (results.Count > 1)
+            {
+                // Prefer builtin types when there's ambiguity (e.g., Iona.Builtins.Void vs System.Void)
+                var builtin = results.FirstOrDefault(t => t.FullyQualifiedName.StartsWith("Iona.Builtins."));
+                if (builtin != null)
+                {
+                    return Result<TypeSymbol, SymbolResolutionError>.Ok(builtin);
+                }
+            }
+
             return results.Count switch
             {
                 0 => Result<TypeSymbol, SymbolResolutionError>.Err(SymbolResolutionError.NotFound),
@@ -777,7 +787,8 @@ namespace Symbols
 
                 foreach (var type in types)
                 {
-                    results.AddRange(FindInits(type, node));
+                    var inits = FindInits(type, node);
+                    results.AddRange(inits);
                 }
             }
 

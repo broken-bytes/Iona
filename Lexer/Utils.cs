@@ -78,6 +78,7 @@ namespace Lexer
                 case TokenType.Fileprivate:
                 case TokenType.Finally:
                 case TokenType.Fn:
+                case TokenType.Guard:
                 case TokenType.If:
                 case TokenType.Use:
                 case TokenType.In:
@@ -205,6 +206,7 @@ namespace Lexer
                 case Keyword.For: return "for";
                 case Keyword.From: return "from";
                 case Keyword.Fn: return "fn";
+                case Keyword.Guard: return "guard";
                 case Keyword.If: return "if";
                 case Keyword.In: return "in";
                 case Keyword.Use: return "use";
@@ -218,6 +220,7 @@ namespace Lexer
                 case Keyword.Open: return "open";
                 case Keyword.Private: return "private";
                 case Keyword.Public: return "public";
+                case Keyword.Record: return "record";
                 case Keyword.Return: return "return";
                 case Keyword.Self: return "self";
                 case Keyword.Static: return "static";

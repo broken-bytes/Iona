@@ -14,6 +14,8 @@ namespace Symbols.Symbols
         public AccessLevel GetterAccessLevel { get; set; }
         public AccessLevel SetterAccessLevel { get; set; }
         public static bool IsStatic { get; set; }
+        public bool IsOptional { get; set; }
+        public bool IsImplicitlyUnwrapped { get; set; }
 
         public PropertySymbol(
             string name, 

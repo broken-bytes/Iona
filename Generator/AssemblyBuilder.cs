@@ -33,6 +33,13 @@ namespace Generator
         // Loop context for break/continue (stack of (continueTarget, breakTarget) instruction pairs)
         private readonly Stack<(Instruction continueTarget, Instruction breakTarget)> _loopStack = new();
 
+        // Cached NullableAttribute type and constructor for CIL metadata
+        private TypeDefinition? _nullableAttrType;
+        private MethodDefinition? _nullableAttrCtorByte;
+
+        // Entry point method for exe output (set when a free function named "main" is found)
+        internal MethodDefinition? EntryPoint { get; private set; }
+
         internal AssemblyBuilder(SymbolTable table)
         {
             _table = table;
@@ -77,6 +84,9 @@ namespace Generator
                     case ClassNode cls:
                         EmitClass(cls, node.Name);
                         break;
+                    case RecordNode rec:
+                        EmitRecord(rec, node.Name);
+                        break;
                     case StructNode str:
                         EmitStruct(str, node.Name);
                         break;
@@ -110,6 +120,36 @@ namespace Generator
             var typeDef = new TypeDefinition(ns, node.Name, attrs, baseRef);
 
             // Contracts → interfaces
+            foreach (var contract in node.Contracts)
+            {
+                if (contract is TypeReferenceNode contractRef)
+                {
+                    typeDef.Interfaces.Add(new InterfaceImplementation(ResolveTypeReference(contractRef)));
+                }
+            }
+
+            _module.Types.Add(typeDef);
+
+            var prevType = _currentType;
+            _currentType = typeDef;
+
+            if (node.Body != null)
+            {
+                EmitTypeBody(node.Body);
+            }
+
+            _currentType = prevType;
+        }
+
+        private void EmitRecord(RecordNode node, string ns)
+        {
+            // Records are emitted as sealed classes (reference type, immutable)
+            var attrs = TypeAttributes.Class | TypeAttributes.Sealed | TypeAttributes.BeforeFieldInit
+                        | CecilAccessLevel(node.AccessLevel);
+
+            var baseRef = _module.ImportReference(typeof(object));
+            var typeDef = new TypeDefinition(ns, node.Name, attrs, baseRef);
+
             foreach (var contract in node.Contracts)
             {
                 if (contract is TypeReferenceNode contractRef)
@@ -329,6 +369,7 @@ namespace Generator
             {
                 var fieldAttrs = CecilFieldAccess(node.AccessLevel);
                 var fieldDef = new Mono.Cecil.FieldDefinition(node.Name, fieldAttrs, fieldType);
+                ApplyNullableAttribute(fieldDef, node.TypeNode, fieldType);
                 _currentType.Fields.Add(fieldDef);
             }
             else
@@ -391,6 +432,12 @@ namespace Generator
                 Shared.Utils.IonaToCSharpName(node.Name),
                 attrs,
                 returnType);
+
+            // Apply [Nullable] to return type for reference types
+            if (retTypeRef.Name != "Void")
+            {
+                ApplyNullableAttribute(method.MethodReturnType, retTypeRef, returnType);
+            }
 
             BuildMethodParams(method, node.Parameters, !node.IsStatic);
 
@@ -494,6 +541,12 @@ namespace Generator
             moduleType.Methods.Add(method);
 
             EmitMethodBody(method, node.Body, isInstance: false);
+
+            // Track entry point: a free function named "main" becomes the program entry point
+            if (node.Name == "main")
+            {
+                EntryPoint = method;
+            }
         }
 
         // -------------------------------------------------------------------
@@ -544,7 +597,9 @@ namespace Generator
             foreach (var param in parameters)
             {
                 var paramType = ResolveTypeReference(param.TypeNode);
-                method.Parameters.Add(new Mono.Cecil.ParameterDefinition(param.Name, ParameterAttributes.None, paramType));
+                var paramDef = new Mono.Cecil.ParameterDefinition(param.Name, ParameterAttributes.None, paramType);
+                ApplyNullableAttribute(paramDef, param.TypeNode, paramType);
+                method.Parameters.Add(paramDef);
             }
         }
 
@@ -571,6 +626,9 @@ namespace Generator
                     break;
                 case AssignmentNode assignment:
                     EmitAssignment(assignment);
+                    break;
+                case GuardNode guardNode:
+                    EmitGuardStatement(guardNode);
                     break;
                 case IfNode ifNode:
                     EmitIfStatement(ifNode);
@@ -603,6 +661,9 @@ namespace Generator
                     // Pop result if used as statement
                     _il!.Emit(OpCodes.Pop);
                     break;
+                case ScopeResolutionNode scope:
+                    EmitScopeResolution(scope);
+                    break;
                 case PropAccessNode propAccess:
                     EmitPropAccess(propAccess);
                     break;
@@ -620,7 +681,15 @@ namespace Generator
             if (_il == null || _currentMethod == null) return;
 
             Mono.Cecil.TypeReference varType;
-            if (node.TypeNode != null)
+
+            // For scope resolution calls, resolve the actual return type via Cecil
+            // (the type system may not fully represent array types, etc.)
+            var cecilType = TryResolveCecilReturnType(node.Value);
+            if (cecilType != null)
+            {
+                varType = cecilType;
+            }
+            else if (node.TypeNode != null)
             {
                 varType = ResolveTypeReference(node.TypeNode);
             }
@@ -692,6 +761,112 @@ namespace Generator
             }
 
             _il.Emit(OpCodes.Ret);
+        }
+
+        /// <summary>
+        /// Emits: guard condition else { body }
+        ///     or: guard var/let name = expression else { body }
+        /// CIL pattern for condition: evaluate condition, brtrue to continue, emit else body
+        /// CIL pattern for binding: evaluate expression, dup, store temp, null check, store binding var
+        /// </summary>
+        private void EmitGuardStatement(GuardNode node)
+        {
+            if (_il == null || _currentMethod == null) return;
+
+            var continueLabel = _il.Create(OpCodes.Nop);
+
+            if (node.BindingName != null && node.BindingExpression != null)
+            {
+                // Binding guard: guard var/let name = expr else { ... }
+                // Emit the expression (the optional value)
+                EmitExpression(node.BindingExpression);
+
+                // Resolve the type of the expression to determine if it's Nullable<T> or reference
+                Mono.Cecil.TypeReference exprType;
+                if (node.BindingTypeNode != null)
+                {
+                    exprType = ResolveTypeReference(node.BindingTypeNode);
+                }
+                else
+                {
+                    exprType = _module.ImportReference(typeof(object));
+                }
+
+                bool isNullableValueType = exprType is GenericInstanceType git
+                    && git.ElementType.FullName == "System.Nullable`1";
+
+                if (isNullableValueType)
+                {
+                    var nullableType = (GenericInstanceType)exprType;
+                    var innerType = nullableType.GenericArguments[0];
+
+                    // Store the Nullable<T> in a temp local
+                    var tempLocal = new VariableDefinition(exprType);
+                    _currentMethod.Body.Variables.Add(tempLocal);
+                    EmitStloc(tempLocal);
+
+                    // Create the unwrapped binding local (inner type, not Nullable<T>)
+                    var bindingLocal = new VariableDefinition(innerType);
+                    _currentMethod.Body.Variables.Add(bindingLocal);
+                    _locals[node.BindingName] = bindingLocal;
+
+                    // Check .HasValue
+                    EmitLdloca(tempLocal);
+                    var hasValueMethod = _module.ImportReference(
+                        exprType.Resolve().Properties.First(p => p.Name == "HasValue").GetMethod)
+                        .MakeHostInstanceGeneric(nullableType);
+                    _il.Emit(OpCodes.Call, hasValueMethod);
+                    _il.Emit(OpCodes.Brtrue, continueLabel);
+
+                    // No value — emit else body
+                    EmitBlock(node.Body);
+
+                    // After else body (which must return/break), extract .Value into binding
+                    var afterElse = _il.Create(OpCodes.Nop);
+                    _il.Emit(OpCodes.Br, afterElse);
+                    _il.Append(continueLabel);
+
+                    EmitLdloca(tempLocal);
+                    var getValueMethod = _module.ImportReference(
+                        exprType.Resolve().Properties.First(p => p.Name == "Value").GetMethod)
+                        .MakeHostInstanceGeneric(nullableType);
+                    _il.Emit(OpCodes.Call, getValueMethod);
+                    EmitStloc(bindingLocal);
+
+                    _il.Append(afterElse);
+                }
+                else
+                {
+                    // Reference type — original logic
+                    var bindingLocal = new VariableDefinition(exprType);
+                    _currentMethod.Body.Variables.Add(bindingLocal);
+                    _locals[node.BindingName] = bindingLocal;
+
+                    // Duplicate: one for null check, one for storing
+                    _il.Emit(OpCodes.Dup);
+                    EmitStloc(bindingLocal);
+
+                    // If not null, jump to continue
+                    _il.Emit(OpCodes.Brtrue, continueLabel);
+
+                    // Value was null — emit the else body
+                    EmitBlock(node.Body);
+
+                    _il.Append(continueLabel);
+                }
+            }
+            else if (node.Condition != null)
+            {
+                // Condition guard: guard condition else { ... }
+                EmitExpression(node.Condition);
+                _il.Emit(OpCodes.Brtrue, continueLabel);
+
+                // Condition was false — emit the else body
+                EmitBlock(node.Body);
+
+                // Continue execution
+                _il.Append(continueLabel);
+            }
         }
 
         /// <summary>
@@ -875,6 +1050,9 @@ namespace Generator
 
             switch (node)
             {
+                case ArrayAccessNode arrayAccess:
+                    EmitArrayAccess(arrayAccess);
+                    break;
                 case LiteralNode literal:
                     EmitLiteral(literal);
                     break;
@@ -905,7 +1083,19 @@ namespace Generator
                 case EnumCaseAccessNode enumCase:
                     EmitEnumCaseAccess(enumCase);
                     break;
+                case ForceUnwrapNode forceUnwrap:
+                    EmitForceUnwrap(forceUnwrap);
+                    break;
             }
+        }
+
+        private void EmitForceUnwrap(ForceUnwrapNode node)
+        {
+            if (_il == null) return;
+
+            // Force unwrap: emit the expression directly with no null checks.
+            // If the value is null, it will crash naturally at runtime.
+            EmitExpression(node.Expression);
         }
 
         private void EmitLiteral(LiteralNode node)
@@ -927,7 +1117,11 @@ namespace Generator
                     _il.Emit(node.Value == "true" ? OpCodes.Ldc_I4_1 : OpCodes.Ldc_I4_0);
                     break;
                 case LiteralType.String:
-                    _il.Emit(OpCodes.Ldstr, node.Value);
+                    // Strip surrounding quotes added by the lexer
+                    var strVal = node.Value;
+                    if (strVal.Length >= 2 && strVal.StartsWith('"') && strVal.EndsWith('"'))
+                        strVal = strVal[1..^1];
+                    _il.Emit(OpCodes.Ldstr, strVal);
                     break;
                 case LiteralType.Char:
                     _il.Emit(OpCodes.Ldc_I4, (int)node.Value[0]);
@@ -1085,12 +1279,89 @@ namespace Generator
 
         private void EmitPropAccess(PropAccessNode node)
         {
-            if (_il == null) return;
+            if (_il == null || _currentMethod == null) return;
 
             // Emit the object
             EmitExpression(node.Object);
 
-            // Then load the field/property
+            // Optional chaining: if object is null/no-value, skip property access and push null/default
+            if (node.IsOptionalChain)
+            {
+                // Determine if the object expression is a Nullable<T> value type
+                Mono.Cecil.TypeReference? objType = null;
+                if (node.Object is IdentifierNode objIdent && _currentType != null)
+                {
+                    var field = _currentType.Fields.FirstOrDefault(f => f.Name == objIdent.Value || f.Name == objIdent.ILValue);
+                    if (field != null) objType = field.FieldType;
+                }
+
+                bool isNullableValueType = objType is GenericInstanceType git
+                    && git.ElementType.FullName == "System.Nullable`1";
+
+                if (isNullableValueType)
+                {
+                    var nullableType = (GenericInstanceType)objType!;
+                    var endLabel = _il.Create(OpCodes.Nop);
+                    var nullLabel = _il.Create(OpCodes.Nop);
+
+                    // Store the Nullable<T> value in a temp local
+                    var tempLocal = new VariableDefinition(nullableType);
+                    _currentMethod.Body.Variables.Add(tempLocal);
+                    EmitStloc(tempLocal);
+
+                    // Check .HasValue
+                    EmitLdloca(tempLocal);
+                    var hasValueMethod = _module.ImportReference(
+                        objType!.Resolve().Properties.First(p => p.Name == "HasValue").GetMethod)
+                        .MakeHostInstanceGeneric(nullableType);
+                    _il.Emit(OpCodes.Call, hasValueMethod);
+                    _il.Emit(OpCodes.Brfalse, nullLabel);
+
+                    // Has value — extract .Value and access property
+                    EmitLdloca(tempLocal);
+                    var getValueMethod = _module.ImportReference(
+                        objType.Resolve().Properties.First(p => p.Name == "Value").GetMethod)
+                        .MakeHostInstanceGeneric(nullableType);
+                    _il.Emit(OpCodes.Call, getValueMethod);
+                    EmitPropAccessMember(node);
+                    _il.Emit(OpCodes.Br, endLabel);
+
+                    // No value — push null
+                    _il.Append(nullLabel);
+                    _il.Emit(OpCodes.Ldnull);
+
+                    _il.Append(endLabel);
+                }
+                else
+                {
+                    // Reference type — null check with dup
+                    var nullLabel = _il.Create(OpCodes.Nop);
+                    var endLabel = _il.Create(OpCodes.Nop);
+
+                    _il.Emit(OpCodes.Dup);
+                    _il.Emit(OpCodes.Brfalse, nullLabel);
+
+                    EmitPropAccessMember(node);
+                    _il.Emit(OpCodes.Br, endLabel);
+
+                    _il.Append(nullLabel);
+                    _il.Emit(OpCodes.Pop);
+                    _il.Emit(OpCodes.Ldnull);
+
+                    _il.Append(endLabel);
+                }
+            }
+            else
+            {
+                EmitPropAccessMember(node);
+            }
+        }
+
+        private void EmitPropAccessMember(PropAccessNode node)
+        {
+            if (_il == null) return;
+
+            // Load the field/property
             if (node.Property is IdentifierNode propIdent)
             {
                 EmitFieldOrPropertyLoad(propIdent);
@@ -1166,7 +1437,45 @@ namespace Generator
                 {
                     EmitExpression(arg.Value);
                 }
+
+                // First try standard resolution (works when typechecker set ResultType)
                 var methodRef = ResolveMethodReference(funcCall);
+                // If that fails, resolve via the scope type (e.g., Console::writeLine → System.Console.WriteLine)
+                if (methodRef == null)
+                {
+                    var scopeTypeSymbol = _table.FindTypeBy(node.Root, node.Scope.Value, null);
+                    if (scopeTypeSymbol != null)
+                    {
+                        var scopeFqn = scopeTypeSymbol.FullyQualifiedName;
+                        var scopeType = ResolveTypeByFQN(scopeFqn);
+                        var resolved = scopeType.Resolve();
+                        if (resolved != null)
+                        {
+                            var csharpName = Shared.Utils.IonaToCSharpName(funcCall.Target.Value);
+                            // Try matching by argument types first
+                            var argTypeNames = funcCall.Args.Select(a => InferNetTypeName(a.Value)).ToList();
+                            MethodDefinition? method = null;
+                            if (argTypeNames.All(t => t != null))
+                            {
+                                method = resolved.Methods.FirstOrDefault(m =>
+                                    m.Name == csharpName &&
+                                    m.Parameters.Count == funcCall.Args.Count &&
+                                    m.Parameters.Select(p => p.ParameterType.FullName).SequenceEqual(argTypeNames!));
+                            }
+                            if (method == null)
+                            {
+                                // Fall back to matching by name and parameter count only
+                                method = resolved.Methods.FirstOrDefault(
+                                    m => m.Name == csharpName && m.Parameters.Count == funcCall.Args.Count);
+                            }
+                            if (method != null)
+                            {
+                                methodRef = _module.ImportReference(method);
+                            }
+                        }
+                    }
+                }
+
                 if (methodRef != null)
                 {
                     _il.Emit(OpCodes.Call, methodRef);
@@ -1177,6 +1486,18 @@ namespace Generator
                 // Static field access
                 EmitIdentifier(ident);
             }
+        }
+
+        private void EmitArrayAccess(ArrayAccessNode node)
+        {
+            if (_il == null) return;
+
+            // Load array reference onto stack
+            EmitExpression(node.Array);
+            // Load index onto stack
+            EmitExpression(node.Index);
+            // Emit ldelem for the appropriate element type
+            _il.Emit(OpCodes.Ldelem_Ref);
         }
 
         private void EmitEnumCaseAccess(EnumCaseAccessNode node)
@@ -1299,6 +1620,15 @@ namespace Generator
             }
         }
 
+        private void EmitLdloca(VariableDefinition local)
+        {
+            int idx = local.Index;
+            if (idx <= 255)
+                _il!.Emit(OpCodes.Ldloca_S, local);
+            else
+                _il!.Emit(OpCodes.Ldloca, local);
+        }
+
         private void EmitLdarg(int index)
         {
             switch (index)
@@ -1317,7 +1647,100 @@ namespace Generator
 
         internal Mono.Cecil.TypeReference ResolveTypeReference(TypeReferenceNode node)
         {
-            return ResolveTypeByFQN(node.FullyQualifiedName, node.TypeKind);
+            var baseType = ResolveTypeByFQN(node.FullyQualifiedName, node.TypeKind);
+
+            // For optional value types (Int?, Bool?, etc.), wrap in Nullable<T>
+            if (node.IsOptional && baseType.IsValueType)
+            {
+                var nullableTypeDef = _module.ImportReference(typeof(System.Nullable<>));
+                var nullableOfT = new GenericInstanceType(nullableTypeDef);
+                nullableOfT.GenericArguments.Add(baseType);
+                return nullableOfT;
+            }
+
+            // Reference type optionals don't need wrapping — they're inherently nullable.
+            // NullableAttribute metadata is added separately by the caller.
+            return baseType;
+        }
+
+        /// <summary>
+        /// For scope resolution function calls, resolve the actual Cecil method and return its return type.
+        /// This handles cases where the type system doesn't fully represent the return type (e.g., arrays).
+        /// </summary>
+        private Mono.Cecil.TypeReference? TryResolveCecilReturnType(INode value)
+        {
+            if (value is not ScopeResolutionNode scope || scope.Property is not FuncCallNode funcCall)
+                return null;
+
+            var scopeTypeSymbol = _table.FindTypeBy(scope.Root, scope.Scope.Value, null);
+            if (scopeTypeSymbol == null) return null;
+
+            var scopeType = ResolveTypeByFQN(scopeTypeSymbol.FullyQualifiedName);
+            var resolved = scopeType?.Resolve();
+            if (resolved == null) return null;
+
+            var csharpName = Shared.Utils.IonaToCSharpName(funcCall.Target.Value);
+            var method = resolved.Methods.FirstOrDefault(
+                m => m.Name == csharpName && m.Parameters.Count == funcCall.Args.Count);
+
+            if (method != null)
+                return _module.ImportReference(method.ReturnType);
+
+            return null;
+        }
+
+        private string? InferNetTypeName(IExpressionNode expr)
+        {
+            if (expr.ResultType != null)
+            {
+                // Convert Iona builtin names to .NET type names
+                var fqn = expr.ResultType.FullyQualifiedName;
+                return IonaToNetTypeName(fqn);
+            }
+            if (expr is LiteralNode lit)
+            {
+                return lit.LiteralType switch
+                {
+                    LiteralType.String => "System.String",
+                    LiteralType.Integer => "System.Int32",
+                    LiteralType.Double => "System.Double",
+                    LiteralType.Float => "System.Single",
+                    LiteralType.Boolean => "System.Boolean",
+                    LiteralType.Char => "System.Char",
+                    _ => null,
+                };
+            }
+            // For array access, infer the element type from the local variable
+            if (expr is ArrayAccessNode access && access.Array is IdentifierNode ident
+                && _locals.TryGetValue(ident.Value, out var localDef))
+            {
+                var localType = localDef.VariableType;
+                if (localType is Mono.Cecil.ArrayType arrayType)
+                    return arrayType.ElementType.FullName;
+            }
+            return null;
+        }
+
+        private static string IonaToNetTypeName(string fqn)
+        {
+            return fqn switch
+            {
+                "Iona.Builtins.Bool" => "System.Boolean",
+                "Iona.Builtins.String" => "System.String",
+                "Iona.Builtins.Int8" => "System.SByte",
+                "Iona.Builtins.Int16" => "System.Int16",
+                "Iona.Builtins.Int32" => "System.Int32",
+                "Iona.Builtins.Int64" => "System.Int64",
+                "Iona.Builtins.UInt8" => "System.Byte",
+                "Iona.Builtins.UInt16" => "System.UInt16",
+                "Iona.Builtins.UInt32" => "System.UInt32",
+                "Iona.Builtins.UInt64" => "System.UInt64",
+                "Iona.Builtins.Float" => "System.Single",
+                "Iona.Builtins.Double" => "System.Double",
+                "Iona.Builtins.Char" => "System.Char",
+                "Iona.Builtins.Void" => "System.Void",
+                _ => fqn,
+            };
         }
 
         internal Mono.Cecil.TypeReference ResolveTypeByFQN(string fqn, Kind kind = Kind.Unknown)
@@ -1350,6 +1773,17 @@ namespace Generator
             var systemType = System.Type.GetType(fqn);
             if (systemType != null) return _module.ImportReference(systemType);
 
+            // Search all loaded assemblies (for types like System.Console in the System.Console assembly)
+            foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
+            {
+                try
+                {
+                    var found = asm.GetType(fqn);
+                    if (found != null) return _module.ImportReference(found);
+                }
+                catch { }
+            }
+
             // Fallback: create a type reference
             var lastDot = fqn.LastIndexOf('.');
             var ns = lastDot >= 0 ? fqn[..lastDot] : "";
@@ -1357,6 +1791,93 @@ namespace Generator
             var isValueType = kind == Kind.Struct || kind == Kind.Enum;
 
             return new Mono.Cecil.TypeReference(ns, name, _module, _module) { IsValueType = isValueType };
+        }
+
+        // -------------------------------------------------------------------
+        //  Nullable attribute helpers
+        // -------------------------------------------------------------------
+
+        /// <summary>
+        /// Lazily creates and embeds NullableAttribute in the assembly (matches C# compiler behavior).
+        /// </summary>
+        private void EnsureNullableAttribute()
+        {
+            if (_nullableAttrType != null) return;
+
+            var attrBaseRef = _module.ImportReference(typeof(System.Attribute));
+            var attrBaseCtor = _module.ImportReference(
+                typeof(System.Attribute).GetConstructor(
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic,
+                    null, System.Type.EmptyTypes, null));
+            var byteRef = _module.ImportReference(typeof(byte));
+            var byteArrayRef = _module.ImportReference(typeof(byte[]));
+            var voidRef = _module.ImportReference(typeof(void));
+
+            _nullableAttrType = new TypeDefinition(
+                "System.Runtime.CompilerServices",
+                "NullableAttribute",
+                TypeAttributes.NotPublic | TypeAttributes.Sealed | TypeAttributes.BeforeFieldInit,
+                attrBaseRef);
+
+            // public readonly byte[] NullableFlags;
+            var flagsField = new FieldDefinition(
+                "NullableFlags",
+                FieldAttributes.Public | FieldAttributes.InitOnly,
+                byteArrayRef);
+            _nullableAttrType.Fields.Add(flagsField);
+
+            // public NullableAttribute(byte flag) { NullableFlags = new byte[] { flag }; }
+            _nullableAttrCtorByte = new MethodDefinition(
+                ".ctor",
+                MethodAttributes.Public | MethodAttributes.HideBySig |
+                MethodAttributes.SpecialName | MethodAttributes.RTSpecialName,
+                voidRef);
+            _nullableAttrCtorByte.Parameters.Add(
+                new Mono.Cecil.ParameterDefinition("flag", ParameterAttributes.None, byteRef));
+            _nullableAttrCtorByte.Body = new Mono.Cecil.Cil.MethodBody(_nullableAttrCtorByte);
+            var il = _nullableAttrCtorByte.Body.GetILProcessor();
+            il.Emit(OpCodes.Ldarg_0);
+            il.Emit(OpCodes.Call, attrBaseCtor);
+            il.Emit(OpCodes.Ldarg_0);
+            il.Emit(OpCodes.Ldc_I4_1);
+            il.Emit(OpCodes.Newarr, byteRef);
+            il.Emit(OpCodes.Dup);
+            il.Emit(OpCodes.Ldc_I4_0);
+            il.Emit(OpCodes.Ldarg_1);
+            il.Emit(OpCodes.Stelem_I1);
+            il.Emit(OpCodes.Stfld, flagsField);
+            il.Emit(OpCodes.Ret);
+            _nullableAttrType.Methods.Add(_nullableAttrCtorByte);
+
+            _module.Types.Add(_nullableAttrType);
+        }
+
+        /// <summary>
+        /// Creates a [Nullable(flag)] custom attribute.
+        /// flag: 0 = oblivious, 1 = not nullable, 2 = nullable
+        /// </summary>
+        private CustomAttribute MakeNullableAttribute(byte flag)
+        {
+            EnsureNullableAttribute();
+            var attr = new CustomAttribute(_nullableAttrCtorByte);
+            attr.ConstructorArguments.Add(
+                new CustomAttributeArgument(_module.ImportReference(typeof(byte)), flag));
+            return attr;
+        }
+
+        /// <summary>
+        /// Applies [Nullable] to a field based on the type reference node's optionality.
+        /// Only applies to reference types (value type optionals use Nullable&lt;T&gt; instead).
+        /// </summary>
+        private void ApplyNullableAttribute(ICustomAttributeProvider target, TypeReferenceNode typeNode, Mono.Cecil.TypeReference resolvedType)
+        {
+            // Value types use Nullable<T> wrapping — no attribute needed
+            if (resolvedType.IsValueType) return;
+
+            // Reference types: mark nullable (2) or not-nullable (1)
+            // Both optional (?) and implicitly unwrapped optional (!) are nullable at IL level
+            byte flag = (typeNode.IsOptional || typeNode.IsImplicitlyUnwrapped) ? (byte)2 : (byte)1;
+            target.CustomAttributes.Add(MakeNullableAttribute(flag));
         }
 
         private MethodReference? ResolveMethodReference(FuncCallNode node)
@@ -1439,6 +1960,28 @@ namespace Generator
                 AccessLevel.Private => FieldAttributes.Private,
                 _ => FieldAttributes.Assembly
             };
+        }
+    }
+
+    /// <summary>
+    /// Extension to create a MethodReference on a closed generic instance type.
+    /// E.g. turns Nullable`1::get_HasValue into Nullable&lt;Int32&gt;::get_HasValue.
+    /// </summary>
+    internal static class CecilExtensions
+    {
+        public static MethodReference MakeHostInstanceGeneric(this MethodReference self, GenericInstanceType hostType)
+        {
+            var reference = new MethodReference(self.Name, self.ReturnType, hostType)
+            {
+                HasThis = self.HasThis,
+                ExplicitThis = self.ExplicitThis,
+                CallingConvention = self.CallingConvention,
+            };
+            foreach (var param in self.Parameters)
+                reference.Parameters.Add(new Mono.Cecil.ParameterDefinition(param.ParameterType));
+            foreach (var gp in self.GenericParameters)
+                reference.GenericParameters.Add(new Mono.Cecil.GenericParameter(gp.Name, reference));
+            return reference;
         }
     }
 }

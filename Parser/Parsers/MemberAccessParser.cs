@@ -35,9 +35,23 @@ namespace Parser.Parsers
 
             var tokens = stream.Peek(2);
 
+            // Standard member access: foo.bar
             if ((tokens[0].Type is TokenType.Identifier or TokenType.Self) && tokens[1].Type == TokenType.Dot)
             {
                 return true;
+            }
+
+            // Optional chaining: foo?.bar
+            if ((tokens[0].Type is TokenType.Identifier or TokenType.Self) && tokens[1].Type == TokenType.SoftUnwrap)
+            {
+                if (stream.Count() >= 3)
+                {
+                    var threeTokens = stream.Peek(3);
+                    if (threeTokens[2].Type == TokenType.Dot)
+                    {
+                        return true;
+                    }
+                }
             }
 
             return false;
@@ -81,6 +95,14 @@ namespace Parser.Parsers
                 Utils.SetMeta(target, token);
             }
 
+            // Check for optional chaining (?.)
+            bool isOptionalChain = false;
+            if (stream.Peek().Type == TokenType.SoftUnwrap)
+            {
+                stream.Consume(TokenType.SoftUnwrap, TokenFamily.Keyword);
+                isOptionalChain = true;
+            }
+
             var dot = stream.Consume(TokenType.Dot, TokenFamily.Operator);
 
             IExpressionNode member;
@@ -96,7 +118,7 @@ namespace Parser.Parsers
                 Utils.SetMeta(member, memberIdentifier);
             }
 
-            var propAccess = new PropAccessNode(target, member, parent);
+            var propAccess = new PropAccessNode(target, member, parent) { IsOptionalChain = isOptionalChain };
             Utils.SetMeta(propAccess, token);
 
             target.Parent = propAccess;
@@ -112,8 +134,19 @@ namespace Parser.Parsers
 
             token = stream.Peek();
 
-            while (token.Type == TokenType.Dot)
+            while (token.Type is TokenType.Dot or TokenType.SoftUnwrap)
             {
+                bool chainOptional = false;
+                if (token.Type == TokenType.SoftUnwrap)
+                {
+                    stream.Consume(TokenType.SoftUnwrap, TokenFamily.Keyword);
+                    chainOptional = true;
+                    token = stream.Peek();
+                    if (token.Type != TokenType.Dot)
+                    {
+                        break;
+                    }
+                }
                 stream.Consume(TokenType.Dot, TokenFamily.Keyword);
 
                 IExpressionNode nextMember;
@@ -129,7 +162,7 @@ namespace Parser.Parsers
                     Utils.SetMeta(nextMember, memberIdentifier);
                 }
 
-                propAccess.Property = new PropAccessNode(propAccess.Property, nextMember, parent);
+                propAccess.Property = new PropAccessNode(propAccess.Property, nextMember, parent) { IsOptionalChain = chainOptional };
                 propAccess.Object.Parent = propAccess;
                 propAccess.Property.Parent = propAccess;
                 Utils.SetColumnEnd(propAccess, nextMember.Meta.ColumnEnd);

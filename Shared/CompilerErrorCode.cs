@@ -36,6 +36,24 @@
         // The type of a prop or variable cannot get inferred
         CannotInferType,
         /// When a variable/prop is defined at module scope
-        VariableNotAllowedInTopLevel
+        VariableNotAllowedInTopLevel,
+        /// When an immutable variable (let) is reassigned
+        ImmutableVariableAssignment,
+        /// When a private or internal member is accessed from outside its scope
+        InaccessibleMember,
+        /// When a non-mutating function tries to modify object state
+        MutatingInNonMutatingFunc,
+        /// When a mutable property (var) is declared in a record
+        MutablePropertyInRecord,
+        /// When a mutating function (mut fn) is declared in a record
+        MutatingFuncInRecord,
+        /// When an optional value is accessed without unwrapping
+        OptionalNotUnwrapped,
+        /// When an expression type does not match the expected return type
+        ReturnTypeMismatch,
+        /// When a type declares conformance to a contract but does not implement a required member
+        ContractConformanceMissingMember,
+        /// When a struct or record tries to inherit from a class
+        ValueTypeCannotInheritClass
     }
 }

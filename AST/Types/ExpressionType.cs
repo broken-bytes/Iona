@@ -17,6 +17,7 @@
         ObjectLiteral,
         PointerAccess,
         PointerDereference,
+        ForceUnwrap,
         PropAccess,
         AddressOf,
         ScopeResolution,

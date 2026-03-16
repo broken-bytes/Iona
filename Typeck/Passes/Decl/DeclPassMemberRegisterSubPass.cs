@@ -18,6 +18,7 @@ public class DeclPassMemberRegisterSubPass :
     IModuleVisitor,
     IOperatorVisitor,
     IPropertyVisitor,
+    IRecordVisitor,
     IStructVisitor
 {
     private SymbolTable _symbolTable = new();
@@ -44,6 +45,16 @@ public class DeclPassMemberRegisterSubPass :
             func.Accept(this);
         }
 
+        foreach (var init in node.Children.OfType<InitNode>())
+        {
+            init.Accept(this);
+        }
+
+        foreach (var op in node.Children.OfType<OperatorNode>())
+        {
+            op.Accept(this);
+        }
+
         foreach (var prop in node.Children.OfType<PropertyNode>())
         {
             prop.Accept(this);
@@ -58,12 +69,15 @@ public class DeclPassMemberRegisterSubPass :
         }
 
         var symbol = new TypeSymbol(node.Name, TypeKind.Class);
-        
+
         _currentSymbol.AddSymbol(symbol);
-        
+
+        var previous = _currentSymbol;
         _currentSymbol = symbol;
 
         node.Body?.Accept(this);
+
+        _currentSymbol = previous;
     }
     
     public void Visit(ContractNode node)
@@ -74,12 +88,15 @@ public class DeclPassMemberRegisterSubPass :
         }
 
         var symbol = new TypeSymbol(node.Name, TypeKind.Contract);
-        
+
         _currentSymbol.AddSymbol(symbol);
-        
+
+        var previous = _currentSymbol;
         _currentSymbol = symbol;
 
         node.Body?.Accept(this);
+
+        _currentSymbol = previous;
     }
 
     public void Visit(EnumNode node)
@@ -90,12 +107,15 @@ public class DeclPassMemberRegisterSubPass :
         }
 
         var symbol = new TypeSymbol(node.Name, TypeKind.Enum);
-        
+
         _currentSymbol.AddSymbol(symbol);
-        
+
+        var previous = _currentSymbol;
         _currentSymbol = symbol;
 
         node.Body?.Accept(this);
+
+        _currentSymbol = previous;
     }
 
     public void Visit(FileNode node)
@@ -115,7 +135,9 @@ public class DeclPassMemberRegisterSubPass :
         
         var csharpName = Shared.Utils.IonaToCSharpName(node.Name);
         var symbol = new FuncSymbol(node.Name, csharpName);
-        
+        symbol.AccessLevel = node.AccessLevel;
+        symbol.IsMutating = node.IsMutable;
+
         RegisterParameters(symbol, node.Parameters);
 
         foreach (var generic in node.GenericArguments)
@@ -166,6 +188,9 @@ public class DeclPassMemberRegisterSubPass :
                 case ContractNode contractNode:
                     contractNode.Accept(this);
                     break;
+                case RecordNode recordNode:
+                    recordNode.Accept(this);
+                    break;
                 case StructNode structNode:
                     structNode.Accept(this);
                     break;
@@ -176,6 +201,25 @@ public class DeclPassMemberRegisterSubPass :
         {
             func.Accept(this);
         }
+    }
+
+    public void Visit(RecordNode node)
+    {
+        if (_currentSymbol == null)
+        {
+            return;
+        }
+
+        var symbol = new TypeSymbol(node.Name, TypeKind.Record);
+
+        _currentSymbol.AddSymbol(symbol);
+
+        var previous = _currentSymbol;
+        _currentSymbol = symbol;
+
+        node.Body?.Accept(this);
+
+        _currentSymbol = previous;
     }
     
     public void Visit(OperatorNode node)
@@ -231,12 +275,15 @@ public class DeclPassMemberRegisterSubPass :
         }
 
         var symbol = new TypeSymbol(node.Name, TypeKind.Struct);
-        
+
         _currentSymbol.AddSymbol(symbol);
-        
+
+        var previous = _currentSymbol;
         _currentSymbol = symbol;
 
         node.Body?.Accept(this);
+
+        _currentSymbol = previous;
     }
 
     private void RegisterParameters(ISymbol symbol, List<ParameterNode> parameters)

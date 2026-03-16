@@ -18,6 +18,8 @@ namespace Typeck
                     return AST.Types.Kind.Contract;
                 case TypeKind.Enum:
                     return AST.Types.Kind.Enum;
+                case TypeKind.Record:
+                    return AST.Types.Kind.Record;
             }
 
             return Kind.Unknown;
@@ -35,6 +37,8 @@ namespace Typeck
                     return TypeKind.Contract;
                 case AST.Types.Kind.Enum:
                     return TypeKind.Enum;
+                case AST.Types.Kind.Record:
+                    return TypeKind.Record;
             }
 
             return TypeKind.Unknown;

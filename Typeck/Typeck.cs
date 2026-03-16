@@ -31,8 +31,11 @@ namespace Typeck
 
         public void AddImportedAssemblySymbols(SymbolTable table, List<string> assemblies)
         {
+            // Register builtin types programmatically (Kotlin-style: no wrapper DLL needed)
+            BuiltinTypeRegistrar.RegisterBuiltins(table);
+
             List<Assembly> loadedAssemblies = [];
-            
+
             foreach (var path in assemblies)
             {
                 Assembly? assembly = null;

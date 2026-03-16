@@ -6,6 +6,7 @@
         Contract,
         Enum,
         Function,
+        Record,
         Struct,
         Unknown
     }

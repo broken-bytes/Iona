@@ -35,6 +35,7 @@ namespace Typeck
         IPropertyVisitor,
         IReturnVisitor,
         IScopeResolutionVisitor,
+        IRecordVisitor,
         IStructVisitor,
         ITypeReferenceVisitor,
         IUnaryExpressionVisitor,
@@ -341,6 +342,9 @@ namespace Typeck
                     case FuncNode funcNode:
                         funcNode.Accept(this);
                         break;
+                    case RecordNode recordNode:
+                        recordNode.Accept(this);
+                        break;
                     case StructNode structNode:
                         structNode.Accept(this);
                         break;
@@ -416,6 +420,13 @@ namespace Typeck
             if (symbol is PropertySymbol prop && typeSymbol is not null)
             {
                 prop.Type = typeSymbol;
+
+                // Propagate optional/weak flags from the type reference to the symbol
+                if (node.TypeNode is TypeReferenceNode propTypeRef)
+                {
+                    prop.IsOptional = propTypeRef.IsOptional;
+                    prop.IsImplicitlyUnwrapped = propTypeRef.IsImplicitlyUnwrapped;
+                }
             }
         }
 
@@ -458,6 +469,14 @@ namespace Typeck
         public void Visit(ScopeResolutionNode node)
         {
             
+        }
+
+        public void Visit(RecordNode node)
+        {
+            if (node.Body != null)
+            {
+                node.Body.Accept(this);
+            }
         }
 
         public void Visit(StructNode node)
@@ -677,6 +696,9 @@ namespace Typeck
                 case ScopeResolutionNode scopeNode:
                     scopeNode.Accept(this);
                     break;
+                case RecordNode recordNode:
+                    recordNode.Accept(this);
+                    break;
                 case StructNode structNode:
                     structNode.Accept(this);
                     break;
@@ -730,6 +752,10 @@ namespace Typeck
                         if (type is ClassNode)
                         {
                             typeRef.TypeKind = AST.Types.Kind.Class;
+                        }
+                        else if (type is RecordNode)
+                        {
+                            typeRef.TypeKind = AST.Types.Kind.Record;
                         }
                         else if (type is StructNode)
                         {

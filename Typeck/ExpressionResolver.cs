@@ -11,6 +11,7 @@ using Symbols.Symbols;
 namespace Typeck
 {
     internal class ExpressionResolver :
+        IArrayAccessVisitor,
         IAssignmentVisitor,
         IBinaryExpressionVisitor,
         IBlockVisitor,
@@ -32,6 +33,7 @@ namespace Typeck
         IPropertyVisitor,
         IReturnVisitor,
         IScopeResolutionVisitor,
+        IRecordVisitor,
         IStructVisitor,
         IVariableVisitor
     {
@@ -76,8 +78,50 @@ namespace Typeck
             if (node.Target.Status == INode.ResolutionStatus.Failed)
             {
                 node.Status = INode.ResolutionStatus.Failed;
-                
+
                 return;
+            }
+
+            // Check mutability: if the target is a let variable, emit an error
+            if (node.Target is IdentifierNode targetIdent)
+            {
+                var symbol = _table.FindBy(targetIdent);
+                if (symbol is VariableSymbol varSymbol && !varSymbol.IsMutable)
+                {
+                    var error = CompilerErrorFactory.ImmutableVariableAssignment(targetIdent.Value, node.Meta);
+                    _errorCollector.Collect(error);
+                    node.Status = INode.ResolutionStatus.Failed;
+                    return;
+                }
+
+                // Check if assigning to a property inside a non-mutating function
+                if (symbol is PropertySymbol)
+                {
+                    var enclosingFunc = FindEnclosingFunc(node);
+                    if (enclosingFunc != null && !enclosingFunc.IsMutable)
+                    {
+                        var error = CompilerErrorFactory.MutatingInNonMutatingFunc(
+                            targetIdent.Value, enclosingFunc.Name, node.Meta);
+                        _errorCollector.Collect(error);
+                        node.Status = INode.ResolutionStatus.Failed;
+                        return;
+                    }
+                }
+            }
+
+            // Check if assigning to self.property inside a non-mutating function
+            if (node.Target is PropAccessNode selfPropAccess && selfPropAccess.Object is SelfNode)
+            {
+                var enclosingFunc = FindEnclosingFunc(node);
+                if (enclosingFunc != null && !enclosingFunc.IsMutable)
+                {
+                    var propName = (selfPropAccess.Property as IdentifierNode)?.Value ?? "unknown";
+                    var error = CompilerErrorFactory.MutatingInNonMutatingFunc(
+                        propName, enclosingFunc.Name, node.Meta);
+                    _errorCollector.Collect(error);
+                    node.Status = INode.ResolutionStatus.Failed;
+                    return;
+                }
             }
 
             _contextualTypeFqn = node.Target switch
@@ -243,6 +287,45 @@ namespace Typeck
             if (node.Value != null)
             {
                 CheckNode(node.Value);
+
+                // Check return type against enclosing function's declared return type
+                if (node.Value is IExpressionNode exprValue && exprValue.ResultType != null)
+                {
+                    // Walk up to find the enclosing FuncNode
+                    INode? parent = node.Parent;
+                    while (parent != null && parent is not FuncNode)
+                    {
+                        parent = parent.Parent;
+                    }
+
+                    if (parent is FuncNode func && func.ReturnType != null)
+                    {
+                        var returnTypeName = func.ReturnType.Name;
+                        var exprTypeName = exprValue.ResultType.Name;
+                        bool exprIsOptional = exprValue.ResultType.IsOptional;
+
+                        // If expression is optional but return type is not, that's a mismatch
+                        if (exprIsOptional && !func.ReturnType.IsOptional)
+                        {
+                            var error = CompilerErrorFactory.ReturnTypeMismatch(
+                                returnTypeName,
+                                exprTypeName + "?",
+                                node.Meta
+                            );
+                            _errorCollector.Collect(error);
+                        }
+                        // If type names don't match at all
+                        else if (returnTypeName != exprTypeName)
+                        {
+                            var error = CompilerErrorFactory.ReturnTypeMismatch(
+                                returnTypeName + (func.ReturnType.IsOptional ? "?" : ""),
+                                exprTypeName + (exprIsOptional ? "?" : ""),
+                                node.Meta
+                            );
+                            _errorCollector.Collect(error);
+                        }
+                    }
+                }
             }
         }
 
@@ -279,7 +362,10 @@ namespace Typeck
             {
                 // Check if the function is a member function or a free function
                 var currentType = hierarchy.OfType<ITypeNode>().FirstOrDefault();
-                typeSymbol = _table.FindTypeByFQN(node.Root, currentType.FullyQualifiedName);
+                if (currentType != null)
+                {
+                    typeSymbol = _table.FindTypeByFQN(node.Root, currentType.FullyQualifiedName);
+                }
             }
             // Check if the function is in scope
             var funcWasFound = _table.CheckIfFuncExists(node.Root, typeSymbol, node);
@@ -300,7 +386,43 @@ namespace Typeck
             {
                 var func = funcWasFound.Unwrapped();
                 node.Target.ILValue = func.CsharpName;
-                
+
+                // Access level check
+                if (_currentTypeFqn != null && func.AccessLevel != AccessLevel.Public)
+                {
+                    var callerType = hierarchy.OfType<ITypeNode>().FirstOrDefault();
+                    var isInsideType = callerType != null && callerType.FullyQualifiedName == _currentTypeFqn;
+
+                    var isSameModule = false;
+                    if (func.AccessLevel == AccessLevel.Internal)
+                    {
+                        var callerModule = hierarchy.OfType<ModuleNode>().FirstOrDefault();
+                        var targetModule = node.Root.Children.OfType<ModuleNode>()
+                            .FirstOrDefault(m => m.Children.OfType<ITypeNode>()
+                                .Any(t => t.FullyQualifiedName == _currentTypeFqn));
+                        isSameModule = callerModule != null && targetModule != null
+                            && callerModule.Name == targetModule.Name;
+                    }
+
+                    if (!isInsideType && !isSameModule)
+                    {
+                        var typeKind = typeSymbol?.TypeKind switch
+                        {
+                            TypeKind.Struct => "struct",
+                            _ => "class"
+                        };
+                        var error = CompilerErrorFactory.InaccessibleMember(
+                            node.Target.Value,
+                            typeKind,
+                            _currentTypeFqn,
+                            node.Meta
+                        );
+                        _errorCollector.Collect(error);
+                        node.Status = INode.ResolutionStatus.Failed;
+                        return;
+                    }
+                }
+
                 // Return type checking
                 // - We can either have generic returns, or normal returns
                 if (func.Symbols.OfType<GenericParameterSymbol>().Any(symbol => symbol.Name == func.ReturnType.Name))
@@ -628,6 +750,24 @@ namespace Typeck
             }
         }
 
+        public void Visit(ArrayAccessNode node)
+        {
+            // Resolve the array expression and index expression
+            CheckNode(node.Array);
+            CheckNode(node.Index);
+
+            // The result type is the element type of the array
+            // For now, mark as resolved — full element type extraction requires array type tracking
+            node.Status = INode.ResolutionStatus.Resolved;
+
+            if (node.Array is IExpressionNode arrayExpr && arrayExpr.ResultType != null)
+            {
+                // Copy the array's element type as the result
+                // Array types in .NET have element type accessible via GetElementType
+                node.ResultType = arrayExpr.ResultType;
+            }
+        }
+
         public void Visit(PropAccessNode node)
         {
             // Find the object first
@@ -668,10 +808,38 @@ namespace Typeck
             if (objc is PropertySymbol prop)
             {
                 objType = prop.Type;
+
+                // Check: accessing members on an optional without unwrapping
+                if (prop.IsOptional && !prop.IsImplicitlyUnwrapped && !node.IsOptionalChain)
+                {
+                    // Check if parent is a ForceUnwrapNode — that's allowed
+                    if (node.Parent is not ForceUnwrapNode)
+                    {
+                        var error = CompilerErrorFactory.OptionalNotUnwrapped(
+                            prop.Name, objType.Name, node.Object.Meta
+                        );
+                        _errorCollector.Collect(error);
+                        Utils.FailNode(node);
+                        return;
+                    }
+                }
             }
             else if (objc is VariableSymbol var)
             {
                 objType = var.Type;
+
+                if (var.IsOptional && !var.IsImplicitlyUnwrapped && !node.IsOptionalChain)
+                {
+                    if (node.Parent is not ForceUnwrapNode)
+                    {
+                        var error = CompilerErrorFactory.OptionalNotUnwrapped(
+                            var.Name, objType.Name, node.Object.Meta
+                        );
+                        _errorCollector.Collect(error);
+                        Utils.FailNode(node);
+                        return;
+                    }
+                }
             }
             else if (objc is ParameterSymbol param)
             {
@@ -680,18 +848,18 @@ namespace Typeck
             else
             {
                 var error = CompilerErrorFactory.TypeDoesNotContainProperty(
-                    _currentTypeFqn, 
-                    node.Object.ToString(), 
+                    _currentTypeFqn,
+                    node.Object.ToString(),
                     node.Object.Meta
                 );
-                    
+
                 _errorCollector.Collect(error);
-                    
+
                 Utils.FailNode(node);
-                
+
                 return;
             }
-            
+
             // Search for the type
             var type = _table.FindType(node.Root, objType.FullyQualifiedName);
 
@@ -737,11 +905,12 @@ namespace Typeck
                 if (root is null)
                 {
                     _currentTypeFqn = null;
-                    
+
                     node.ResultType = new TypeReferenceNode(objcProp.Type.Name, node)
                     {
                         FullyQualifiedName = objcProp.Type.FullyQualifiedName,
                         Assembly = objcProp.Type.Assembly,
+                        IsOptional = node.IsOptionalChain,
                     };
 
                     return;
@@ -752,17 +921,31 @@ namespace Typeck
                     root = root.Parent as PropAccessNode;
                 }
 
+                // If any part of the chain uses optional chaining, the result is optional
+                bool chainIsOptional = node.IsOptionalChain;
+                if (!chainIsOptional)
+                {
+                    // Walk up to check if any ancestor PropAccessNode uses optional chaining
+                    var walk = node.Parent as PropAccessNode;
+                    while (walk != null)
+                    {
+                        if (walk.IsOptionalChain) { chainIsOptional = true; break; }
+                        walk = walk.Parent as PropAccessNode;
+                    }
+                }
+
                 root.ResultType = new TypeReferenceNode(objcProp.Type.Name, node)
                 {
                     FullyQualifiedName = objcProp.Type.FullyQualifiedName,
                     Assembly = objcProp.Type.Assembly,
+                    IsOptional = chainIsOptional,
                 };
             }
             else
             {
                 CheckNode(node.Property);
             }
-            
+
             _currentTypeFqn = null;
         }
 
@@ -773,16 +956,20 @@ namespace Typeck
                 return;
             }
             
-            // Type inference
+            // Type inference (only when no explicit type annotation)
             if (node.Value != null)
             {
-                // Resolve the value
+                // Resolve the value expression
                 CheckNode(node.Value);
 
-                node.TypeNode = node.Value.ResultType;
+                // Only infer type from value if no explicit type annotation was provided
+                if (node.TypeNode is null)
+                {
+                    node.TypeNode = node.Value.ResultType;
+                }
 
                 // Update the symbol table
-                if (node.Value.Status == INode.ResolutionStatus.Resolved)
+                if (node.TypeNode != null && node.Value.Status == INode.ResolutionStatus.Resolved)
                 {
                     // We have the type
                     var symbol = _table.FindBy(node);
@@ -798,7 +985,7 @@ namespace Typeck
                         prop.Type = typeSymbol;
                     }
                 }
-                
+
                 node.Status = node.Value.Status;
             }
             else if (node.TypeNode is null)
@@ -857,6 +1044,19 @@ namespace Typeck
             node.Status = INode.ResolutionStatus.Resolved;
         }
         
+        public void Visit(RecordNode node)
+        {
+            if (node.Body == null)
+            {
+                return;
+            }
+
+            foreach (var child in node.Body.Children)
+            {
+                CheckNode(child);
+            }
+        }
+
         public void Visit(StructNode node)
         {
             if (node.Body == null)
@@ -906,21 +1106,35 @@ namespace Typeck
             }
             else
             {
-                if (node.Value.Status == INode.ResolutionStatus.Failed)
+                if (node.Value.Status == INode.ResolutionStatus.Failed || node.Value.ResultType == null)
                 {
                     var error = CompilerErrorFactory.CannotInferType(node.Name, node.Meta);
-                    
+
                     _errorCollector.Collect(error);
-                    
+
                     return;
                 }
-                
+
                 var resultType = _table.FindTypeByFQN(node.Value.ResultType.FullyQualifiedName);
                 symbol.Type = resultType;
             }
 
             node.Status = INode.ResolutionStatus.Resolved;
             
+        }
+
+        private FuncNode? FindEnclosingFunc(INode node)
+        {
+            INode? current = node.Parent;
+            while (current != null)
+            {
+                if (current is FuncNode func)
+                {
+                    return func;
+                }
+                current = current.Parent;
+            }
+            return null;
         }
 
         private void CheckNode(INode? node)
@@ -932,6 +1146,9 @@ namespace Typeck
 
             switch (node)
             {
+                case ArrayAccessNode arrayAccessNode:
+                    arrayAccessNode.Accept(this);
+                    break;
                 case AssignmentNode assignmentNode:
                     assignmentNode.Accept(this);
                     break;
@@ -1121,6 +1338,33 @@ namespace Typeck
                 return null;
             }
             
+            if (node.Property is FuncCallNode funcCall)
+            {
+                // Resolve argument types first so overload resolution and InferNetTypeName work
+                foreach (var arg in funcCall.Args)
+                {
+                    CheckNode(arg.Value);
+                }
+
+                // Static method call (e.g., Console::writeLine, Environment::getCommandLineArgs)
+                var ionaName = funcCall.Target.Value;
+                var funcSymbol = symbol.LookupAllSymbols(ionaName)
+                    .OfType<FuncSymbol>().FirstOrDefault(f =>
+                        f.Symbols.OfType<ParameterSymbol>().Count() == funcCall.Args.Count);
+
+                if (funcSymbol?.ReturnType is TypeSymbol returnType)
+                {
+                    Kind kind = Utils.SymbolKindToASTKind(returnType.TypeKind);
+                    var type = new TypeReferenceNode(returnType.Name, node)
+                    {
+                        FullyQualifiedName = returnType.FullyQualifiedName,
+                        Assembly = returnType.Assembly,
+                        TypeKind = kind
+                    };
+                    return type;
+                }
+            }
+
             if (node.Property is ScopeResolutionNode scope)
             {
                 return ResolveScopeResolutionType(scope, symbol);

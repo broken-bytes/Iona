@@ -105,7 +105,7 @@ module TestModule
 public class Foo {
     public var x = 0
 
-    public fn fill() -> Int32 {
+    public mut fn fill() -> Int32 {
         for i in 0...9 {
             x = i
         }

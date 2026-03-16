@@ -6,6 +6,9 @@
         public TypeSymbol Type { get; set; }
         public List<ISymbol> Symbols { get; set; }
         public Dictionary<string, List<ISymbol>> SymbolsByName { get; set; }
+        public bool IsMutable { get; set; }
+        public bool IsOptional { get; set; }
+        public bool IsImplicitlyUnwrapped { get; set; }
         public SymbolKind Kind { get; set; } = SymbolKind.Variable;
         public ISymbol? Parent { get; set; }
 

@@ -17,13 +17,15 @@ namespace Generator
             _builder = new AssemblyBuilder(table);
         }
 
-        public Assembly Generate(List<INode> trees, bool intermediate, List<string> assemblyRefs, string targetFramework)
+        public Assembly Generate(List<INode> trees, bool intermediate, List<string> assemblyRefs, string targetFramework, string outputType)
         {
+            bool isExe = outputType.Equals("exe", StringComparison.OrdinalIgnoreCase);
+
             // Create the Mono.Cecil assembly definition
             var assemblyName = new AssemblyNameDefinition(Name, new Version(1, 0, 0, 0));
             var moduleParams = new ModuleParameters
             {
-                Kind = ModuleKind.Dll,
+                Kind = isExe ? ModuleKind.Console : ModuleKind.Dll,
                 Runtime = TargetRuntime.Net_4_0 // Cecil uses this for PE format; actual TFM is set via references
             };
 
@@ -68,12 +70,34 @@ namespace Generator
                 _builder.Build(tree);
             }
 
-            // Write the assembly to disk
+            // Set the entry point for exe output
+            if (isExe)
+            {
+                if (_builder.EntryPoint != null)
+                {
+                    assemblyDef.EntryPoint = _builder.EntryPoint;
+                }
+                else
+                {
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.Error.WriteLine("Error: output type is 'exe' but no 'fn main()' entry point was found.");
+                    Console.ResetColor();
+                    return this;
+                }
+            }
+
+            // Write the assembly to disk (modern .NET: both exe and dll use .dll extension, run via `dotnet`)
             try
             {
                 var writerParams = new WriterParameters();
                 assemblyDef.Write($"{Name}.dll", writerParams);
                 Console.WriteLine($"Assembly written to {Name}.dll");
+
+                // For exe output, also emit a runtimeconfig.json so `dotnet App.dll` works
+                if (isExe)
+                {
+                    WriteRuntimeConfig(targetFramework);
+                }
             }
             catch (Exception ex)
             {
@@ -114,6 +138,33 @@ namespace Generator
             }
 
             return dirs;
+        }
+
+        private void WriteRuntimeConfig(string targetFramework)
+        {
+            var tfmVersion = targetFramework switch
+            {
+                ".NET Framework 4" => null, // .NET Framework doesn't use runtimeconfig
+                "netstandard2.0" => null,
+                _ => "10.0"
+            };
+
+            if (tfmVersion == null) return;
+
+            var json = $$"""
+                {
+                  "runtimeOptions": {
+                    "tfm": "net{{tfmVersion}}",
+                    "framework": {
+                      "name": "Microsoft.NETCore.App",
+                      "version": "{{tfmVersion}}.0"
+                    }
+                  }
+                }
+                """;
+
+            File.WriteAllText($"{Name}.runtimeconfig.json", json);
+            Console.WriteLine($"Runtime config written to {Name}.runtimeconfig.json");
         }
 
         private static void SetTargetFrameworkAttribute(AssemblyDefinition assembly, string targetFramework)

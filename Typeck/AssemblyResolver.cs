@@ -31,7 +31,7 @@ namespace Typeck
         {
             try
             {
-                // Try Loading each of the dependencies 
+                // Try Loading each of the dependencies
                 foreach (var reference in assembly.GetReferencedAssemblies())
                 {
                     try
@@ -45,6 +45,23 @@ namespace Typeck
                 }
 
                 var types = assembly.GetExportedTypes();
+
+                // Also include forwarded types (e.g., System.Runtime forwards to System.Private.CoreLib)
+                try
+                {
+                    var forwarded = assembly.GetForwardedTypes();
+                    types = types.Concat(forwarded).ToArray();
+                }
+                catch (ReflectionTypeLoadException ex)
+                {
+                    // Some forwarded types may not resolve; use the ones that did
+                    var loaded = ex.Types.Where(t => t != null).ToArray();
+                    types = types.Concat(loaded!).ToArray();
+                }
+                catch
+                {
+                    // Ignore other errors
+                }
 
                 foreach (var type in types)
                 {
@@ -128,6 +145,22 @@ namespace Typeck
 
                 var types = assembly.GetExportedTypes();
 
+                // Also include forwarded types for member population
+                try
+                {
+                    var forwarded = assembly.GetForwardedTypes();
+                    types = types.Concat(forwarded).ToArray();
+                }
+                catch (ReflectionTypeLoadException ex)
+                {
+                    var loaded = ex.Types.Where(t => t != null).ToArray();
+                    types = types.Concat(loaded!).ToArray();
+                }
+                catch
+                {
+                    // Ignore other errors
+                }
+
                 foreach (var type in types)
                 {
                     var typeSymbol = table.FindTypeByFQN(type.FullName);
@@ -144,6 +177,14 @@ namespace Typeck
                             var method = member as MethodInfo;
                             var ionaName = Shared.Utils.CSharpToIonaName(method.Name);
                             var funcSymbol = new FuncSymbol(ionaName, method.Name);
+
+                            // Set access level from .NET visibility
+                            if (method.IsPublic)
+                                funcSymbol.AccessLevel = AccessLevel.Public;
+                            else if (method.IsFamily || method.IsFamilyOrAssembly)
+                                funcSymbol.AccessLevel = AccessLevel.Internal;
+                            else
+                                funcSymbol.AccessLevel = AccessLevel.Private;
 
                             funcSymbol.Parent = typeSymbol;
                             TypeSymbol? returnType = null;
@@ -173,8 +214,10 @@ namespace Typeck
                             else
                             {
                                 // Find the type symbol
-                                var unboxed =
-                                    Shared.Utils.GetUnboxedName(method.ReturnType.FullName ?? method.ReturnType.Name);
+                                var rawReturnName = method.ReturnType.FullName ?? method.ReturnType.Name;
+                                // Strip array suffix for lookup (array types not yet in type system)
+                                var baseReturnName = rawReturnName.TrimEnd('[', ']');
+                                var unboxed = Shared.Utils.GetUnboxedName(baseReturnName);
                                 returnType = table.FindTypeByFQN(unboxed);
 
                                 if (returnType is null)
@@ -196,9 +239,10 @@ namespace Typeck
                                 }
                                 else
                                 {
-                                    var paramType = table.FindTypeByFQN(
-                                        param?.ParameterType.FullName ??
-                                        param?.ParameterType.Name);
+                                    var rawParamName = param?.ParameterType.FullName ??
+                                        param?.ParameterType.Name;
+                                    var unboxedParam = Shared.Utils.GetUnboxedName(rawParamName);
+                                    var paramType = table.FindTypeByFQN(unboxedParam);
 
                                     paramSymbol = new ParameterSymbol(param.Name, paramType, null);
                                 }

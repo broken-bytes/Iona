@@ -89,7 +89,7 @@ public class Calculator {
         return value
     }
 
-    public fn reset() -> Int32 {
+    public mut fn reset() -> Int32 {
         value = 0
         return value
     }

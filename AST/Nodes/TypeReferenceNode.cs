@@ -18,6 +18,8 @@ namespace AST.Nodes
         public Metadata Meta { get; set; }
         public TypeReferenceKind ReferenceKind { get; set; }
         public List<ITypeReferenceNode> GenericArguments { get; set; } = new List<ITypeReferenceNode>();
+        public bool IsOptional { get; set; }
+        public bool IsImplicitlyUnwrapped { get; set; }
 
         public TypeReferenceNode(string name, INode? parent = null)
         {

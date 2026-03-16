@@ -182,7 +182,120 @@ namespace Shared
         {
             return new CompilerError(
                 CompilerErrorCode.VariableNotAllowedInTopLevel,
-                $"Variables are not allowed as top-level statements.", 
+                $"Variables are not allowed as top-level statements.",
+                meta
+            );
+        }
+
+        public static CompilerError InaccessibleMember(string member, string typeKind, string typeName, Metadata meta)
+        {
+            return new CompilerError(
+                CompilerErrorCode.InaccessibleMember,
+                $"Cannot access private member `{member}` of {typeKind} `{typeName}`",
+                meta
+            );
+        }
+
+        public static CompilerError ImmutableVariableAssignment(string name, Metadata meta)
+        {
+            return new CompilerError(
+                CompilerErrorCode.ImmutableVariableAssignment,
+                $"Cannot change value of immutable variable `{name}`",
+                meta
+            );
+        }
+
+        public static CompilerError MutatingInNonMutatingFunc(string property, string func, Metadata meta)
+        {
+            return new CompilerError(
+                CompilerErrorCode.MutatingInNonMutatingFunc,
+                $"Cannot assign to property `{property}` in non-mutating function `{func}`. Use `mut fn` to allow mutation",
+                meta
+            );
+        }
+
+        public static CompilerError MutablePropertyInRecord(string name, string record, Metadata meta)
+        {
+            return new CompilerError(
+                CompilerErrorCode.MutablePropertyInRecord,
+                $"Record `{record}` cannot have mutable property `{name}`. Use `let` instead of `var`",
+                meta
+            );
+        }
+
+        public static CompilerError MutatingFuncInRecord(string name, string record, Metadata meta)
+        {
+            return new CompilerError(
+                CompilerErrorCode.MutatingFuncInRecord,
+                $"Record `{record}` cannot have mutating function `{name}`. Records are immutable",
+                meta
+            );
+        }
+
+        public static CompilerError OptionalNotUnwrapped(string name, string type, Metadata meta)
+        {
+            return new CompilerError(
+                CompilerErrorCode.OptionalNotUnwrapped,
+                $"Value of optional type `{type}?` must be unwrapped before accessing members of `{name}`. Use `?.` for optional chaining, `!` for force unwrap, or `guard` to safely unwrap",
+                meta
+            );
+        }
+
+        public static CompilerError ReturnTypeMismatch(string expected, string actual, Metadata meta)
+        {
+            return new CompilerError(
+                CompilerErrorCode.ReturnTypeMismatch,
+                $"Cannot return value of type `{actual}` in a function expected to return `{expected}`",
+                meta
+            );
+        }
+
+        public static CompilerError ContractConformanceMissingFunc(
+            string typeName, string contractName, string funcName, Metadata meta)
+        {
+            return new CompilerError(
+                CompilerErrorCode.ContractConformanceMissingMember,
+                $"Type `{typeName}` does not implement function `{funcName}` required by contract `{contractName}`",
+                meta
+            );
+        }
+
+        public static CompilerError ContractConformanceMissingProperty(
+            string typeName, string contractName, string propertyName, Metadata meta)
+        {
+            return new CompilerError(
+                CompilerErrorCode.ContractConformanceMissingMember,
+                $"Type `{typeName}` does not implement property `{propertyName}` required by contract `{contractName}`",
+                meta
+            );
+        }
+
+        public static CompilerError ContractConformanceMissingOperator(
+            string typeName, string contractName, string operatorName, Metadata meta)
+        {
+            return new CompilerError(
+                CompilerErrorCode.ContractConformanceMissingMember,
+                $"Type `{typeName}` does not implement operator `{operatorName}` required by contract `{contractName}`",
+                meta
+            );
+        }
+
+        public static CompilerError ContractConformanceMissingInit(
+            string typeName, string contractName, string initSignature, Metadata meta)
+        {
+            return new CompilerError(
+                CompilerErrorCode.ContractConformanceMissingMember,
+                $"Type `{typeName}` does not implement initializer `{initSignature}` required by contract `{contractName}`",
+                meta
+            );
+        }
+
+        public static CompilerError ValueTypeCannotInheritClass(
+            string typeName, string className, Metadata meta)
+        {
+            return new CompilerError(
+                CompilerErrorCode.ValueTypeCannotInheritClass,
+                $"`{typeName}` cannot inherit from class `{className}`. Only classes can inherit from other classes",
                 meta
             );
         }

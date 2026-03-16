@@ -16,68 +16,13 @@ namespace Tests.Helpers;
 public static class TestHelpers
 {
     /// <summary>
-    /// Creates a SymbolTable pre-populated with Iona.Builtins types (Int32, String, Bool, Double, Float)
-    /// with arithmetic operators on Int32.
+    /// Creates a SymbolTable pre-populated with all Iona builtin types and operators.
     /// </summary>
     public static SymbolTable CreateBuiltinsSymbolTable()
     {
         var table = new SymbolTable();
-
-        // Create module hierarchy: Iona -> Builtins
-        var ionaModule = new ModuleSymbol("Iona", "Iona.Builtins");
-        table.AddModule(ionaModule);
-
-        var builtinsModule = new ModuleSymbol("Builtins", "Iona.Builtins");
-        ionaModule.AddSymbol(builtinsModule);
-
-        // Int32
-        var int32Type = new TypeSymbol("Int32", TypeKind.Struct);
-        builtinsModule.AddSymbol(int32Type);
-
-        // Add arithmetic operators to Int32: +, -, *, /
-        AddBinaryOperator(int32Type, OperatorType.Add, int32Type);
-        AddBinaryOperator(int32Type, OperatorType.Subtract, int32Type);
-        AddBinaryOperator(int32Type, OperatorType.Multiply, int32Type);
-        AddBinaryOperator(int32Type, OperatorType.Divide, int32Type);
-
-        // Add comparison operators to Int32
-        var boolType = new TypeSymbol("Bool", TypeKind.Struct);
-        builtinsModule.AddSymbol(boolType);
-
-        AddBinaryOperator(int32Type, OperatorType.Equal, boolType);
-        AddBinaryOperator(int32Type, OperatorType.LessThan, boolType);
-        AddBinaryOperator(int32Type, OperatorType.GreaterThan, boolType);
-
-        // String
-        var stringType = new TypeSymbol("String", TypeKind.Class);
-        builtinsModule.AddSymbol(stringType);
-        AddBinaryOperator(stringType, OperatorType.Add, stringType);
-
-        // Double
-        var doubleType = new TypeSymbol("Double", TypeKind.Struct);
-        builtinsModule.AddSymbol(doubleType);
-        AddBinaryOperator(doubleType, OperatorType.Add, doubleType);
-
-        // Float
-        var floatType = new TypeSymbol("Float", TypeKind.Struct);
-        builtinsModule.AddSymbol(floatType);
-        AddBinaryOperator(floatType, OperatorType.Add, floatType);
-
+        BuiltinTypeRegistrar.RegisterBuiltins(table);
         return table;
-    }
-
-    private static void AddBinaryOperator(TypeSymbol ownerType, OperatorType opType, TypeSymbol returnType)
-    {
-        var op = new OperatorSymbol(opType);
-        op.ReturnType = returnType;
-        op.Parent = ownerType;
-
-        var leftParam = new ParameterSymbol("left", ownerType, op);
-        var rightParam = new ParameterSymbol("right", ownerType, op);
-        op.AddSymbol(leftParam);
-        op.AddSymbol(rightParam);
-
-        ownerType.AddSymbol(op);
     }
 
     /// <summary>

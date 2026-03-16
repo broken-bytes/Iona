@@ -51,10 +51,18 @@
 
         public void Log()
         {
+            // Compute gutter width: right-align line numbers to the widest one
+            var gutterWidth = Context.Count > 0
+                ? Context.Max(l => l.Item1).ToString().Length
+                : 1;
+
+            // Header: --> file:line:column
             Console.ForegroundColor = ConsoleColor.DarkCyan;
-            Console.Write($"{Meta.File}");
+            Console.Write($"{new string(' ', gutterWidth)}");
+            Console.Write(" --> ");
             Console.ResetColor();
             Console.ForegroundColor = ConsoleColor.White;
+            Console.Write($"{Meta.File}");
             Console.Write(":");
             Console.ForegroundColor = ConsoleColor.Yellow;
             Console.Write(Meta.LineStart);
@@ -62,37 +70,43 @@
             Console.ForegroundColor = ConsoleColor.White;
             Console.Write(":");
             Console.ForegroundColor = ConsoleColor.Yellow;
-            Console.Write($"{Meta.ColumnStart}");
+            Console.WriteLine(Meta.ColumnStart);
             Console.ResetColor();
-            Console.ForegroundColor = ConsoleColor.White;
-            Console.Write(" - ");
+
+            // Error label: error[C0018]: message
             Console.ForegroundColor = ConsoleColor.Red;
             Console.BackgroundColor = ConsoleColor.Black;
-            Console.Write($"error ");
+            Console.Write($"{new string(' ', gutterWidth)} ");
+            Console.Write($"  error");
+            Console.ResetColor();
             Console.ForegroundColor = ConsoleColor.DarkGray;
-            Console.Write($"{Code}: ");
+            Console.Write($"[{Code}]");
             Console.ResetColor();
             Console.ForegroundColor = ConsoleColor.White;
+            Console.Write(": ");
             Console.WriteLine(Message);
+            Console.ResetColor();
+
+            // Empty gutter separator
+            Console.ForegroundColor = ConsoleColor.DarkCyan;
+            Console.WriteLine($"{new string(' ', gutterWidth + 1)}|");
             Console.ResetColor();
 
             foreach (var line in Context)
             {
-                Console.ForegroundColor = ConsoleColor.Red;
-                var lineNumberWidth = line.Item1.ToString().Count() + 1;
-                if (Meta.LineStart >= line.Item1 && Meta.LineEnd <= line.Item1)
-                {
-                    Console.Write($"{line.Item1} | ");
-                }
-                else
-                {
-                    Console.Write($"{new string(' ', lineNumberWidth)}| ");
-                }
+                var lineNum = line.Item1;
+                var lineText = line.Item2;
+                var isErrorLine = Meta.LineStart <= lineNum && Meta.LineEnd >= lineNum;
+
+                // Line number, right-aligned
+                Console.ForegroundColor = ConsoleColor.DarkCyan;
+                Console.Write($"{lineNum.ToString().PadLeft(gutterWidth)} | ");
                 Console.ResetColor();
 
-                for (int x = 0; x < line.Item2.Length; x++)
+                // Source text, highlighting error span on the error line
+                for (int x = 0; x < lineText.Length; x++)
                 {
-                    if ((x >= Meta.ColumnStart - 1 && x < Meta.ColumnEnd - 1) && Meta.LineStart >= line.Item1 && Meta.LineEnd <= line.Item1)
+                    if (isErrorLine && x >= Meta.ColumnStart - 1 && x < Meta.ColumnEnd - 1)
                     {
                         Console.ForegroundColor = ConsoleColor.Red;
                     }
@@ -100,25 +114,32 @@
                     {
                         Console.ForegroundColor = ConsoleColor.White;
                     }
-                    
-                    Console.Write(line.Item2[x]);
+
+                    Console.Write(lineText[x]);
                     Console.ResetColor();
                 }
-                
-                // When the current line is the error source, also underline the characters
-                if (Meta.LineStart >= line.Item1 && Meta.LineEnd <= line.Item1)
+
+                Console.WriteLine();
+
+                // Underline on the error line
+                if (isErrorLine)
                 {
-                    Console.WriteLine();
                     Console.ForegroundColor = ConsoleColor.Red;
-                    Console.Write($"{new string(' ', lineNumberWidth)}| ");
-                    Console.WriteLine(new string(' ', Meta.ColumnStart - 1) + new string('~', Meta.ColumnEnd - Meta.ColumnStart));
-                }
-                else
-                {
-                    Console.WriteLine();
+                    Console.Write($"{new string(' ', gutterWidth + 1)}| ");
+                    var underlineLen = Math.Max(1, Meta.ColumnEnd - Meta.ColumnStart);
+                    Console.WriteLine(new string(' ', Meta.ColumnStart - 1) + new string('~', underlineLen));
+                    Console.ResetColor();
                 }
             }
-            
+
+            // Closing empty gutter
+            Console.ForegroundColor = ConsoleColor.DarkCyan;
+            Console.WriteLine($"{new string(' ', gutterWidth + 1)}|");
+            Console.ResetColor();
+
+            // Docs link
+            Console.ForegroundColor = ConsoleColor.DarkGray;
+            Console.Write($"{new string(' ', gutterWidth + 1)}= ");
             Console.ResetColor();
             Console.ForegroundColor = ConsoleColor.White;
             Console.WriteLine($"See https://ionalang.org/docs/reference/errors#{Code}");
@@ -159,6 +180,30 @@
                     return "C0015";
                 case CompilerErrorCode.CannotInferType:
                     return "C0016";
+                case CompilerErrorCode.VariableNotAllowedInTopLevel:
+                    return "C0017";
+                case CompilerErrorCode.ImmutableVariableAssignment:
+                    return "C0018";
+                case CompilerErrorCode.NoMatchingConstructorForArgs:
+                    return "C0019";
+                case CompilerErrorCode.TypeDoesNotContainMethod:
+                    return "C0020";
+                case CompilerErrorCode.InaccessibleMember:
+                    return "C0021";
+                case CompilerErrorCode.MutatingInNonMutatingFunc:
+                    return "C0022";
+                case CompilerErrorCode.MutablePropertyInRecord:
+                    return "C0023";
+                case CompilerErrorCode.MutatingFuncInRecord:
+                    return "C0024";
+                case CompilerErrorCode.OptionalNotUnwrapped:
+                    return "C0025";
+                case CompilerErrorCode.ReturnTypeMismatch:
+                    return "C0026";
+                case CompilerErrorCode.ContractConformanceMissingMember:
+                    return "C0027";
+                case CompilerErrorCode.ValueTypeCannotInheritClass:
+                    return "C0028";
                 default:
                     return "UnknownError";
             }

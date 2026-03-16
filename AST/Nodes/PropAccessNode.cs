@@ -13,6 +13,7 @@ namespace AST.Nodes
         public IExpressionNode Object { get; set; }
         public IExpressionNode Property { get; set; }
         public TypeReferenceNode? ResultType { get; set; }
+        public bool IsOptionalChain { get; set; }
         public ExpressionType ExpressionType => ExpressionType.PropAccess;
         public FileNode Root => Utils.GetRoot(this);
         public ResolutionStatus Status { get; set; } = ResolutionStatus.Unresolved;

@@ -3,6 +3,7 @@
     public enum NodeType
     {
         Allocation,
+        ArrayAccess,
         ArrayLiteral,
         Assignment,
         Contract,
@@ -28,8 +29,10 @@
         PropAccess,
         ScopeResolution,
         Self,
+        GuardStatement,
         IfStatement,
         ElseStatement,
+        ForceUnwrap,
         ForLoop,
         WhileLoop,
         BreakStatement,

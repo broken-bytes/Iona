@@ -20,6 +20,7 @@ namespace Parser.Parsers
         public INode Parse(TokenStream stream, INode? parent)
         {
             var token = stream.Peek();
+            bool isMutable = token.Type == TokenType.Var;
 
             if (token.Type == TokenType.Var)
             {
@@ -34,7 +35,7 @@ namespace Parser.Parsers
             {
                 var identifier = stream.Consume(TokenType.Identifier, TokenFamily.Identifier);
 
-                var varNode = new VariableNode(identifier.Value, null, parent);
+                var varNode = new VariableNode(identifier.Value, null, parent) { IsMutable = isMutable };
                 Utils.SetStart(varNode, token);
                 Utils.SetEnd(varNode, identifier);
 
@@ -46,6 +47,20 @@ namespace Parser.Parsers
                     var type = stream.Consume(TokenType.Identifier, TokenFamily.Identifier);
                     varNode.TypeNode = new TypeReferenceNode(type.Value, varNode);
                     Utils.SetEnd(varNode.TypeNode, type);
+
+                    // Check for optional (?) or weak (!) suffix
+                    if (!stream.IsEmpty() && stream.Peek().Type == TokenType.SoftUnwrap)
+                    {
+                        var suffixToken = stream.Consume(TokenType.SoftUnwrap, TokenFamily.Keyword);
+                        varNode.TypeNode.IsOptional = true;
+                        Utils.SetEnd(varNode.TypeNode, suffixToken);
+                    }
+                    else if (!stream.IsEmpty() && stream.Peek().Type == TokenType.Not)
+                    {
+                        var suffixToken = stream.Consume(TokenType.Not, TokenFamily.Keyword);
+                        varNode.TypeNode.IsImplicitlyUnwrapped = true;
+                        Utils.SetEnd(varNode.TypeNode, suffixToken);
+                    }
                 }
 
                 // Check if the variable has a value (next token is an equals sign)
