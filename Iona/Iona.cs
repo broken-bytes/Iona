@@ -14,6 +14,9 @@ class Iona
 
         [Option("emit-ir", Required = false, HelpText = "Emit the raw IR to terminal output during compilation.")]
         public bool EmitIr { get; set; } = false;
+
+        [Option("emit-ir-json", Required = false, HelpText = "Emit the IR as JSON files (one per module) into the given directory. Consumed by external backends such as the Kotlin IR backend.")]
+        public string EmitIrJsonDir { get; set; } = "";
         
         [Option('a', "assemblies", Required = false, HelpText = "Additional paths to check for assemblies")]
         public IEnumerable<string> AssemblyPaths { get; set; }
@@ -87,6 +90,7 @@ class Iona
             options.Intermediate,
             options.Debug,
             options.EmitIr,
+            options.EmitIrJsonDir,
             options.AssemblyPaths?.ToList() ?? new List<string>(),
             options.AssemblyRefs?.ToList() ?? new List<string>(),
             options.TargetFramework,

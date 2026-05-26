@@ -49,6 +49,7 @@ namespace Compiler
             bool intermediate,
             bool debug,
             bool emitIr,
+            string emitIrJsonDir,
             List<string> assemblyPaths,
             List<string> assemblyRefs,
             string targetFramework,
@@ -59,7 +60,19 @@ namespace Compiler
             // Builtin types (Int32, String, Bool, etc.) are registered programmatically — no Iona.Builtins.dll needed
             if (!assemblyRefs.Contains("System.Runtime"))
                 assemblyRefs.Add("System.Runtime");
-            assemblyPaths.Add(Environment.GetEnvironmentVariable("IONA_SDK_DIR") ?? "");
+
+            var ionaSdkDir = Environment.GetEnvironmentVariable("IONA_SDK_DIR") ?? "";
+            if (!string.IsNullOrWhiteSpace(ionaSdkDir) && Directory.Exists(ionaSdkDir))
+            {
+                assemblyPaths.Add(ionaSdkDir);
+
+                foreach (var dll in Directory.GetFiles(ionaSdkDir, "*.dll"))
+                {
+                    var name = Path.GetFileNameWithoutExtension(dll);
+                    if (!assemblyRefs.Contains(name))
+                        assemblyRefs.Add(name);
+                }
+            }
             // The compiler is made up of several passes:
             // - Lexing
             // - Parsing
@@ -78,6 +91,11 @@ namespace Compiler
                 // First, check if the file is directly contained in some path
                 foreach (var path in assemblyPaths)
                 {
+                    if (string.IsNullOrWhiteSpace(path) || !Directory.Exists(path))
+                    {
+                        continue;
+                    }
+
                     foreach (var file in Directory.GetFiles(path, "*.dll"))
                     {
                         if (file.EndsWith(assemblyName))
@@ -86,18 +104,7 @@ namespace Compiler
                         }
                     }
                 }
-                
-                // Check the IONA_SDK_DIR
-                var ionaSdkDir = Environment.GetEnvironmentVariable("IONA_SDK_DIR");
 
-                foreach (var file in Directory.GetFiles(ionaSdkDir, "*.dll"))
-                {
-                    if (file.EndsWith(assemblyName))
-                    {
-                        return Assembly.LoadFile(file);
-                    }
-                }
-                
                 // If the assembly was not found in the custom path, return null (continue searching)
                 return null;
             };
@@ -160,17 +167,38 @@ namespace Compiler
                 return false;
             }
             
-            if (emitIr)
+            if (emitIr || !string.IsNullOrWhiteSpace(emitIrJsonDir))
             {
                 var lowering = new IR.IrLowering();
                 var printer = new IR.IrPrinter();
+                var jsonSerializer = new IR.IrJsonSerializer();
+
+                if (!string.IsNullOrWhiteSpace(emitIrJsonDir))
+                {
+                    Directory.CreateDirectory(emitIrJsonDir);
+                }
 
                 foreach (var ast in asts.OfType<FileNode>())
                 {
                     var irModule = lowering.Build(ast);
-                    Console.ForegroundColor = ConsoleColor.Cyan;
-                    Console.WriteLine(printer.Print(irModule));
-                    Console.ResetColor();
+
+                    if (emitIr)
+                    {
+                        Console.ForegroundColor = ConsoleColor.Cyan;
+                        Console.WriteLine(printer.Print(irModule));
+                        Console.ResetColor();
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(emitIrJsonDir))
+                    {
+                        var json = jsonSerializer.Serialize(irModule);
+                        var fileName = SanitizeModuleFileName(irModule.Name) + ".ir.json";
+                        var outPath = Path.Combine(emitIrJsonDir, fileName);
+                        File.WriteAllText(outPath, json);
+                        Console.ForegroundColor = ConsoleColor.DarkGreen;
+                        Console.WriteLine($"Wrote IR JSON: {outPath}");
+                        Console.ResetColor();
+                    }
                 }
             }
 
@@ -178,6 +206,18 @@ namespace Compiler
             GenerateCode(assemblyName, asts.ToList(), globalTable, intermediate, assemblyPaths, assemblyRefs, targetFramework, outputType);
 
             return true;
+        }
+
+        private static string SanitizeModuleFileName(string moduleName)
+        {
+            var baseName = Path.GetFileNameWithoutExtension(moduleName);
+            if (string.IsNullOrWhiteSpace(baseName))
+                baseName = "module";
+
+            foreach (var c in Path.GetInvalidFileNameChars())
+                baseName = baseName.Replace(c, '_');
+
+            return baseName;
         }
 
         private void GenerateCode(

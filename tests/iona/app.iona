@@ -1,16 +1,7 @@
 module App
 
-use UnityEngine
+use System
 
-public class DamageTicker: MonoBehaviour {
-    public var amount = 5.0f
-    public var player: Player
-
-    public fn start() {
-        player = getComponent<Player>()
-    }
-
-    public fn update() {
-        player.health -= amount * Time::deltaTime
-    }
+fn main() {
+    Console::writeLine(message: "Iona")
 }

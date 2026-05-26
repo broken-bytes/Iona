@@ -8,6 +8,7 @@
             bool intermediate,
             bool debug,
             bool emitIr,
+            string emitIrJsonDir,
             List<string> assemblyPaths,
             List<string> assemblyRefs,
             string targetFramework,

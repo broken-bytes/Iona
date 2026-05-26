@@ -267,6 +267,10 @@ public class IrLowering
                 LowerInitCall(initCallNode);
                 break;
 
+            case ScopeResolutionNode scopeNode:
+                LowerScopeResolution(scopeNode);
+                break;
+
             case WhileNode whileNode:
                 LowerWhile(whileNode);
                 break;
@@ -323,7 +327,10 @@ public class IrLowering
     private void LowerAssignment(AssignmentNode assignNode)
     {
         var value = LowerExpression(assignNode.Value);
-        if (value == null) return;
+        if (value == null)
+        {
+            return;
+        }
 
         // The target can be a VarAccessNode, PropAccessNode, etc.
         switch (assignNode.Target)
@@ -415,6 +422,9 @@ public class IrLowering
             case InitCallNode initCall:
                 return LowerInitCall(initCall);
 
+            case ScopeResolutionNode scopeNode:
+                return LowerScopeResolution(scopeNode);
+
             case IExpressionNode expr:
                 // Fallback for other expression types
                 var fallbackType = IrTypes.FromTypeReference(expr.ResultType);
@@ -445,8 +455,15 @@ public class IrLowering
             irType = IrTypes.FromTypeReference(literal.ResultType);
         }
 
+        var rawValue = literal.Value;
+        if (kind == ConstantKind.String && rawValue.Length >= 2
+            && rawValue.StartsWith('"') && rawValue.EndsWith('"'))
+        {
+            rawValue = rawValue[1..^1];
+        }
+
         var result = _currentFunction!.CreateValue(irType);
-        Emit(new ConstantInst(kind, literal.Value, irType, result));
+        Emit(new ConstantInst(kind, rawValue, irType, result));
         return result;
     }
 
@@ -662,6 +679,34 @@ public class IrLowering
         return result;
     }
 
+    private IrValue? LowerScopeResolution(ScopeResolutionNode node)
+    {
+        if (node.Property is FuncCallNode funcCall)
+        {
+            var args = new List<IrCallArg>();
+            foreach (var arg in funcCall.Args)
+            {
+                var argValue = LowerExpression(arg.Value);
+                if (argValue != null)
+                {
+                    args.Add(new IrCallArg(arg.Name, argValue));
+                }
+            }
+
+            var targetName = $"{node.Scope.Value}.{funcCall.Target.Value}";
+            var returnType = IrTypes.FromTypeReference(funcCall.ResultType ?? node.ResultType);
+            IrValue? result = returnType is IrPrimitiveType p && p.Primitive == PrimitiveKind.Void
+                ? null
+                : _currentFunction!.CreateValue(returnType);
+
+            Emit(new CallInst(targetName, args, returnType, result));
+            return result;
+        }
+
+        // Other scope-resolution forms (enum cases, static fields) are not yet lowered.
+        return null;
+    }
+
     // ------------------------------------------------------------------
     // Control flow lowering
     // ------------------------------------------------------------------
@@ -863,14 +908,20 @@ public class IrLowering
 
     private void LowerBreak()
     {
-        if (_loopStack.Count == 0) return;
+        if (_loopStack.Count == 0)
+        {
+            return;
+        }
         var (_, breakTarget) = _loopStack.Peek();
         Emit(new BranchInst(breakTarget));
     }
 
     private void LowerContinue()
     {
-        if (_loopStack.Count == 0) return;
+        if (_loopStack.Count == 0)
+        {
+            return;
+        }
         var (continueTarget, _) = _loopStack.Peek();
         Emit(new BranchInst(continueTarget));
     }
