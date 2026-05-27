@@ -1,9 +1,0 @@
-module Main
-
-use System
-
-public fn main() -> Void {
-    Console::writeLine(value: "Hello from Iona!")
-    var args = Environment::getCommandLineArgs()
-    Console::writeLine(value: args[0])
-}

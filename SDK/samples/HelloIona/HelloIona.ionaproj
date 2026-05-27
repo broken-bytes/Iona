@@ -1,0 +1,21 @@
+<Project>
+
+  <!--
+    Local-dev sample. Uses the manual SDK-import form (instead of Sdk="Iona.Sdk/0.1.0")
+    so it builds straight from the repo without publishing the SDK to a NuGet feed.
+    The production form is documented in SDK/README.md.
+  -->
+  <Import Project="../../Iona.Sdk/Sdk/Sdk.props" />
+
+  <PropertyGroup>
+    <OutputType>dll</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+
+    <!-- Dev overrides: point at unpackaged build output instead of the packaged tools/ dir. -->
+    <IonaBuildTasksAssembly>$(MSBuildThisFileDirectory)../../Iona.Build.Tasks/bin/Debug/netstandard2.0/Iona.Build.Tasks.dll</IonaBuildTasksAssembly>
+    <IonaCompilerPath>$(MSBuildThisFileDirectory)../../../Toolchain/Iona/bin/Debug/net10.0/Iona.dll</IonaCompilerPath>
+  </PropertyGroup>
+
+  <Import Project="../../Iona.Sdk/Sdk/Sdk.targets" />
+
+</Project>

@@ -1,0 +1,14 @@
+{
+  "$schema": "http://json.schemastore.org/template",
+  "author": "Marcel Kulina",
+  "classifications": [ "Iona", "Console" ],
+  "identity": "Iona.Templates.Console",
+  "name": "Iona Console Application",
+  "shortName": "ionaconsole",
+  "tags": {
+    "language": "Iona",
+    "type": "project"
+  },
+  "sourceName": "IonaConsole",
+  "preferNameDirectory": true
+}

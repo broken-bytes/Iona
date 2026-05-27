@@ -1,0 +1,39 @@
+﻿//|--- ArrayLiteralNode.cs -------------------------------------|
+//
+// This source code file is part of the Iona project.
+//
+// Copyright (c) 2026 Marcel Kulina
+// Licensed under MIT
+//
+//|-------------------------------------------------------------|
+
+using AST.Types;
+using AST.Visitors;
+using Shared;
+using static AST.Nodes.INode;
+
+namespace AST.Nodes
+{
+    public class ArrayLiteralNode : IExpressionNode
+    {
+        public List<IExpressionNode> Values { get; set; } = new List<IExpressionNode>();
+        public INode? Parent { get; set; }
+        public NodeType Type { get; set; }
+        public FileNode Root => Utils.GetRoot(this);
+        public ExpressionType ExpressionType => ExpressionType.Literal;
+        public TypeReferenceNode? ResultType { get; set; }
+        public ResolutionStatus Status { get; set; } = ResolutionStatus.Unresolved;
+        public Metadata Meta { get; set; }
+
+        public ArrayLiteralNode(INode? parent = null)
+        {
+            Type = NodeType.ArrayLiteral;
+            Parent = parent;
+        }
+
+        public void Accept(IArrayLiteralVisitor visitor)
+        {
+            visitor.Visit(this);
+        }
+    }
+}

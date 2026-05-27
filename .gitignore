@@ -3,6 +3,11 @@
 ##
 ## Get latest from https://github.com/github/gitignore/blob/main/VisualStudio.gitignore
 
+# macOS / stray build output at repo root
+.DS_Store
+/App.dll
+/App.runtimeconfig.json
+
 # User-specific files
 *.rsuser
 *.suo
@@ -196,6 +201,8 @@ PublishScripts/
 *.nupkg
 # NuGet Symbol Packages
 *.snupkg
+# Committed local SDK feed (see SDK/pack-local.sh)
+!local-feed/*.nupkg
 # The packages folder can be ignored because of Package Restore
 **/[Pp]ackages/*
 # except build/, which is used as an MSBuild target.

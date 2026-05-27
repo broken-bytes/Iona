@@ -1,0 +1,7 @@
+module Program
+
+use System
+
+public fn main() -> Void {
+    Console::writeLine(value: "Hello, Iona!")
+}

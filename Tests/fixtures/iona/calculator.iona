@@ -1,0 +1,69 @@
+module Calculator
+
+use System
+
+public fn main() -> Void {
+    Console::writeLine(value: "=== Iona Calculator ===")
+    Console::writeLine(value: "")
+
+    var a = 3
+    var b = 6
+
+    var sum = a + b
+    var diff = a - b
+    var prod = a * b
+    var quot = a / b
+    var rem = a - quot * b
+
+    Console::writeLine(value: "a = 3, b = 6")
+    Console::writeLine(value: "")
+
+    Console::writeLine(value: "Addition:")
+    Console::writeLine(value: sum)
+
+    Console::writeLine(value: "Subtraction:")
+    Console::writeLine(value: diff)
+
+    Console::writeLine(value: "Multiplication:")
+    Console::writeLine(value: prod)
+
+    Console::writeLine(value: "Division:")
+    Console::writeLine(value: quot)
+
+    Console::writeLine(value: "Remainder:")
+    Console::writeLine(value: rem)
+
+    Console::writeLine(value: "")
+    Console::writeLine(value: "=== Comparison Tests ===")
+
+    if sum > 5 {
+        Console::writeLine(value: "3 + 6 > 5: true")
+    }
+
+    if sum == 9 {
+        Console::writeLine(value: "3 + 6 == 9: true")
+    }
+
+    Console::writeLine(value: "")
+    Console::writeLine(value: "=== Loop: Sum 0 to 10 ===")
+
+    var total = 0
+    for i in 0...10 {
+        total = total + i
+    }
+    Console::writeLine(value: total)
+
+    Console::writeLine(value: "")
+    Console::writeLine(value: "=== Factorial of 6 ===")
+
+    var fact = 1
+    var n = 6
+    while n > 1 {
+        fact = fact * n
+        n = n - 1
+    }
+    Console::writeLine(value: fact)
+
+    Console::writeLine(value: "")
+    Console::writeLine(value: "Done!")
+}

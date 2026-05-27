@@ -1,0 +1,5 @@
+module Program
+
+public fn main() -> Void {
+    printLn(message: "Hello from a packaged Iona SDK!")
+}

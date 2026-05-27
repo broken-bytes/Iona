@@ -1,0 +1,10 @@
+module Hello
+
+public class Greeter {
+    public var x = 10
+    public var y = 20
+
+    public fn sum() -> Int32 {
+        return x + y
+    }
+}

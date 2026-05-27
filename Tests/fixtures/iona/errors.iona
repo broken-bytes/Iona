@@ -1,0 +1,6 @@
+module Errors
+
+public fn main() -> Void {
+    let x = 1
+    x = 2
+}

@@ -1,0 +1,33 @@
+<Project>
+
+  <PropertyGroup>
+    <IonaBuildTasksAssembly Condition="'$(IonaBuildTasksAssembly)' == ''">$(MSBuildThisFileDirectory)../tools/Iona.Build.Tasks.dll</IonaBuildTasksAssembly>
+    <IonaCompilerPath Condition="'$(IonaCompilerPath)' == ''">$(MSBuildThisFileDirectory)../tools/Iona.dll</IonaCompilerPath>
+  </PropertyGroup>
+
+  <UsingTask TaskName="Iona.Build.Tasks.IonaCompile" AssemblyFile="$(IonaBuildTasksAssembly)" />
+
+  <PropertyGroup>
+    <CoreCompileDependsOn Condition="'$(CoreCompileDependsOn)' == ''">ResolveReferences</CoreCompileDependsOn>
+  </PropertyGroup>
+
+  <Target Name="CreateManifestResourceNames" />
+
+  <Target Name="CoreCompile"
+          Inputs="@(Compile);@(ReferencePathWithRefAssemblies)"
+          Outputs="@(IntermediateAssembly)"
+          DependsOnTargets="$(CoreCompileDependsOn)">
+
+    <Iona.Build.Tasks.IonaCompile
+      Sources="@(Compile)"
+      References="@(ReferencePathWithRefAssemblies)"
+      OutputAssembly="@(IntermediateAssembly)"
+      OutputType="$(OutputType)"
+      TargetFramework="$(TargetFramework)"
+      IonaCompilerPath="$(IonaCompilerPath)"
+      DotnetHostPath="$(DOTNET_HOST_PATH)" />
+  </Target>
+
+  <Import Project="$(MSBuildToolsPath)\Microsoft.Common.targets" />
+
+</Project>

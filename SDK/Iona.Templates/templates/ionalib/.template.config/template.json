@@ -1,0 +1,14 @@
+{
+  "$schema": "http://json.schemastore.org/template",
+  "author": "Marcel Kulina",
+  "classifications": [ "Iona", "Library" ],
+  "identity": "Iona.Templates.ClassLib",
+  "name": "Iona Class Library",
+  "shortName": "ionalib",
+  "tags": {
+    "language": "Iona",
+    "type": "project"
+  },
+  "sourceName": "IonaLib",
+  "preferNameDirectory": true
+}

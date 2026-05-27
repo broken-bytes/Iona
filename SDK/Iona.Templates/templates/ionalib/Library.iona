@@ -1,0 +1,7 @@
+module IonaLib
+
+public class Greeter {
+    public fn greeting() -> String {
+        return "Hello from IonaLib"
+    }
+}

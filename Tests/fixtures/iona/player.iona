@@ -1,0 +1,17 @@
+module App
+
+use UnityEngine
+
+public class Player: MonoBehaviour {
+    public var health = 100.0f
+
+    fn update() {
+        health -= 1 * Time::deltaTime
+    }
+
+    fn onCollisionEnter(collision: Collision) {
+        var name = collision.gameObject.name
+
+        gameObject.addComponent<DamageTicker>()
+    }
+}

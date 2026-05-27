@@ -1,0 +1,43 @@
+﻿//|--- ScopeResolutionNode.cs ----------------------------------|
+//
+// This source code file is part of the Iona project.
+//
+// Copyright (c) 2026 Marcel Kulina
+// Licensed under MIT
+//
+//|-------------------------------------------------------------|
+
+using AST.Types;
+using AST.Visitors;
+using Shared;
+using static AST.Nodes.INode;
+
+namespace AST.Nodes
+{
+    public class ScopeResolutionNode : IExpressionNode
+    {
+        public INode? Parent { get; set; }
+        public NodeType Type { get; set; }
+        public IdentifierNode Scope { get; set; }
+        public INode Property { get; set; }
+        public TypeReferenceNode? ResultType { get; set; }
+        public ExpressionType ExpressionType => ExpressionType.ScopeResolution;
+        public FileNode Root => Utils.GetRoot(this);
+        public ResolutionStatus Status { get; set; } = ResolutionStatus.Unresolved;
+        public Metadata Meta { get; set; }
+
+        public ScopeResolutionNode(IdentifierNode scope, INode property, INode? parent = null)
+        {
+            Scope = scope;
+            Property = property;
+            Parent = parent;
+            Type = NodeType.ScopeResolution;
+            Meta = property.Meta;
+        }
+
+        public void Accept(IScopeResolutionVisitor visitor)
+        {
+            visitor.Visit(this);
+        }
+    }
+}

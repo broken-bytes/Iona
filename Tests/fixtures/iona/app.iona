@@ -1,0 +1,18 @@
+module App
+
+use System
+
+fn main() -> Int32 {
+    let x = 0
+    printLn(message: "Test")
+
+    guard let name = readLn() else { 
+        printLn(message: "Failed to read text")
+
+        return -1
+    }
+
+    printLn(message: name)
+
+    return 0
+}

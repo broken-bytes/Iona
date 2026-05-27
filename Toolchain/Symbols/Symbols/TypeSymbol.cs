@@ -1,0 +1,76 @@
+﻿//|--- TypeSymbol.cs -------------------------------------------|
+//
+// This source code file is part of the Iona project.
+//
+// Copyright (c) 2026 Marcel Kulina
+// Licensed under MIT
+//
+//|-------------------------------------------------------------|
+
+namespace Symbols.Symbols
+{
+    public class TypeSymbol : ITypeSymbol
+    {
+        public string Assembly => GetAssembly();
+        public string FullyQualifiedName => GetFullyQualifiedName(this);
+        public string Name { get; set; }
+        public bool IsArray => false;
+        public bool IsConcrete => true;
+        public bool IsGeneric => false;
+        public TypeKind TypeKind { get; set; }
+        public List<ISymbol> Symbols { get; set; }
+        public Dictionary<string, List<ISymbol>> SymbolsByName { get; set; }
+        public SymbolKind Kind { get; set; } = SymbolKind.Type;
+        public ISymbol? Parent { get; set; }
+        public TypeSymbol? BaseType { get; set; }
+        public List<TypeSymbol> Contracts { get; set; } = new();
+        public bool IsOptional { get; set; }
+        public bool IsImplicitlyUnwrapped { get; set; }
+        public TypeSymbol? InnerType { get; set; }
+
+        public TypeSymbol(string name, TypeKind kind)
+        {
+            Name = name;
+            TypeKind = kind;
+            Symbols = new List<ISymbol>();
+            SymbolsByName = new Dictionary<string, List<ISymbol>>();
+        }
+
+        public ISymbol? FindMember(string name) =>
+            Symbols.First(child => child is BlockSymbol).LookupSymbol(name);
+
+        private static string GetFullyQualifiedName(ISymbol symbol)
+        {
+            var name = symbol.Name;
+            var parent = symbol.Parent;
+
+            while (parent != null)
+            {
+                name = $"{parent.Name}.{name}";
+                parent = parent.Parent;
+            }
+
+            return name;
+        }
+
+        private string GetAssembly()
+        {
+            while (Parent != null)
+            {
+                if (Parent is ModuleSymbol module)
+                {
+                    return module.Assembly;
+                }
+
+                Parent = Parent.Parent;
+            }
+
+            return "";
+        }
+
+        public override string ToString()
+        {
+            return FullyQualifiedName;
+        }
+    }
+}

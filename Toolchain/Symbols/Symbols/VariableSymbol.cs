@@ -1,0 +1,32 @@
+﻿//|--- VariableSymbol.cs ---------------------------------------|
+//
+// This source code file is part of the Iona project.
+//
+// Copyright (c) 2026 Marcel Kulina
+// Licensed under MIT
+//
+//|-------------------------------------------------------------|
+
+namespace Symbols.Symbols
+{
+    public class VariableSymbol : ISymbol
+    {
+        public string Name { get; set; }
+        public TypeSymbol Type { get; set; }
+        public List<ISymbol> Symbols { get; set; }
+        public Dictionary<string, List<ISymbol>> SymbolsByName { get; set; }
+        public bool IsMutable { get; set; }
+        public bool IsOptional { get; set; }
+        public bool IsImplicitlyUnwrapped { get; set; }
+        public SymbolKind Kind { get; set; } = SymbolKind.Variable;
+        public ISymbol? Parent { get; set; }
+
+        public VariableSymbol(string name, TypeSymbol type)
+        {
+            Name = name;
+            Type = type;
+            Symbols = new List<ISymbol>();
+            SymbolsByName = new Dictionary<string, List<ISymbol>>();
+        }
+    }
+}

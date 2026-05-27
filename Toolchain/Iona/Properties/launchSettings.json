@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "Iona": {
+      "commandName": "Project",
+      "commandLineArgs": "/Users/marcelkulina/Documents/Projects/Ioana/Iona/Tests/fixtures/iona/app.iona -o Example.dll -a /Users/marcelkulina/Documents/Projects/Ioana/Iona/SDK/StandardLibrary/bin/Debug/net10.0/ -r Iona.Builtins -f netstandard2 -t exe"
+    }
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "$schema": "http://json.schemastore.org/template",
+  "author": "Marcel Kulina",
+  "classifications": [ "Iona", "Solution" ],
+  "identity": "Iona.Templates.Solution",
+  "name": "Iona Solution",
+  "shortName": "ionasln",
+  "tags": {
+    "type": "solution"
+  },
+  "sourceName": "IonaSolution",
+  "preferNameDirectory": true
+}

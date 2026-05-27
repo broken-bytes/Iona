@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <NoWarn>NU5128</NoWarn>
+    <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
+    <PackageId>Iona.Sdk</PackageId>
+    <Version>0.1.0</Version>
+    <Authors>Marcel Kulina</Authors>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <Description>MSBuild project SDK for building Iona (.iona) projects with `dotnet build`.</Description>
+    <TargetsForTfmSpecificContentInPackage>$(TargetsForTfmSpecificContentInPackage);StageIonaTools</TargetsForTfmSpecificContentInPackage>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Iona.Build.Tasks/Iona.Build.Tasks.csproj"
+                      ReferenceOutputAssembly="false" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="Sdk/**" Pack="true" PackagePath="Sdk/" />
+  </ItemGroup>
+
+  <Target Name="StageIonaTools" DependsOnTargets="Build">
+    <ItemGroup>
+      <_TaskBits Include="$(MSBuildThisFileDirectory)../Iona.Build.Tasks/bin/$(Configuration)/netstandard2.0/**/*.dll" />
+      <_CompilerBits Include="$(MSBuildThisFileDirectory)../../Toolchain/Iona/bin/$(Configuration)/net10.0/**/*" />
+      <TfmSpecificPackageFile Include="@(_TaskBits)">
+        <PackagePath>tools/%(RecursiveDir)%(Filename)%(Extension)</PackagePath>
+      </TfmSpecificPackageFile>
+      <TfmSpecificPackageFile Include="@(_CompilerBits)">
+        <PackagePath>tools/%(RecursiveDir)%(Filename)%(Extension)</PackagePath>
+      </TfmSpecificPackageFile>
+    </ItemGroup>
+  </Target>
+
+</Project>

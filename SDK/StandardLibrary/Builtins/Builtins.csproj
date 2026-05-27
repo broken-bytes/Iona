@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<TargetFramework>net10.0</TargetFramework>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+		<Company>broken-bytes.dev</Company>
+		<Product>Iona</Product>
+		<AssemblyName>Iona.Builtins</AssemblyName>
+		<IsPackable>true</IsPackable>
+		<PackageId>Iona.StandardLibrary</PackageId>
+		<Version>0.1.0</Version>
+		<Authors>Marcel Kulina</Authors>
+		<PackageLicenseExpression>MIT</PackageLicenseExpression>
+		<Description>Iona standard library (Iona.Builtins).</Description>
+	</PropertyGroup>
+</Project>

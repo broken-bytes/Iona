@@ -1,0 +1,18 @@
+<Project>
+
+  <Import Project="Sdk.props" Sdk="Microsoft.NET.Sdk" />
+
+  <PropertyGroup>
+    <DefaultLanguageSourceExtension>.iona</DefaultLanguageSourceExtension>
+    <Language>Iona</Language>
+    <EnableDefaultCompileItems Condition="'$(EnableDefaultCompileItems)' == ''">true</EnableDefaultCompileItems>
+    <ProduceReferenceAssembly Condition="'$(ProduceReferenceAssembly)' == ''">false</ProduceReferenceAssembly>
+    <LanguageTargets>$(MSBuildThisFileDirectory)Iona.targets</LanguageTargets>
+    <IonaStandardLibraryVersion Condition="'$(IonaStandardLibraryVersion)' == ''">0.1.0</IonaStandardLibraryVersion>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(DisableImplicitIonaStandardLibraryReference)' != 'true'">
+    <PackageReference Include="Iona.StandardLibrary" Version="$(IonaStandardLibraryVersion)" />
+  </ItemGroup>
+
+</Project>

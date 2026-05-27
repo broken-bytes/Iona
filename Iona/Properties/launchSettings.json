@@ -1,8 +1,0 @@
-{
-  "profiles": {
-    "Iona": {
-      "commandName": "Project",
-      "commandLineArgs": "H:\\Projects\\Iona\\tests\\iona\\app.iona H:\\Projects\\Iona\\tests\\iona\\player.iona -a \"C:\\Program Files\\Unity\\Hub\\Editor\\6000.0.32f1\\Editor\\Data\\il2cpp\\build\\deploy\" \"C:\\Program Files\\Unity\\Hub\\Editor\\6000.0.32f1\\Editor\\Data\\Managed\\UnityEngine\" -r Iona.Builtins UnityEngine.CoreModule UnityEngine.PhysicsModule -f \".NET Framework 4\""
-    }
-  }
-}

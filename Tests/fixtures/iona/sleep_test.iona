@@ -1,0 +1,18 @@
+module Main
+
+use System
+use System.Threading
+use System.Threading.Tasks
+
+public class App {
+    public async static fn run() -> Void {
+        Console::writeLine(value: "Before sleep...")
+        await Task::delay(millisecondsDelay: 3000)
+        Console::writeLine(value: "After sleep")
+    }
+}
+
+public fn main() -> Void {
+    App::run()
+    Thread::sleep(millisecondsTimeout: 4000)
+}

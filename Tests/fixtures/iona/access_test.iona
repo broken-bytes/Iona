@@ -1,0 +1,34 @@
+module Main
+
+public class Foo {
+    public let name: String = "hello"
+
+    public init() {}
+}
+
+public class Bar {
+    public var foo: Foo? = Foo()
+    public var baz: Foo! = Foo()
+
+    public init() {}
+
+    public fn safeGet() -> String {
+        guard var f = foo else {
+            return "none"
+        }
+
+        return f.name
+    }
+
+    public fn implicitGet() -> String {
+        return baz.name
+    }
+
+    public fn forceGet() -> String {
+        return foo!.name
+    }
+
+    public fn chainGet() -> String? {
+        return foo?.name
+    }
+}

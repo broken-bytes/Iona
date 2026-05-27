@@ -1,0 +1,34 @@
+﻿//|--- ITypeReferenceNode.cs -----------------------------------|
+//
+// This source code file is part of the Iona project.
+//
+// Copyright (c) 2026 Marcel Kulina
+// Licensed under MIT
+//
+//|-------------------------------------------------------------|
+
+using AST.Types;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace AST.Nodes
+{
+    public enum TypeReferenceKind
+    {
+        Array,
+        Concrete,
+        Generic
+    }
+
+    public interface ITypeReferenceNode : INode
+    {
+        public string Assembly { get; set; }
+        public string Name { get; set; }
+        public string FullyQualifiedName { get; set; }
+        public TypeReferenceKind ReferenceKind { get; }
+        public Kind TypeKind { get; set; }
+    }
+}

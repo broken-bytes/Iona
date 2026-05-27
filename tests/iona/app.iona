@@ -1,7 +1,0 @@
-module App
-
-use System
-
-fn main() {
-    Console::writeLine(message: "Iona")
-}

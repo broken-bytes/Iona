@@ -1,0 +1,20 @@
+module Main
+
+use System
+use System.Threading
+use System.Threading.Tasks
+
+public class Worker {
+    public async static fn doWork() -> Void {
+        Console::writeLine(value: "Before await")
+        await Task::delay(millisecondsDelay: 100)
+        Console::writeLine(value: "After await")
+    }
+}
+
+public fn main() -> Void {
+    Console::writeLine(value: "Starting...")
+    Worker::doWork()
+    Thread::sleep(millisecondsTimeout: 200)
+    Console::writeLine(value: "Done!")
+}
