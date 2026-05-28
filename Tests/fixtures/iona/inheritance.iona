@@ -1,0 +1,47 @@
+module App
+
+use System
+
+open class Animal {
+    public init() {}
+
+    public open fn speak() -> String {
+        return "..."
+    }
+
+    public fn name() -> String {
+        return "Animal"
+    }
+}
+
+public class Dog : Animal {
+    public init() {}
+
+    public override fn speak() -> String {
+        return "woof (parent says: ${super.speak()})"
+    }
+}
+
+public class Cat : Animal {
+    public init() {}
+
+    public override fn speak() -> String {
+        return "meow"
+    }
+}
+
+fn describe(a: Animal) -> String {
+    return "${a.name()} says ${a.speak()}"
+}
+
+fn main() -> Int32 {
+    let d = Dog()
+    let c = Cat()
+    let a = Animal()
+
+    printLn(message: describe(a: d))
+    printLn(message: describe(a: c))
+    printLn(message: describe(a: a))
+
+    return 0
+}

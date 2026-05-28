@@ -25,6 +25,8 @@ namespace Lexer.Tokens
         Record,
         Self,
         Struct,
+        Super,
+        Override,
 
         // Access Modifiers
         Fileprivate,

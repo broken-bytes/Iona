@@ -33,6 +33,8 @@ namespace AST.Nodes
         public Metadata Meta { get; set; }
         public bool IsAsync { get; set; }
         public bool IsFree { get; set; } = false;
+        public bool IsOpen { get; set; }
+        public bool IsOverride { get; set; }
 
         public FuncNode(
             string name,

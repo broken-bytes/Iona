@@ -46,24 +46,96 @@ namespace Lexer.Processors
                 return null;
             }
 
-            // Find the closing quote
-            int closingQuoteIndex = source.IndexOf('"', 1); // Start search from index 1 to skip the opening quote
-
-            if (closingQuoteIndex == -1)
+            // Walk the string body, tracking `${ ... }` interpolation depth, nested string
+            // literals inside template expressions, and `\` escapes (so `\$`, `\"`, `\\`
+            // don't trip the scanner).
+            int end = ScanStringBody(source, 1);
+            if (end < 0)
             {
-                // Missing closing quote
                 return Utils.MakeToken(TokenType.Error, "Invalid string literal. Missing closing quote.");
             }
-            else if (closingQuoteIndex == 1)
+
+            if (end == 1)
             {
-                // Empty string
                 return Utils.MakeToken(TokenType.String, "\"\"");
             }
-            else
+
+            string literalValue = source.Substring(1, end - 1);
+            return Utils.MakeToken(TokenType.String, $"\"{literalValue}\"");
+        }
+
+        // Returns the index of the closing `"` for a string literal whose body starts at `start`,
+        // or -1 if unterminated. Mutually recursive with ScanInterpolation so nested `"..."`
+        // inside `${...}` is tolerated.
+        private static int ScanStringBody(string s, int start)
+        {
+            int i = start;
+            while (i < s.Length)
             {
-                string literalValue = source.Substring(1, closingQuoteIndex - 1); // Extract the literal value
-                return Utils.MakeToken(TokenType.String, $"\"{literalValue}\"");
+                char c = s[i];
+                if (c == '\\' && i + 1 < s.Length)
+                {
+                    i += 2;
+                    continue;
+                }
+                if (c == '"')
+                {
+                    return i;
+                }
+                if (c == '$' && i + 1 < s.Length && s[i + 1] == '{')
+                {
+                    int after = ScanInterpolation(s, i + 2);
+                    if (after < 0)
+                    {
+                        return -1;
+                    }
+                    i = after;
+                    continue;
+                }
+                i++;
             }
+            return -1;
+        }
+
+        // Returns the index immediately after the matching `}` for an interpolation that
+        // starts after `${`, or -1 if unterminated.
+        private static int ScanInterpolation(string s, int start)
+        {
+            int i = start;
+            int depth = 1;
+            while (i < s.Length)
+            {
+                char c = s[i];
+                if (c == '\\' && i + 1 < s.Length)
+                {
+                    i += 2;
+                    continue;
+                }
+                if (c == '"')
+                {
+                    int innerEnd = ScanStringBody(s, i + 1);
+                    if (innerEnd < 0)
+                    {
+                        return -1;
+                    }
+                    i = innerEnd + 1;
+                    continue;
+                }
+                if (c == '{')
+                {
+                    depth++;
+                }
+                else if (c == '}')
+                {
+                    depth--;
+                    if (depth == 0)
+                    {
+                        return i + 1;
+                    }
+                }
+                i++;
+            }
+            return -1;
         }
 
         public Token? ProcessNullLiteral(string source)

@@ -1,0 +1,25 @@
+module App
+
+use System
+
+fn shout(text: String) -> String {
+    return text
+}
+
+fn main() -> Int32 {
+    let name = "world"
+    let n = 42
+
+    printLn(message: "hello ${name}")
+    printLn(message: "n = ${n}")
+    printLn(message: "no interp here, just $name literal")
+    printLn(message: "mix: ${name} is ${n}")
+
+    printLn(message: "escape: \${name} stays literal, value was ${name}")
+    printLn(message: "backslash: a\\b")
+
+    printLn(message: "nested: ${shout(text: "inner ${name}")}")
+    printLn(message: "nested-plain: ${shout(text: "plain")}")
+
+    return 0
+}

@@ -47,34 +47,34 @@ namespace Parser.Parsers
 
         internal bool IsFunc(Lexer.Tokens.TokenStream stream)
         {
-            var tokens = stream.Peek(4);
-
-            // fn / mutating fn
-            if (tokens[0].Type is TokenType.Fn or TokenType.Mutating)
-                return true;
-
-            // static fn
-            if (tokens[0].Type is TokenType.Static && tokens[1].Type is TokenType.Fn or TokenType.Mutating)
-                return true;
-
-            // async fn / async static fn
-            if (tokens[0].Type is TokenType.Async && tokens[1].Type is TokenType.Fn or TokenType.Mutating)
-                return true;
-            if (tokens[0].Type is TokenType.Async && tokens[1].Type is TokenType.Static && tokens[2].Type is TokenType.Fn or TokenType.Mutating)
-                return true;
-
-            // access fn / access static fn
-            if (accessLevelParser.IsAccessLevel(tokens[0]) && tokens[1].Type is TokenType.Fn or TokenType.Mutating)
-                return true;
-            if (accessLevelParser.IsAccessLevel(tokens[0]) && tokens[1].Type is TokenType.Static && tokens[2].Type is TokenType.Fn or TokenType.Mutating)
-                return true;
-
-            // access async fn / access async static fn
-            if (accessLevelParser.IsAccessLevel(tokens[0]) && tokens[1].Type is TokenType.Async && tokens[2].Type is TokenType.Fn or TokenType.Mutating)
-                return true;
-            if (accessLevelParser.IsAccessLevel(tokens[0]) && tokens[1].Type is TokenType.Async && tokens[2].Type is TokenType.Static && tokens[3].Type is TokenType.Fn or TokenType.Mutating)
-                return true;
-
+            // Accept any prefix of modifiers (access / open / override / async / static) before
+            // `fn`/`mutating`. Clamp the peek window so we don't trip TokenStreamEmptyException
+            // when the file ends shortly after the func.
+            var available = Math.Min(8, stream.Count());
+            if (available == 0)
+            {
+                return false;
+            }
+            var tokens = stream.Peek(available);
+            foreach (var token in tokens)
+            {
+                if (token.Type is TokenType.Fn or TokenType.Mutating)
+                {
+                    return true;
+                }
+                if (accessLevelParser.IsAccessLevel(token))
+                {
+                    continue;
+                }
+                if (token.Type is TokenType.Open
+                    or TokenType.Override
+                    or TokenType.Async
+                    or TokenType.Static)
+                {
+                    continue;
+                }
+                return false;
+            }
             return false;
         }
 
@@ -93,29 +93,56 @@ namespace Parser.Parsers
 
                 bool isMutating = false;
                 bool isAsync = false;
+                bool isStatic = false;
+                bool isOpen = false;
+                bool isOverride = false;
+                AccessLevel accessLevel = AccessLevel.Internal;
+                bool sawAccess = false;
+                Token mut = stream.Peek();
 
-                // Funcs have an access level
-                var accessLevel = accessLevelParser.Parse(stream);
-
-                // Funcs may be async
-                if (stream.Peek().Type == TokenType.Async)
+                // Consume modifiers in any order until we hit `fn` / `mutating`.
+                while (true)
                 {
-                    stream.Consume(TokenType.Async, TokenFamily.Keyword);
-                    isAsync = true;
+                    var peek = stream.Peek();
+                    if (peek.Type is TokenType.Fn or TokenType.Mutating)
+                    {
+                        break;
+                    }
+                    if (!sawAccess && accessLevelParser.IsAccessLevel(peek))
+                    {
+                        accessLevel = accessLevelParser.Parse(stream);
+                        sawAccess = true;
+                        continue;
+                    }
+                    if (peek.Type == TokenType.Open && !isOpen)
+                    {
+                        stream.Consume(TokenType.Open, TokenFamily.Keyword);
+                        isOpen = true;
+                        continue;
+                    }
+                    if (peek.Type == TokenType.Override && !isOverride)
+                    {
+                        stream.Consume(TokenType.Override, TokenFamily.Keyword);
+                        isOverride = true;
+                        continue;
+                    }
+                    if (peek.Type == TokenType.Async && !isAsync)
+                    {
+                        stream.Consume(TokenType.Async, TokenFamily.Keyword);
+                        isAsync = true;
+                        continue;
+                    }
+                    if (peek.Type == TokenType.Static && !isStatic)
+                    {
+                        stream.Consume(TokenType.Static, TokenFamily.Keyword);
+                        isStatic = true;
+                        continue;
+                    }
+                    // Anything else: bail and let the consume below throw a useful error.
+                    break;
                 }
 
-                // Funcs may be static or instance
-                var isStatic = false;
-
-                if (stream.Peek().Type == TokenType.Static)
-                {
-                    stream.Consume(TokenType.Static, TokenFamily.Keyword);
-                    isStatic = true;
-                }
-
-                // Funcs can be mutating or non-mutating
-                var mut = stream.Peek();
-
+                mut = stream.Peek();
                 if (mut.Type == TokenType.Mutating)
                 {
                     stream.Consume(TokenType.Mutating, TokenFamily.Keyword);
@@ -130,6 +157,8 @@ namespace Parser.Parsers
 
                 func = new FuncNode(name.Value, accessLevel, isMutating, isStatic, parent);
                 func.IsAsync = isAsync;
+                func.IsOpen = isOpen;
+                func.IsOverride = isOverride;
 
                 if (parent?.Parent is not ITypeNode typeNode)
                 {

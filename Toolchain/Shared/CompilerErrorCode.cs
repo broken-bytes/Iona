@@ -40,6 +40,10 @@ namespace Shared
         ContractConformanceMissingMember,
         ValueTypeCannotInheritClass,
         ForceUnwrapOfNonOptional,
-        OptionalArgumentNotUnwrapped
+        OptionalArgumentNotUnwrapped,
+        InheritingFromClosedClass,
+        OverrideOfNonOpenMember,
+        OverrideMissingBaseMember,
+        MissingOverrideOnShadow
     }
 }

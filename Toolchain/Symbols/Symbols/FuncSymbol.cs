@@ -23,6 +23,8 @@ namespace Symbols.Symbols
         public AccessLevel AccessLevel { get; set; } = AccessLevel.Private;
         public bool IsMutating { get; set; }
         public bool IsAsync { get; set; }
+        public bool IsOpen { get; set; }
+        public bool IsOverride { get; set; }
         public string? CsharpOwnerFqn { get; set; }
 
         public FuncSymbol(string ionaName, string csharpName)

@@ -35,6 +35,7 @@ namespace Typeck
         IIdentifierVisitor,
         IInitCallVisitor,
         IInitVisitor,
+        IInterpolatedStringVisitor,
         ILiteralVisitor,
         IModuleVisitor,
         IOperatorVisitor,
@@ -45,6 +46,7 @@ namespace Typeck
         IScopeResolutionVisitor,
         IRecordVisitor,
         IStructVisitor,
+        ISuperVisitor,
         IVariableVisitor
     {
         private SymbolTable _table;
@@ -764,6 +766,28 @@ namespace Typeck
             node.Status = INode.ResolutionStatus.Resolved;
         }
 
+        public void Visit(SuperNode node)
+        {
+            // Type is decided by the surrounding PropAccess/InitCall.
+            node.Status = INode.ResolutionStatus.Resolved;
+        }
+
+        public void Visit(InterpolatedStringNode node)
+        {
+            foreach (var seg in node.Segments)
+            {
+                CheckNode(seg);
+            }
+
+            node.ResultType = new TypeReferenceNode("String", node)
+            {
+                FullyQualifiedName = "Iona.Builtins.String",
+                Assembly = "Iona.Builtins",
+                TypeKind = Kind.Struct
+            };
+            node.Status = INode.ResolutionStatus.Resolved;
+        }
+
         public void Visit(ModuleNode node)
         {
             foreach (var child in node.Children)
@@ -863,6 +887,25 @@ namespace Typeck
                 }
 
                 objType = selfTypeResult.Unwrapped();
+            }
+            else if (node.Object is SuperNode)
+            {
+                // `super.x`: resolve members against the enclosing type's BaseType.
+                var enclosingType = ((INode)node).Hierarchy().OfType<ITypeNode>().FirstOrDefault();
+                if (enclosingType == null)
+                {
+                    Utils.FailNode(node);
+                    return;
+                }
+                var selfTypeResult = _table.FindType(node.Root, enclosingType.FullyQualifiedName);
+                if (selfTypeResult.IsError || selfTypeResult.Unwrapped().BaseType == null)
+                {
+                    var error = CompilerErrorFactory.TopLevelDefinitionError("super", node.Meta);
+                    _errorCollector.Collect(error);
+                    Utils.FailNode(node);
+                    return;
+                }
+                objType = selfTypeResult.Unwrapped().BaseType;
             }
             else if (_currentTypeFqn is null)
             {
@@ -1289,6 +1332,9 @@ namespace Typeck
                     break;
                 case LiteralNode literalNode:
                     literalNode.Accept(this);
+                    break;
+                case InterpolatedStringNode interp:
+                    interp.Accept(this);
                     break;
                 case ModuleNode moduleNode:
                     moduleNode.Accept(this);

@@ -77,7 +77,7 @@ public class DeclPassMemberRegisterSubPass :
             return;
         }
 
-        var symbol = new TypeSymbol(node.Name, TypeKind.Class);
+        var symbol = new TypeSymbol(node.Name, TypeKind.Class) { IsOpen = node.IsOpen };
 
         _currentSymbol.AddSymbol(symbol);
 
@@ -147,6 +147,8 @@ public class DeclPassMemberRegisterSubPass :
         symbol.AccessLevel = node.AccessLevel;
         symbol.IsMutating = node.IsMutable;
         symbol.IsAsync = node.IsAsync;
+        symbol.IsOpen = node.IsOpen;
+        symbol.IsOverride = node.IsOverride;
 
         RegisterParameters(symbol, node.Parameters);
 

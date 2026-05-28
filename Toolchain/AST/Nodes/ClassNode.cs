@@ -24,6 +24,7 @@ namespace AST.Nodes
         public AccessLevel AccessLevel { get; set; }
         public StatementType StatementType { get; set; }
         public ITypeReferenceNode? BaseType { get; set; }
+        public bool IsOpen { get; set; }
         public List<ITypeReferenceNode> Contracts { get; set; } = new List<ITypeReferenceNode>();
         public List<GenericArgument> GenericArguments { get; set; } = new List<GenericArgument>();
         public BlockNode? Body { get; set; }

@@ -97,6 +97,8 @@ namespace Lexer
                 case TokenType.Mutating:
                 case TokenType.Of:
                 case TokenType.Open:
+                case TokenType.Override:
+                case TokenType.Super:
                 case TokenType.Private:
                 case TokenType.Public:
                 case TokenType.Return:
@@ -226,6 +228,8 @@ namespace Lexer
                 case Keyword.Null: return "null";
                 case Keyword.Op: return "op";
                 case Keyword.Open: return "open";
+                case Keyword.Override: return "override";
+                case Keyword.Super: return "super";
                 case Keyword.Private: return "private";
                 case Keyword.Public: return "public";
                 case Keyword.Record: return "record";

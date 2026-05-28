@@ -750,6 +750,52 @@ namespace Symbols
             });
         }
 
+        // Treat `argFqn` as assignable to `paramType` when they match exactly or when the
+        // argument's type chain (BaseType walk) reaches the param's type — i.e. ordinary
+        // subtype polymorphism through the inheritance chain.
+        private bool IsAssignableTo(string argFqn, TypeSymbol paramType)
+        {
+            if (argFqn == paramType.FullyQualifiedName)
+            {
+                return true;
+            }
+
+            // Walk the inheritance chain of the argument type.
+            var argType = ModulesByName.Values
+                .SelectMany(m => CollectAllTypes(m))
+                .FirstOrDefault(t => t.FullyQualifiedName == argFqn);
+
+            var current = argType?.BaseType;
+            while (current != null)
+            {
+                if (current.FullyQualifiedName == paramType.FullyQualifiedName)
+                {
+                    return true;
+                }
+                current = current.BaseType;
+            }
+
+            return false;
+        }
+
+        private static IEnumerable<TypeSymbol> CollectAllTypes(ISymbol symbol)
+        {
+            foreach (var child in symbol.Symbols)
+            {
+                if (child is TypeSymbol t)
+                {
+                    yield return t;
+                }
+                if (child is ModuleSymbol or TypeSymbol)
+                {
+                    foreach (var nested in CollectAllTypes(child))
+                    {
+                        yield return nested;
+                    }
+                }
+            }
+        }
+
         private List<FuncSymbol> FindFuncs(ISymbol? symbol, FuncCallNode node)
         {
             List<FuncSymbol> results = new();
@@ -775,11 +821,12 @@ namespace Symbols
                                          .OfType<ParameterSymbol>()
                                          .Zip(node.Args, (p, a) => (p, a)))
                             {
-                                if (
-                                    arg.Value.ResultType == null ||
-                                    param.Type.FullyQualifiedName != arg.Value.ResultType.FullyQualifiedName ||
-                                    param.Name != arg.Name
-                                )
+                                if (arg.Value.ResultType == null || param.Name != arg.Name)
+                                {
+                                    matching = false;
+                                    break;
+                                }
+                                if (!IsAssignableTo(arg.Value.ResultType.FullyQualifiedName, param.Type))
                                 {
                                     matching = false;
                                     break;

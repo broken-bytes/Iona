@@ -9,6 +9,7 @@
 
 using AST.Nodes;
 using AST.Types;
+using Lexer;
 using Lexer.Tokens;
 using Parser.Parsers;
 using Shared;
@@ -39,12 +40,14 @@ namespace Parser.Parsers
         ScopeResolutionParser scopeResolutionParser;
         TypeParser typeParser;
         private readonly IErrorCollector errorCollector;
+        private readonly ILexer lexer;
 
         internal ExpressionParser(
             FuncCallParser funcCallParser,
             MemberAccessParser memberAccessParser,
             ScopeResolutionParser scopeResolutionParser,
             TypeParser typeParser,
+            ILexer lexer,
             IErrorCollector errorCollector
         )
         {
@@ -52,6 +55,7 @@ namespace Parser.Parsers
             this.memberAccessParser = memberAccessParser;
             this.scopeResolutionParser = scopeResolutionParser;
             this.typeParser = typeParser;
+            this.lexer = lexer;
             this.errorCollector = errorCollector;
         }
 
@@ -70,6 +74,7 @@ namespace Parser.Parsers
                 token.Family is TokenFamily.Identifier ||
                 token.Type is TokenType.ParenLeft ||
                 token.Type is TokenType.Self ||
+                token.Type is TokenType.Super ||
                 token.Type is TokenType.Await
             )
             {
@@ -369,7 +374,7 @@ namespace Parser.Parsers
                 // A `-`/`!` in operand position is a prefix unary operator (vs binary `-` or
                 // postfix force-unwrap `x!`). Re-tag it so tree building pops a single operand.
                 var afterOperand = prev.HasValue && (
-                    prev.Value.Type is TokenType.Identifier or TokenType.Self
+                    prev.Value.Type is TokenType.Identifier or TokenType.Self or TokenType.Super
                         or TokenType.ParenRight or TokenType.BracketRight
                     || prev.Value.Family is TokenFamily.Literal);
                 prev = token;
@@ -383,7 +388,7 @@ namespace Parser.Parsers
                     continue;
                 }
 
-                if (token.Type is TokenType.Identifier or TokenType.Self or TokenType.Dot or TokenType.SoftUnwrap or TokenType.Comma|| token.Family is TokenFamily.Literal)
+                if (token.Type is TokenType.Identifier or TokenType.Self or TokenType.Super or TokenType.Dot or TokenType.SoftUnwrap or TokenType.Comma|| token.Family is TokenFamily.Literal)
                 {
                     output.Add(token);
                     continue;
@@ -394,7 +399,7 @@ namespace Parser.Parsers
                 {
                     // When we have an identifier followed by a parenthesis without any operator
                     // we have a function call and parse until the closing parenthesis
-                    if (output.Any() && (output[^1].Type is TokenType.Identifier or TokenType.Self || hasGenericClause))
+                    if (output.Any() && (output[^1].Type is TokenType.Identifier or TokenType.Self or TokenType.Super || hasGenericClause))
                     {
                         funcNestingLevel++;
                         hasGenericClause = false;
@@ -551,7 +556,7 @@ namespace Parser.Parsers
                     indexExpr.Parent = accessNode;
                     stack.Push(accessNode);
                 }
-                else if (token.Type is TokenType.Identifier or TokenType.Self)
+                else if (token.Type is TokenType.Identifier or TokenType.Self or TokenType.Super)
                 {
                     // We don't consume from the stream here, as the member access parser does that
                     if (IsMemberAccess(stream))
@@ -605,9 +610,17 @@ namespace Parser.Parsers
                             type = LiteralType.Null;
                             break;
                     }
-                    var literal = new LiteralNode(token.Value, type);
-
-                    Utils.SetMeta(literal, token);
+                    IExpressionNode literal;
+                    if (token.Type == TokenType.String && ContainsInterpolation(token.Value))
+                    {
+                        literal = BuildInterpolatedString(token, parent);
+                    }
+                    else
+                    {
+                        var lit = new LiteralNode(token.Value, type);
+                        Utils.SetMeta(lit, token);
+                        literal = lit;
+                    }
 
                     stream.Consume();
 
@@ -782,11 +795,11 @@ namespace Parser.Parsers
                         return ExpressionState.ScopeResolution;
                     }
 
-                    if (token.Family is TokenFamily.Literal || token.Type is TokenType.Identifier or TokenType.Self)
+                    if (token.Family is TokenFamily.Literal || token.Type is TokenType.Identifier or TokenType.Self or TokenType.Super)
                     {
                         return ExpressionState.Operand;
                     }
-                    
+
                     if (token.Type is TokenType.Dot)
                     {
                         return ExpressionState.MemberAccess;
@@ -846,7 +859,7 @@ namespace Parser.Parsers
                         return ExpressionState.StartGroup;
                     }
 
-                    if (token.Type is TokenType.Identifier or TokenType.Self || token.Family is TokenFamily.Literal)
+                    if (token.Type is TokenType.Identifier or TokenType.Self or TokenType.Super || token.Family is TokenFamily.Literal)
                     {
                         return ExpressionState.Operand;
                     }
@@ -865,7 +878,7 @@ namespace Parser.Parsers
                         return ExpressionState.StartGroup;
                     }
 
-                    if (token.Type is TokenType.Identifier or TokenType.Self || token.Family is TokenFamily.Literal)
+                    if (token.Type is TokenType.Identifier or TokenType.Self or TokenType.Super || token.Family is TokenFamily.Literal)
                     {
                         return ExpressionState.Operand;
                     }
@@ -885,7 +898,7 @@ namespace Parser.Parsers
                         return ExpressionState.StartGroup;
                     }
 
-                    if (token.Type is TokenType.Identifier or TokenType.Self || token.Family is TokenFamily.Literal)
+                    if (token.Type is TokenType.Identifier or TokenType.Self or TokenType.Super || token.Family is TokenFamily.Literal)
                     {
                         return ExpressionState.Operand;
                     }
@@ -914,7 +927,7 @@ namespace Parser.Parsers
                         return ExpressionState.EndGroup;
                     }
 
-                    if (token.Type is TokenType.Identifier or TokenType.Self || token.Family is TokenFamily.Literal)
+                    if (token.Type is TokenType.Identifier or TokenType.Self or TokenType.Super || token.Family is TokenFamily.Literal)
                     {
                         return ExpressionState.Operand;
                     }
@@ -952,7 +965,7 @@ namespace Parser.Parsers
                 }
                 case ExpressionState.Param:
                 {
-                    if (token.Type is TokenType.Identifier or TokenType.Self || token.Family is TokenFamily.Literal)
+                    if (token.Type is TokenType.Identifier or TokenType.Self or TokenType.Super || token.Family is TokenFamily.Literal)
                     {
                         return ExpressionState.Operand;
                     }
@@ -972,6 +985,152 @@ namespace Parser.Parsers
             }
 
             return ExpressionState.Invalid;
+        }
+
+        // The raw token value includes the surrounding quotes. `\$` is an escape, not a trigger.
+        private static bool ContainsInterpolation(string raw)
+        {
+            for (int i = 0; i < raw.Length; i++)
+            {
+                if (raw[i] == '\\' && i + 1 < raw.Length)
+                {
+                    i++;
+                    continue;
+                }
+                if (raw[i] == '$' && i + 1 < raw.Length && raw[i + 1] == '{')
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+
+        // Split a raw `"... ${expr} ..."` token into alternating literal-text and parsed-expression
+        // segments. Expression segments are re-lexed via the injected lexer and parsed through this
+        // same ExpressionParser, so nested member access and calls inside `${...}` work.
+        private InterpolatedStringNode BuildInterpolatedString(Token token, INode? parent)
+        {
+            var node = new InterpolatedStringNode(parent);
+            Utils.SetMeta(node, token);
+
+            var raw = token.Value;
+            // Strip surrounding quotes.
+            if (raw.Length >= 2 && raw[0] == '"' && raw[^1] == '"')
+            {
+                raw = raw.Substring(1, raw.Length - 2);
+            }
+
+            var textBuilder = new System.Text.StringBuilder();
+            int i = 0;
+            while (i < raw.Length)
+            {
+                // Escapes survive into the inner expression untouched (the sub-lexer handles them
+                // there), but for the text segments we collapse `\$`/`\\`/`\"` here.
+                if (raw[i] == '\\' && i + 1 < raw.Length)
+                {
+                    textBuilder.Append(raw[i]);
+                    textBuilder.Append(raw[i + 1]);
+                    i += 2;
+                    continue;
+                }
+
+                if (i + 1 < raw.Length && raw[i] == '$' && raw[i + 1] == '{')
+                {
+                    if (textBuilder.Length > 0)
+                    {
+                        var litText = new LiteralNode($"\"{textBuilder}\"", LiteralType.String, node);
+                        Utils.SetMeta(litText, token);
+                        node.Segments.Add(litText);
+                        textBuilder.Clear();
+                    }
+
+                    int start = i + 2;
+                    int j = ScanInterpolationEnd(raw, start);
+                    if (j < 0)
+                    {
+                        textBuilder.Append(raw, i, raw.Length - i);
+                        i = raw.Length;
+                        continue;
+                    }
+
+                    var exprText = raw.Substring(start, j - start);
+                    var innerExpr = ParseInterpolationSegment(exprText, token, node);
+                    if (innerExpr != null)
+                    {
+                        node.Segments.Add(innerExpr);
+                    }
+                    i = j + 1;
+                    continue;
+                }
+
+                textBuilder.Append(raw[i]);
+                i++;
+            }
+
+            if (textBuilder.Length > 0)
+            {
+                var litText = new LiteralNode($"\"{textBuilder}\"", LiteralType.String, node);
+                Utils.SetMeta(litText, token);
+                node.Segments.Add(litText);
+            }
+
+            return node;
+        }
+
+        // Mirrors the lexer's mutually-recursive scanner so an interpolation body containing
+        // a string literal (which may itself contain `${...}`) doesn't close at a `}` that
+        // happens to live inside that nested string.
+        private static int ScanInterpolationEnd(string s, int start)
+        {
+            int i = start;
+            int depth = 1;
+            while (i < s.Length)
+            {
+                char c = s[i];
+                if (c == '\\' && i + 1 < s.Length) { i += 2; continue; }
+                if (c == '"')
+                {
+                    int end = ScanNestedStringEnd(s, i + 1);
+                    if (end < 0) { return -1; }
+                    i = end + 1;
+                    continue;
+                }
+                if (c == '{') { depth++; }
+                else if (c == '}') { depth--; if (depth == 0) { return i; } }
+                i++;
+            }
+            return -1;
+        }
+
+        private static int ScanNestedStringEnd(string s, int start)
+        {
+            int i = start;
+            while (i < s.Length)
+            {
+                char c = s[i];
+                if (c == '\\' && i + 1 < s.Length) { i += 2; continue; }
+                if (c == '"') { return i; }
+                if (c == '$' && i + 1 < s.Length && s[i + 1] == '{')
+                {
+                    int after = ScanInterpolationEnd(s, i + 2);
+                    if (after < 0) { return -1; }
+                    i = after + 1;
+                    continue;
+                }
+                i++;
+            }
+            return -1;
+        }
+
+        private IExpressionNode? ParseInterpolationSegment(string exprText, Token sourceToken, INode parent)
+        {
+            var tokens = lexer.Tokenize(exprText, sourceToken.File);
+            if (!IsExpression(tokens))
+            {
+                return null;
+            }
+            return ParseExpression(tokens, parent);
         }
     }
 }

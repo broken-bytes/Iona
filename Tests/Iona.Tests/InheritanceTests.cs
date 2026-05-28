@@ -19,7 +19,7 @@ public class InheritanceTests
         var source = @"
 module TestModule
 
-public class Animal {
+open public class Animal {
     public let name: String = ""animal""
 
     public init() {}
@@ -51,7 +51,7 @@ public contract Greetable {
     fn greet() -> String
 }
 
-public class Base {
+open public class Base {
     public init() {}
 }
 
@@ -119,7 +119,7 @@ public record Child : Base {
         var source = @"
 module TestModule
 
-public class Base {
+open public class Base {
     public init() {}
 
     public fn baseMethod() -> String {
@@ -142,5 +142,131 @@ public class App {
 ";
         var (errors, _) = TestHelpers.RunTypeck(source);
         Assert.Empty(errors.Errors);
+    }
+
+    [Fact]
+    public void InheritingFromNonOpenClass_ProducesError()
+    {
+        var source = @"
+module TestModule
+
+public class Base {
+    public init() {}
+}
+
+public class Child : Base {
+    public init() {}
+}
+";
+        var (errors, _) = TestHelpers.RunTypeck(source);
+
+        Assert.NotEmpty(errors.Errors);
+        Assert.Contains(errors.Errors, e => e.Code == "C0031");
+    }
+
+    [Fact]
+    public void OverrideOfOpenMethod_NoErrors()
+    {
+        var source = @"
+module TestModule
+
+open public class Base {
+    public init() {}
+
+    public open fn greet() -> String {
+        return ""...""
+    }
+}
+
+public class Child : Base {
+    public init() {}
+
+    public override fn greet() -> String {
+        return ""hi""
+    }
+}
+";
+        var (errors, _) = TestHelpers.RunTypeck(source);
+        Assert.Empty(errors.Errors);
+    }
+
+    [Fact]
+    public void OverrideOfNonOpenMethod_ProducesError()
+    {
+        var source = @"
+module TestModule
+
+open public class Base {
+    public init() {}
+
+    public fn greet() -> String {
+        return ""...""
+    }
+}
+
+public class Child : Base {
+    public init() {}
+
+    public override fn greet() -> String {
+        return ""hi""
+    }
+}
+";
+        var (errors, _) = TestHelpers.RunTypeck(source);
+
+        Assert.NotEmpty(errors.Errors);
+        Assert.Contains(errors.Errors, e => e.Code == "C0032");
+    }
+
+    [Fact]
+    public void ShadowingInheritedMethodWithoutOverride_ProducesError()
+    {
+        var source = @"
+module TestModule
+
+open public class Base {
+    public init() {}
+
+    public open fn greet() -> String {
+        return ""...""
+    }
+}
+
+public class Child : Base {
+    public init() {}
+
+    public fn greet() -> String {
+        return ""hi""
+    }
+}
+";
+        var (errors, _) = TestHelpers.RunTypeck(source);
+
+        Assert.NotEmpty(errors.Errors);
+        Assert.Contains(errors.Errors, e => e.Code == "C0034");
+    }
+
+    [Fact]
+    public void OverrideWithNoBaseMember_ProducesError()
+    {
+        var source = @"
+module TestModule
+
+open public class Base {
+    public init() {}
+}
+
+public class Child : Base {
+    public init() {}
+
+    public override fn doesNotExist() -> String {
+        return ""hi""
+    }
+}
+";
+        var (errors, _) = TestHelpers.RunTypeck(source);
+
+        Assert.NotEmpty(errors.Errors);
+        Assert.Contains(errors.Errors, e => e.Code == "C0033");
     }
 }

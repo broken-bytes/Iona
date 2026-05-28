@@ -217,6 +217,14 @@ namespace Shared
                     return "C0029";
                 case CompilerErrorCode.OptionalArgumentNotUnwrapped:
                     return "C0030";
+                case CompilerErrorCode.InheritingFromClosedClass:
+                    return "C0031";
+                case CompilerErrorCode.OverrideOfNonOpenMember:
+                    return "C0032";
+                case CompilerErrorCode.OverrideMissingBaseMember:
+                    return "C0033";
+                case CompilerErrorCode.MissingOverrideOnShadow:
+                    return "C0034";
                 default:
                     return "UnknownError";
             }

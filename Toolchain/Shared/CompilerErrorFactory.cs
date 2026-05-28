@@ -326,5 +326,41 @@ namespace Shared
                 meta
             );
         }
+
+        public static CompilerError InheritingFromClosedClass(string subclass, string baseClass, Metadata meta)
+        {
+            return new CompilerError(
+                CompilerErrorCode.InheritingFromClosedClass,
+                $"`{subclass}` cannot inherit from `{baseClass}` because it is not `open`",
+                meta
+            );
+        }
+
+        public static CompilerError OverrideOfNonOpenMember(string memberName, string baseClass, Metadata meta)
+        {
+            return new CompilerError(
+                CompilerErrorCode.OverrideOfNonOpenMember,
+                $"`{memberName}` cannot override `{baseClass}.{memberName}` because it is not `open`",
+                meta
+            );
+        }
+
+        public static CompilerError OverrideMissingBaseMember(string memberName, Metadata meta)
+        {
+            return new CompilerError(
+                CompilerErrorCode.OverrideMissingBaseMember,
+                $"`override` `{memberName}` does not match any inherited member",
+                meta
+            );
+        }
+
+        public static CompilerError MissingOverrideOnShadow(string memberName, string baseClass, Metadata meta)
+        {
+            return new CompilerError(
+                CompilerErrorCode.MissingOverrideOnShadow,
+                $"`{memberName}` hides inherited `{baseClass}.{memberName}`; add `override` to replace it",
+                meta
+            );
+        }
     }
 }

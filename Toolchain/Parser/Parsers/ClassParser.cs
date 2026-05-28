@@ -38,14 +38,43 @@ namespace Parser.Parsers
 
         internal bool IsClass(TokenStream stream)
         {
-            var tokens = stream.Peek(2);
+            var available = Math.Min(3, stream.Count());
+            if (available == 0)
+            {
+                return false;
+            }
+            var tokens = stream.Peek(available);
+            // Pad short lookaheads so the index-based checks below stay valid.
+            while (tokens.Count < 3)
+            {
+                tokens.Add(new Token { Type = TokenType.Error });
+            }
 
             if (tokens[0].Type is TokenType.Class)
             {
                 return true;
             }
 
+            if (tokens[0].Type is TokenType.Open && tokens[1].Type is TokenType.Class)
+            {
+                return true;
+            }
+
             if (accessLevelParser.IsAccessLevel(tokens[0]) && tokens[1].Type is TokenType.Class)
+            {
+                return true;
+            }
+
+            if (accessLevelParser.IsAccessLevel(tokens[0])
+                && tokens[1].Type is TokenType.Open
+                && tokens[2].Type is TokenType.Class)
+            {
+                return true;
+            }
+
+            if (tokens[0].Type is TokenType.Open
+                && accessLevelParser.IsAccessLevel(tokens[1])
+                && tokens[2].Type is TokenType.Class)
             {
                 return true;
             }
@@ -65,7 +94,21 @@ namespace Parser.Parsers
 
             try
             {
+                // `open` can appear before or after the access modifier; both orders are accepted.
+                bool isOpen = false;
+                if (stream.Peek().Type is TokenType.Open)
+                {
+                    stream.Consume(TokenType.Open, TokenFamily.Keyword);
+                    isOpen = true;
+                }
+
                 AccessLevel accessLevel = accessLevelParser.Parse(stream);
+
+                if (!isOpen && stream.Peek().Type is TokenType.Open)
+                {
+                    stream.Consume(TokenType.Open, TokenFamily.Keyword);
+                    isOpen = true;
+                }
 
                 // Consume the class keyword
                 var token = stream.Consume(TokenType.Class, TokenFamily.Keyword);
@@ -73,7 +116,7 @@ namespace Parser.Parsers
                 // Consume the class name
                 var name = stream.Consume(TokenType.Identifier, TokenFamily.Keyword);
 
-                classNode = new ClassNode(name.Value, accessLevel, parent);
+                classNode = new ClassNode(name.Value, accessLevel, parent) { IsOpen = isOpen };
                 classNode.FullyQualifiedName = Utils.ResolveFullyQualifiedName(classNode);
 
                 classNode.GenericArguments = genericArgsParser.Parse(stream, classNode);

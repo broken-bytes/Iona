@@ -134,7 +134,12 @@ namespace Generator
 
         private void EmitClass(ClassNode node, string ns)
         {
+            // Closed by default: emit Sealed unless the class is marked `open`.
             var attrs = TypeAttributes.Class | TypeAttributes.BeforeFieldInit | CecilAccessLevel(node.AccessLevel);
+            if (!node.IsOpen)
+            {
+                attrs |= TypeAttributes.Sealed;
+            }
 
             var baseRef = _module.ImportReference(typeof(object));
             if (node.BaseType is TypeReferenceNode baseTypeRef)
@@ -525,6 +530,8 @@ namespace Generator
             {
                 var attrs = CecilMethodAccess(node.AccessLevel) | MethodAttributes.HideBySig;
                 if (node.IsStatic) attrs |= MethodAttributes.Static;
+                if (node.IsOpen) attrs |= MethodAttributes.Virtual | MethodAttributes.NewSlot;
+                else if (node.IsOverride) attrs |= MethodAttributes.Virtual;
                 EmitAsyncMethod(node, _currentType, attrs, !node.IsStatic);
                 return;
             }
@@ -534,6 +541,16 @@ namespace Generator
 
             if (node.IsStatic)
                 attrs2 |= MethodAttributes.Static;
+
+            // `open` opens a fresh virtual slot; `override` reuses the inherited slot.
+            if (node.IsOpen)
+            {
+                attrs2 |= MethodAttributes.Virtual | MethodAttributes.NewSlot;
+            }
+            else if (node.IsOverride)
+            {
+                attrs2 |= MethodAttributes.Virtual;
+            }
 
             var method = new MethodDefinition(
                 Shared.Utils.IonaToCSharpName(node.Name),
@@ -1241,6 +1258,9 @@ namespace Generator
                 case LiteralNode literal:
                     EmitLiteral(literal);
                     break;
+                case InterpolatedStringNode interp:
+                    EmitInterpolatedString(interp);
+                    break;
                 case IdentifierNode identifier:
                     EmitIdentifier(identifier);
                     break;
@@ -1275,6 +1295,12 @@ namespace Generator
                     {
                         _il.Emit(OpCodes.Ldarg_0);
                     }
+                    break;
+                case SuperNode:
+                    // `super` and `self` both push `this`; the difference is the call site —
+                    // EmitPropAccess uses non-virtual `call` (and resolves on the base type)
+                    // when the receiver is SuperNode.
+                    _il.Emit(OpCodes.Ldarg_0);
                     break;
                 case EnumCaseAccessNode enumCase:
                     EmitEnumCaseAccess(enumCase);
@@ -1340,11 +1366,12 @@ namespace Generator
                     _il.Emit(node.Value == "true" ? OpCodes.Ldc_I4_1 : OpCodes.Ldc_I4_0);
                     break;
                 case LiteralType.String:
-                    // Strip surrounding quotes added by the lexer
+                    // Strip surrounding quotes added by the lexer, then resolve standard
+                    // backslash escapes (\n, \t, \r, \0, \\, \", \$).
                     var strVal = node.Value;
                     if (strVal.Length >= 2 && strVal.StartsWith('"') && strVal.EndsWith('"'))
                         strVal = strVal[1..^1];
-                    _il.Emit(OpCodes.Ldstr, strVal);
+                    _il.Emit(OpCodes.Ldstr, UnescapeStringLiteral(strVal));
                     break;
                 case LiteralType.Char:
                     _il.Emit(OpCodes.Ldc_I4, (int)node.Value[0]);
@@ -1353,6 +1380,73 @@ namespace Generator
                     _il.Emit(OpCodes.Ldnull);
                     break;
             }
+        }
+
+        private static string UnescapeStringLiteral(string s)
+        {
+            var sb = new System.Text.StringBuilder(s.Length);
+            for (int i = 0; i < s.Length; i++)
+            {
+                if (s[i] == '\\' && i + 1 < s.Length)
+                {
+                    char next = s[i + 1];
+                    switch (next)
+                    {
+                        case 'n': sb.Append('\n'); i++; continue;
+                        case 't': sb.Append('\t'); i++; continue;
+                        case 'r': sb.Append('\r'); i++; continue;
+                        case '0': sb.Append('\0'); i++; continue;
+                        case '\\': sb.Append('\\'); i++; continue;
+                        case '"': sb.Append('"'); i++; continue;
+                        case '$': sb.Append('$'); i++; continue;
+                    }
+                }
+                sb.Append(s[i]);
+            }
+            return sb.ToString();
+        }
+
+        // Lower a Kotlin-style `"text ${expr} more"` to `string.Concat(object?[]{ ... })`.
+        // Concat's params-object overload internally calls ToString on each non-string element
+        // and treats null as "", which matches Kotlin's interpolation semantics.
+        private void EmitInterpolatedString(InterpolatedStringNode node)
+        {
+            if (_il == null) return;
+
+            if (node.Segments.Count == 0)
+            {
+                _il.Emit(OpCodes.Ldstr, string.Empty);
+                return;
+            }
+
+            var objectType = _module.ImportReference(typeof(object));
+            var concatMethod = _module.ImportReference(
+                typeof(string).GetMethod("Concat", new[] { typeof(object[]) })!);
+
+            EmitLdcI4(node.Segments.Count);
+            _il.Emit(OpCodes.Newarr, objectType);
+
+            for (int i = 0; i < node.Segments.Count; i++)
+            {
+                _il.Emit(OpCodes.Dup);
+                EmitLdcI4(i);
+                EmitExpression(node.Segments[i]);
+
+                // Box value types so the object[] slot is well-typed.
+                var segExpr = node.Segments[i] as IExpressionNode;
+                if (segExpr?.ResultType != null)
+                {
+                    var segType = ResolveTypeByFQN(segExpr.ResultType.FullyQualifiedName, segExpr.ResultType.TypeKind);
+                    var segDef = segType.Resolve();
+                    if (segDef != null && segDef.IsValueType)
+                    {
+                        _il.Emit(OpCodes.Box, segType);
+                    }
+                }
+                _il.Emit(OpCodes.Stelem_Ref);
+            }
+
+            _il.Emit(OpCodes.Call, concatMethod);
         }
 
         private void EmitIdentifier(IdentifierNode node)
@@ -1629,10 +1723,23 @@ namespace Generator
                 {
                     EmitExpression(arg.Value);
                 }
-                var methodRef = ResolveMethodReference(funcCall);
+
+                MethodReference? methodRef;
+                if (node.Object is SuperNode && _currentType?.BaseType != null)
+                {
+                    // `super.foo()` resolves on the base type and is called non-virtually so
+                    // the inherited implementation runs even from inside an override.
+                    methodRef = ResolveMethodOnType(_currentType.BaseType, funcCall);
+                }
+                else
+                {
+                    methodRef = ResolveMethodReference(funcCall);
+                }
+
                 if (methodRef != null)
                 {
-                    _il.Emit(OpCodes.Callvirt, methodRef);
+                    var op = node.Object is SuperNode ? OpCodes.Call : OpCodes.Callvirt;
+                    _il.Emit(op, methodRef);
                 }
             }
             else if (node.Property is PropAccessNode nested)
@@ -2067,8 +2174,13 @@ namespace Generator
                 case "Iona.Builtins.Void": return _module.ImportReference(typeof(void));
             }
 
-            // Check types already in the module
+            // Check types already in the module — match on full name first, then bare name so
+            // that an unresolved `Animal` (no namespace) still finds `App.Animal` in our module.
             var localType = _module.Types.FirstOrDefault(t => $"{t.Namespace}.{t.Name}" == fqn);
+            if (localType == null && !fqn.Contains('.'))
+            {
+                localType = _module.Types.FirstOrDefault(t => t.Name == fqn);
+            }
             if (localType != null) return localType;
 
             // Check well-known System types
@@ -2169,6 +2281,27 @@ namespace Generator
             // Both optional (?) and implicitly unwrapped optional (!) are nullable at IL level
             byte flag = (typeNode.IsOptional || typeNode.IsImplicitlyUnwrapped) ? (byte)2 : (byte)1;
             target.CustomAttributes.Add(MakeNullableAttribute(flag));
+        }
+
+        // Look up a method by name + arg count on a specific Cecil type (and its base chain).
+        // Used for `super.foo(...)` where we want the inherited slot, not the override on Self.
+        private MethodReference? ResolveMethodOnType(TypeReference type, FuncCallNode node)
+        {
+            var csharpName = Shared.Utils.IonaToCSharpName(node.Target.ILValue);
+            var current = type;
+            while (current != null)
+            {
+                var def = current.Resolve();
+                if (def == null) { return null; }
+                var method = def.Methods.FirstOrDefault(m =>
+                    m.Name == csharpName && m.Parameters.Count == node.Args.Count);
+                if (method != null)
+                {
+                    return _module.ImportReference(method);
+                }
+                current = def.BaseType;
+            }
+            return null;
         }
 
         private MethodReference? ResolveMethodReference(FuncCallNode node)

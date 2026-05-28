@@ -7,7 +7,7 @@
 //
 //|-------------------------------------------------------------|
 
-using Parser.Parsers;
+using Lexer;
 using Parser.Parsers;
 using Shared;
 
@@ -27,11 +27,13 @@ namespace Parser
             var funcCallParser = new FuncCallParser(errorCollector);
             var memberAccessParser = new MemberAccessParser();
             var scopeResolutionParser = new ScopeResolutionParser();
+            var interpLexer = LexerFactory.Create(errorCollector, warningCollector, fixItCollector);
             var expressionParser = new ExpressionParser(
-                funcCallParser, 
-                memberAccessParser, 
-                scopeResolutionParser, 
-                typeParser, 
+                funcCallParser,
+                memberAccessParser,
+                scopeResolutionParser,
+                typeParser,
+                interpLexer,
                 errorCollector
             );
             var propertyParser = new PropertyParser(accessLevelParser, expressionParser, typeParser);

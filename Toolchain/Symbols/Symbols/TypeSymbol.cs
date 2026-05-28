@@ -26,6 +26,7 @@ namespace Symbols.Symbols
         public List<TypeSymbol> Contracts { get; set; } = new();
         public bool IsOptional { get; set; }
         public bool IsImplicitlyUnwrapped { get; set; }
+        public bool IsOpen { get; set; }
         public TypeSymbol? InnerType { get; set; }
 
         public TypeSymbol(string name, TypeKind kind)

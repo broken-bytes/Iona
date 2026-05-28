@@ -29,6 +29,7 @@ namespace AST.Types
         Func,
         FuncCall,
         Literal,
+        InterpolatedString,
         MemberAccess,
         Identifier,
         ObjectLiteral,

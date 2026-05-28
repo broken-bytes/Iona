@@ -37,6 +37,7 @@ namespace Typeck
         IImportVisitor,
         IInitCallVisitor,
         IInitVisitor,
+        IInterpolatedStringVisitor,
         ILiteralVisitor,
         IModuleVisitor,
         IObjectLiteralVisitor,
@@ -47,6 +48,7 @@ namespace Typeck
         IScopeResolutionVisitor,
         IRecordVisitor,
         IStructVisitor,
+        ISuperVisitor,
         ITypeReferenceVisitor,
         IUnaryExpressionVisitor,
         IVariableVisitor
@@ -340,6 +342,27 @@ namespace Typeck
                     Status = ResolutionStatus.Resolved
                 };
             }
+        }
+
+        public void Visit(SuperNode node)
+        {
+            // The PropAccessNode/InitCall handler resolves what super refers to in context.
+            node.Status = ResolutionStatus.Resolved;
+        }
+
+        public void Visit(InterpolatedStringNode node)
+        {
+            foreach (var seg in node.Segments)
+            {
+                CheckNode(seg);
+            }
+
+            node.ResultType = new TypeReferenceNode("String", node)
+            {
+                FullyQualifiedName = "Builtins.String",
+                TypeKind = AST.Types.Kind.Struct,
+                Status = ResolutionStatus.Resolved
+            };
         }
 
         public void Visit(ModuleNode node)
@@ -700,6 +723,9 @@ namespace Typeck
                     break;
                 case LiteralNode literalNode:
                     literalNode.Accept(this);
+                    break;
+                case InterpolatedStringNode interp:
+                    interp.Accept(this);
                     break;
                 case ModuleNode moduleNode:
                     moduleNode.Accept(this);

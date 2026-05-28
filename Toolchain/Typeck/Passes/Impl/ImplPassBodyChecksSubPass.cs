@@ -220,6 +220,13 @@ public class ImplPassBodyChecksSubPass :
         if (node.BaseType != null)
         {
             node.Contracts.Remove(node.BaseType);
+
+            // Subclassing requires the base class to be marked `open`.
+            if (classSymbol?.BaseType != null && !classSymbol.BaseType.IsOpen)
+            {
+                _errorCollector.Collect(CompilerErrorFactory.InheritingFromClosedClass(
+                    node.Name, classSymbol.BaseType.Name, node.BaseType.Meta));
+            }
         }
 
         CheckContractConformance(classSymbol!, node.Name, node.Meta);
@@ -316,6 +323,11 @@ public class ImplPassBodyChecksSubPass :
         {
             _currentCallableScope = _currentScope.LookupAllSymbols(node.Name)
                 .OfType<FuncSymbol>().FirstOrDefault();
+
+            if (_currentScope is TypeSymbol enclosingType)
+            {
+                CheckOverrideRules(node, enclosingType);
+            }
         }
         else if (node.Parent is ModuleNode moduleNode)
         {
@@ -752,6 +764,87 @@ public class ImplPassBodyChecksSubPass :
                 _errorCollector.Collect(error);
             }
         }
+    }
+
+    private void CheckOverrideRules(FuncNode node, TypeSymbol enclosingType)
+    {
+        if (enclosingType.TypeKind != TypeKind.Class || enclosingType.BaseType == null)
+        {
+            if (node.IsOverride)
+            {
+                _errorCollector.Collect(CompilerErrorFactory.OverrideMissingBaseMember(node.Name, node.Meta));
+            }
+            return;
+        }
+
+        var thisSymbol = enclosingType.LookupAllSymbols(node.Name)
+            .OfType<FuncSymbol>()
+            .FirstOrDefault(fs => FuncMatchesNode(fs, node));
+
+        var inherited = FindMatchingFuncInBase(enclosingType.BaseType, node);
+
+        if (node.IsOverride)
+        {
+            if (inherited == null)
+            {
+                _errorCollector.Collect(CompilerErrorFactory.OverrideMissingBaseMember(node.Name, node.Meta));
+                return;
+            }
+            if (!inherited.IsOpen && !inherited.IsOverride)
+            {
+                _errorCollector.Collect(CompilerErrorFactory.OverrideOfNonOpenMember(
+                    node.Name, enclosingType.BaseType.Name, node.Meta));
+            }
+            return;
+        }
+
+        // Not marked override but shadows an inherited member — must say `override`.
+        if (inherited != null)
+        {
+            _errorCollector.Collect(CompilerErrorFactory.MissingOverrideOnShadow(
+                node.Name, enclosingType.BaseType.Name, node.Meta));
+        }
+    }
+
+    private FuncSymbol? FindMatchingFuncInBase(TypeSymbol? type, FuncNode node)
+    {
+        while (type != null)
+        {
+            var match = type.LookupAllSymbols(node.Name)
+                .OfType<FuncSymbol>()
+                .FirstOrDefault(fs => FuncMatchesNode(fs, node));
+            if (match != null)
+            {
+                return match;
+            }
+            type = type.BaseType;
+        }
+        return null;
+    }
+
+    private static bool FuncMatchesNode(FuncSymbol candidate, FuncNode node)
+    {
+        var candidateParams = candidate.Symbols.OfType<ParameterSymbol>().ToList();
+        if (candidateParams.Count != node.Parameters.Count)
+        {
+            return false;
+        }
+        for (int i = 0; i < candidateParams.Count; i++)
+        {
+            if (candidateParams[i].Name != node.Parameters[i].Name)
+            {
+                return false;
+            }
+            if (candidateParams[i].Type.TypeKind == TypeKind.Unknown)
+            {
+                continue;
+            }
+            if (candidateParams[i].Type.FullyQualifiedName != node.Parameters[i].TypeNode.FullyQualifiedName)
+            {
+                return false;
+            }
+        }
+        return true;
     }
 
     private bool TypeHasMatchingFunc(TypeSymbol type, FuncSymbol required)

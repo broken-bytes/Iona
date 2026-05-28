@@ -45,13 +45,13 @@ namespace Parser.Parsers
             var tokens = stream.Peek(2);
 
             // Standard member access: foo.bar
-            if ((tokens[0].Type is TokenType.Identifier or TokenType.Self) && tokens[1].Type == TokenType.Dot)
+            if ((tokens[0].Type is TokenType.Identifier or TokenType.Self or TokenType.Super) && tokens[1].Type == TokenType.Dot)
             {
                 return true;
             }
 
             // Optional chaining: foo?.bar
-            if ((tokens[0].Type is TokenType.Identifier or TokenType.Self) && tokens[1].Type == TokenType.SoftUnwrap)
+            if ((tokens[0].Type is TokenType.Identifier or TokenType.Self or TokenType.Super) && tokens[1].Type == TokenType.SoftUnwrap)
             {
                 if (stream.Count() >= 3)
                 {
@@ -87,7 +87,7 @@ namespace Parser.Parsers
             
             var token = stream.Consume();
 
-            if (token.Type is not TokenType.Identifier and not TokenType.Self)
+            if (token.Type is not TokenType.Identifier and not TokenType.Self and not TokenType.Super)
             {
                 stream.Panic(TokenFamily.Keyword);
             }
@@ -98,7 +98,13 @@ namespace Parser.Parsers
             {
                 target = new SelfNode();
                 Utils.SetMeta(target, token);
-            } else
+            }
+            else if (token.Type == TokenType.Super)
+            {
+                target = new SuperNode();
+                Utils.SetMeta(target, token);
+            }
+            else
             {
                 target = new IdentifierNode(token.Value);
                 Utils.SetMeta(target, token);

@@ -100,6 +100,20 @@ namespace Lexer.Processors
             {
                 return Utils.MakeToken(TokenType.Self, Keyword.Self.AsString());
             }
+            // `super`/`override` must precede `open` since `open` is a prefix of neither — order
+            // here only matters for keywords that share a prefix; kept linear for parity with peers.
+            else if (Utils.CheckMatchingSequence(source, Keyword.Super.AsString()))
+            {
+                return Utils.MakeToken(TokenType.Super, Keyword.Super.AsString());
+            }
+            else if (Utils.CheckMatchingSequence(source, Keyword.Override.AsString()))
+            {
+                return Utils.MakeToken(TokenType.Override, Keyword.Override.AsString());
+            }
+            else if (Utils.CheckMatchingSequence(source, Keyword.Open.AsString()))
+            {
+                return Utils.MakeToken(TokenType.Open, Keyword.Open.AsString());
+            }
 
             return null;
         }
