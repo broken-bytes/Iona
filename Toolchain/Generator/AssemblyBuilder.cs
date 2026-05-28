@@ -1528,12 +1528,10 @@ namespace Generator
                     _il.Emit(OpCodes.Rem);
                     break;
                 case BinaryOperation.Equal:
-                    _il.Emit(OpCodes.Ceq);
+                    EmitEquality(node, invert: false);
                     break;
                 case BinaryOperation.NotEqual:
-                    _il.Emit(OpCodes.Ceq);
-                    _il.Emit(OpCodes.Ldc_I4_0);
-                    _il.Emit(OpCodes.Ceq);
+                    EmitEquality(node, invert: true);
                     break;
                 case BinaryOperation.GreaterThan:
                     _il.Emit(OpCodes.Cgt);
@@ -1557,6 +1555,62 @@ namespace Generator
                 case BinaryOperation.Or:
                     _il.Emit(OpCodes.Or);
                     break;
+            }
+        }
+
+        private void EmitEquality(BinaryExpressionNode node, bool invert)
+        {
+            if (_il == null) { return; }
+
+            var leftType = (node.Left as IExpressionNode)?.ResultType?.FullyQualifiedName;
+            var rightType = (node.Right as IExpressionNode)?.ResultType?.FullyQualifiedName;
+            var fqn = leftType ?? rightType;
+
+            bool usePrimitiveCeq = fqn == null
+                || fqn.StartsWith("Iona.Builtins.", StringComparison.Ordinal)
+                || fqn == "System.String";
+
+            if (fqn == "System.String" || fqn == "Iona.Builtins.String")
+            {
+                usePrimitiveCeq = false;
+            }
+
+            if (usePrimitiveCeq)
+            {
+                _il.Emit(OpCodes.Ceq);
+                if (invert)
+                {
+                    _il.Emit(OpCodes.Ldc_I4_0);
+                    _il.Emit(OpCodes.Ceq);
+                }
+                return;
+            }
+
+            // Object.Equals(object, object) — handles both reference and value-type compound
+            // equality. Box value-type operands first.
+            if (fqn != null && !fqn.StartsWith("System.", StringComparison.Ordinal))
+            {
+                var operandType = ResolveTypeByFQN(fqn);
+                var operandDef = operandType.Resolve();
+                if (operandDef != null && operandDef.IsValueType)
+                {
+                    // Stack: left, right → need to box both
+                    var tmp = new VariableDefinition(operandType);
+                    _currentMethod!.Body.Variables.Add(tmp);
+                    _il.Emit(OpCodes.Stloc, tmp);
+                    _il.Emit(OpCodes.Box, operandType);
+                    EmitLdloc(tmp);
+                    _il.Emit(OpCodes.Box, operandType);
+                }
+            }
+
+            var equalsMethod = _module.ImportReference(
+                typeof(object).GetMethod("Equals", new[] { typeof(object), typeof(object) })!);
+            _il.Emit(OpCodes.Call, equalsMethod);
+            if (invert)
+            {
+                _il.Emit(OpCodes.Ldc_I4_0);
+                _il.Emit(OpCodes.Ceq);
             }
         }
 

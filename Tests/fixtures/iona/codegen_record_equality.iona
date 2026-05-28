@@ -1,0 +1,28 @@
+module App
+
+use System
+
+record Point {
+    let x: Int32
+    let y: Int32
+}
+
+fn main() -> Int32 {
+    let a = Point(x: 1, y: 2)
+    let b = Point(x: 1, y: 2)
+    let c = Point(x: 1, y: 3)
+
+    if a == b {
+        printLn(message: "equal")
+    } else {
+        printLn(message: "not equal")
+    }
+
+    if a == c {
+        printLn(message: "equal")
+    } else {
+        printLn(message: "not equal")
+    }
+
+    return 0
+}

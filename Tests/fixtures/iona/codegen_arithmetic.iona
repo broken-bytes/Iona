@@ -1,0 +1,17 @@
+module App
+
+use System
+
+fn main() -> Int32 {
+    let a = 3
+    let b = 4
+    printLn(message: "${a + b}")
+    printLn(message: "${a * b}")
+    printLn(message: "${b - a}")
+
+    let x = 2.5
+    let y = 6.0
+    printLn(message: "${x + y}")
+
+    return 0
+}
