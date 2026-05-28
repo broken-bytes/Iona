@@ -1,18 +1,14 @@
 module App
 
-use System
+record Point { 
+    let x: Double
+    let y: Double
+}
 
 fn main() -> Int32 {
-    let x = 0
-    printLn(message: "Test")
+    let point = Point(x: 0.0, y: 1.0)
 
-    guard let name = readLn() else { 
-        printLn(message: "Failed to read text")
-
-        return -1
-    }
-
-    printLn(message: name)
+    printLn(message: "$point.x")
 
     return 0
 }

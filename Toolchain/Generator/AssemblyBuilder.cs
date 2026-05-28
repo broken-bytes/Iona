@@ -168,12 +168,13 @@ namespace Generator
 
         private void EmitRecord(RecordNode node, string ns)
         {
-            // Records are emitted as sealed classes (reference type, immutable)
+            // Records are immutable value types (stack-allocated, structural equality via
+            // System.ValueType). Immutability is enforced by the type checker.
             var attrs = TypeAttributes.Class | TypeAttributes.Sealed | TypeAttributes.BeforeFieldInit
                         | CecilAccessLevel(node.AccessLevel);
 
-            var baseRef = _module.ImportReference(typeof(object));
-            var typeDef = new TypeDefinition(ns, node.Name, attrs, baseRef);
+            var valueTypeRef = _module.ImportReference(typeof(System.ValueType));
+            var typeDef = new TypeDefinition(ns, node.Name, attrs, valueTypeRef);
 
             foreach (var contract in node.Contracts)
             {
@@ -192,6 +193,8 @@ namespace Generator
             {
                 EmitTypeBody(node.Body);
             }
+
+            SynthesizeMemberwiseCtor(node.Body);
 
             _currentType = prevType;
         }
@@ -222,7 +225,72 @@ namespace Generator
                 EmitTypeBody(node.Body);
             }
 
+            SynthesizeMemberwiseCtor(node.Body);
+
             _currentType = prevType;
+        }
+
+        // Records and structs without an explicit init get a memberwise initializer taking
+        // all stored properties as parameters (named after them) and assigning each field.
+        private void SynthesizeMemberwiseCtor(BlockNode? body)
+        {
+            if (_currentType == null || body == null)
+            {
+                return;
+            }
+
+            if (_currentType.Methods.Any(m => m.IsConstructor))
+            {
+                return;
+            }
+
+            var storedProps = body.Children.OfType<PropertyNode>()
+                .Where(p => p.Get == null && p.Set == null && p.TypeNode != null)
+                .ToList();
+
+            var ctorAttrs = MethodAttributes.Public | MethodAttributes.HideBySig
+                | MethodAttributes.SpecialName | MethodAttributes.RTSpecialName;
+            var ctor = new MethodDefinition(".ctor", ctorAttrs, _module.ImportReference(typeof(void)));
+
+            foreach (var prop in storedProps)
+            {
+                var paramType = ResolveTypeReference(prop.TypeNode!);
+                ctor.Parameters.Add(new ParameterDefinition(prop.Name, ParameterAttributes.None, paramType));
+            }
+
+            ctor.Body = new Mono.Cecil.Cil.MethodBody(ctor);
+            _currentType.Methods.Add(ctor);
+
+            var il = ctor.Body.GetILProcessor();
+
+            var baseCtor = _currentType.BaseType?.Resolve()?.Methods
+                .FirstOrDefault(m => m.IsConstructor && m.Parameters.Count == 0);
+            if (baseCtor != null && !_currentType.IsValueType)
+            {
+                il.Emit(OpCodes.Ldarg_0);
+                il.Emit(OpCodes.Call, _module.ImportReference(baseCtor));
+            }
+
+            var argIndex = 1;
+            foreach (var prop in storedProps)
+            {
+                var field = _currentType.Fields.FirstOrDefault(f => f.Name == prop.Name);
+                if (field != null)
+                {
+                    il.Emit(OpCodes.Ldarg_0);
+                    switch (argIndex)
+                    {
+                        case 1: il.Emit(OpCodes.Ldarg_1); break;
+                        case 2: il.Emit(OpCodes.Ldarg_2); break;
+                        case 3: il.Emit(OpCodes.Ldarg_3); break;
+                        default: il.Emit(OpCodes.Ldarg, argIndex); break;
+                    }
+                    il.Emit(OpCodes.Stfld, field);
+                }
+                argIndex++;
+            }
+
+            il.Emit(OpCodes.Ret);
         }
 
         private void EmitEnum(EnumNode node, string ns)
@@ -1542,7 +1610,17 @@ namespace Generator
             // Load the field/property
             if (node.Property is IdentifierNode propIdent)
             {
-                EmitFieldOrPropertyLoad(propIdent);
+                // The object's static type — not _currentType — owns the field.
+                Mono.Cecil.TypeReference? ownerType = null;
+                if (node.Object is SelfNode && _currentType != null)
+                {
+                    ownerType = _currentType;
+                }
+                else if (node.Object is IExpressionNode objExpr && objExpr.ResultType != null)
+                {
+                    ownerType = ResolveTypeByFQN(objExpr.ResultType.FullyQualifiedName, objExpr.ResultType.TypeKind);
+                }
+                EmitFieldOrPropertyLoad(propIdent, ownerType);
             }
             else if (node.Property is FuncCallNode funcCall)
             {
@@ -1578,25 +1656,71 @@ namespace Generator
             // Emit the value
             EmitExpression(value);
 
-            // Store into field
-            if (propAccess.Property is IdentifierNode propIdent && _currentType != null)
+            if (propAccess.Property is not IdentifierNode propIdent)
             {
-                var field = _currentType.Fields.FirstOrDefault(f => f.Name == propIdent.Value || f.Name == propIdent.ILValue);
-                if (field != null)
-                {
-                    _il.Emit(OpCodes.Stfld, field);
-                }
+                return;
+            }
+
+            // Resolve the owning type from the object's static type — not _currentType,
+            // which would only be right for `self.x = ...` and break `other.x = ...`.
+            Mono.Cecil.TypeDefinition? ownerDef = null;
+            if (propAccess.Object is SelfNode)
+            {
+                ownerDef = _currentType;
+            }
+            else if (propAccess.Object is IExpressionNode objExpr && objExpr.ResultType != null)
+            {
+                ownerDef = ResolveTypeByFQN(objExpr.ResultType.FullyQualifiedName, objExpr.ResultType.TypeKind).Resolve();
+            }
+            ownerDef ??= _currentType;
+            if (ownerDef == null) return;
+
+            var field = ownerDef.Fields.FirstOrDefault(f => f.Name == propIdent.Value || f.Name == propIdent.ILValue);
+            if (field != null)
+            {
+                var fieldRef = field.Module == _module ? (FieldReference)field : _module.ImportReference(field);
+                _il.Emit(OpCodes.Stfld, fieldRef);
+                return;
+            }
+
+            // Fall back to a property setter for types that only expose properties.
+            var prop = ownerDef.Properties.FirstOrDefault(p => p.Name == propIdent.Value || p.Name == propIdent.ILValue);
+            if (prop?.SetMethod != null)
+            {
+                var setter = _module.ImportReference(prop.SetMethod);
+                _il.Emit(prop.SetMethod.IsStatic ? OpCodes.Call : OpCodes.Callvirt, setter);
             }
         }
 
-        private void EmitFieldOrPropertyLoad(IdentifierNode ident)
+        private void EmitFieldOrPropertyLoad(IdentifierNode ident, Mono.Cecil.TypeReference? ownerType = null)
         {
-            if (_il == null || _currentType == null) return;
+            if (_il == null) return;
 
-            var field = _currentType.Fields.FirstOrDefault(f => f.Name == ident.Value || f.Name == ident.ILValue);
+            // Resolve the owning type: prefer the explicitly supplied one (e.g. the
+            // ResultType of the PropAccess.Object), fall back to the currently emitting
+            // type for bare-identifier `self`-style loads.
+            Mono.Cecil.TypeDefinition? ownerDef = null;
+            if (ownerType != null)
+            {
+                ownerDef = ownerType.Resolve();
+            }
+            ownerDef ??= _currentType;
+            if (ownerDef == null) return;
+
+            var field = ownerDef.Fields.FirstOrDefault(f => f.Name == ident.Value || f.Name == ident.ILValue);
             if (field != null)
             {
-                _il.Emit(field.IsStatic ? OpCodes.Ldsfld : OpCodes.Ldfld, field);
+                var fieldRef = field.Module == _module ? (FieldReference)field : _module.ImportReference(field);
+                _il.Emit(field.IsStatic ? OpCodes.Ldsfld : OpCodes.Ldfld, fieldRef);
+                return;
+            }
+
+            // Try a property getter (e.g. cross-assembly Builtins types expose props, not fields).
+            var prop = ownerDef.Properties.FirstOrDefault(p => p.Name == ident.Value || p.Name == ident.ILValue);
+            if (prop?.GetMethod != null)
+            {
+                var getter = _module.ImportReference(prop.GetMethod);
+                _il.Emit(prop.GetMethod.IsStatic ? OpCodes.Call : OpCodes.Callvirt, getter);
             }
         }
 

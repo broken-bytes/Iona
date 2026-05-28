@@ -234,7 +234,104 @@ namespace Compiler
             Console.ForegroundColor = ConsoleColor.Green;
             GenerateCode(assemblyName, asts.ToList(), globalTable, intermediate, assemblyPaths, assemblyRefs, targetFramework, outputType, outputPath);
 
+            CopyNonFrameworkReferences(assemblyRefs, assemblyPaths, outputPath);
+
             return true;
+        }
+
+        // Framework-dependent deploy: only third-party references travel with the app.
+        // System.* / Microsoft.* are served by the shared runtime; copying them next to
+        // the exe would shadow the runtime's copy and cause version drift.
+        private static void CopyNonFrameworkReferences(
+            List<string> assemblyRefs,
+            List<string> assemblyPaths,
+            string outputPath)
+        {
+            if (string.IsNullOrWhiteSpace(outputPath))
+            {
+                return;
+            }
+
+            var outDir = Path.GetDirectoryName(outputPath);
+            if (string.IsNullOrWhiteSpace(outDir))
+            {
+                outDir = Directory.GetCurrentDirectory();
+            }
+
+            foreach (var refName in assemblyRefs)
+            {
+                if (IsFrameworkAssembly(refName))
+                {
+                    continue;
+                }
+
+                var resolved = ResolveReferencePath(refName, assemblyPaths);
+                if (resolved == null)
+                {
+                    continue;
+                }
+
+                var dest = Path.Combine(outDir, Path.GetFileName(resolved));
+                if (Path.GetFullPath(resolved) == Path.GetFullPath(dest))
+                {
+                    continue;
+                }
+
+                try
+                {
+                    File.Copy(resolved, dest, overwrite: true);
+                    Console.ForegroundColor = ConsoleColor.DarkGreen;
+                    Console.WriteLine($"Copied {Path.GetFileName(resolved)} -> {outDir}");
+                    Console.ResetColor();
+                }
+                catch (Exception ex)
+                {
+                    Console.ForegroundColor = ConsoleColor.Yellow;
+                    Console.WriteLine($"Failed to copy {resolved}: {ex.Message}");
+                    Console.ResetColor();
+                }
+            }
+        }
+
+        private static bool IsFrameworkAssembly(string name)
+        {
+            var bare = name.EndsWith(".dll", StringComparison.OrdinalIgnoreCase)
+                ? Path.GetFileNameWithoutExtension(name)
+                : name;
+            return bare.StartsWith("System.", StringComparison.Ordinal)
+                || bare.StartsWith("Microsoft.", StringComparison.Ordinal)
+                || bare == "System"
+                || bare == "mscorlib"
+                || bare == "netstandard"
+                || bare == "WindowsBase";
+        }
+
+        private static string? ResolveReferencePath(string refName, List<string> assemblyPaths)
+        {
+            if (File.Exists(refName))
+            {
+                return refName;
+            }
+
+            var fileName = refName.EndsWith(".dll", StringComparison.OrdinalIgnoreCase)
+                ? refName
+                : refName + ".dll";
+
+            foreach (var dir in assemblyPaths)
+            {
+                if (string.IsNullOrWhiteSpace(dir) || !Directory.Exists(dir))
+                {
+                    continue;
+                }
+
+                var candidate = Path.Combine(dir, fileName);
+                if (File.Exists(candidate))
+                {
+                    return candidate;
+                }
+            }
+
+            return null;
         }
 
         private static string SanitizeModuleFileName(string moduleName)

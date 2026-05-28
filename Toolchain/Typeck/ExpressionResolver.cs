@@ -162,9 +162,9 @@ namespace Typeck
 
             _contextualTypeFqn = node.Target switch
             {
-                PropAccessNode propAccess => propAccess.ResultType.FullyQualifiedName,
-                IdentifierNode ident => ident.ResultType.FullyQualifiedName,
-                ScopeResolutionNode scope => scope.ResultType.FullyQualifiedName,
+                PropAccessNode propAccess => propAccess.ResultType?.FullyQualifiedName ?? _contextualTypeFqn,
+                IdentifierNode ident => ident.ResultType?.FullyQualifiedName ?? _contextualTypeFqn,
+                ScopeResolutionNode scope => scope.ResultType?.FullyQualifiedName ?? _contextualTypeFqn,
                 _ => _contextualTypeFqn
             };
             
@@ -842,8 +842,29 @@ namespace Typeck
             // Find the object first
             TypeSymbol? objType = null;
             ISymbol? objc = null;
-            
-            if (_currentTypeFqn is null)
+
+            if (node.Object is SelfNode)
+            {
+                // `self.x`: resolve members against the enclosing type.
+                var enclosingType = ((INode)node).Hierarchy().OfType<ITypeNode>().FirstOrDefault();
+                if (enclosingType == null)
+                {
+                    Utils.FailNode(node);
+                    return;
+                }
+
+                var selfTypeResult = _table.FindType(node.Root, enclosingType.FullyQualifiedName);
+                if (selfTypeResult.IsError)
+                {
+                    var error = CompilerErrorFactory.TopLevelDefinitionError(enclosingType.FullyQualifiedName, node.Meta);
+                    _errorCollector.Collect(error);
+                    Utils.FailNode(node);
+                    return;
+                }
+
+                objType = selfTypeResult.Unwrapped();
+            }
+            else if (_currentTypeFqn is null)
             {
                 objc = _table.FindBy(node.Object);
 
@@ -874,7 +895,7 @@ namespace Typeck
                 );
             }
 
-            if (objc is PropertySymbol prop)
+            if (objType == null && objc is PropertySymbol prop)
             {
                 objType = prop.Type;
 
@@ -893,7 +914,7 @@ namespace Typeck
                     }
                 }
             }
-            else if (objc is VariableSymbol var)
+            else if (objType == null && objc is VariableSymbol var)
             {
                 objType = var.Type;
 
@@ -910,11 +931,11 @@ namespace Typeck
                     }
                 }
             }
-            else if (objc is ParameterSymbol param)
+            else if (objType == null && objc is ParameterSymbol param)
             {
                 objType = param.Type;
             }
-            else
+            else if (objType == null)
             {
                 var error = CompilerErrorFactory.TypeDoesNotContainProperty(
                     _currentTypeFqn,

@@ -1,0 +1,35 @@
+module App
+
+use System
+
+class Foo {
+    var x: Int32
+
+    init() {
+        self.x = 42
+    }
+}
+
+class Bar {
+    var x: Int32
+
+    init(x: Int32) {
+        self.x = x
+    }
+}
+
+fn main() {
+    let f = Foo()
+    if f.x == 42 {
+        printLn(message: "A_OK")
+    } else {
+        printLn(message: "A_FAIL")
+    }
+
+    let b = Bar(x: 7)
+    if b.x == 7 {
+        printLn(message: "B_OK")
+    } else {
+        printLn(message: "B_FAIL")
+    }
+}

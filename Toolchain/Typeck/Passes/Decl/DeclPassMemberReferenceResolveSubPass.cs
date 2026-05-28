@@ -168,8 +168,6 @@ public class DeclPassMemberReferenceResolveSubPass :
 
         if (symbol == null) return;
 
-        // The register sub-pass already added placeholder parameters; replace them with the
-        // resolved ones rather than appending (which would double the parameter count).
         foreach (var old in symbol.Symbols.OfType<ParameterSymbol>().ToList())
         {
             symbol.Symbols.Remove(old);
@@ -258,11 +256,27 @@ public class DeclPassMemberReferenceResolveSubPass :
 
             return true;
         });
-        
+
+        if (symbol == null)
+        {
+            return;
+        }
+
+        // The register sub-pass already added placeholder parameters; replace them with the
+        // resolved ones rather than appending (mirrors the FuncSymbol dedup).
+        foreach (var old in symbol.Symbols.OfType<ParameterSymbol>().ToList())
+        {
+            symbol.Symbols.Remove(old);
+            if (symbol.SymbolsByName.TryGetValue(old.Name, out var byName))
+            {
+                byName.Remove(old);
+            }
+        }
+
         foreach (var param in node.Parameters)
         {
             var paramType = _symbolTable.FindType(node.Root, param.TypeNode.FullyQualifiedName);
-            
+
             if (paramType.IsSuccess)
             {
                 var parameter = new ParameterSymbol(param.Name, paramType.Unwrapped(), symbol)
@@ -465,6 +479,8 @@ public class DeclPassMemberReferenceResolveSubPass :
 
         node.Body?.Accept(this);
 
+        SynthesizeMemberwiseInit(node.Body, symbol);
+
         _currentSymbol = previous;
     }
 
@@ -482,6 +498,45 @@ public class DeclPassMemberReferenceResolveSubPass :
 
         node.Body?.Accept(this);
 
+        SynthesizeMemberwiseInit(node.Body, symbol);
+
         _currentSymbol = previous;
+    }
+
+    private void SynthesizeMemberwiseInit(BlockNode? body, TypeSymbol? typeSymbol)
+    {
+        if (body == null || typeSymbol == null)
+        {
+            return;
+        }
+
+        if (typeSymbol.Symbols.OfType<InitSymbol>().Any())
+        {
+            return;
+        }
+
+        var initSymbol = new InitSymbol { ReturnType = typeSymbol };
+
+        foreach (var prop in body.Children.OfType<PropertyNode>())
+        {
+            if (prop.Get != null || prop.Set != null)
+            {
+                continue;
+            }
+
+            var propSymbol = typeSymbol.LookupAllSymbols(prop.Name).OfType<PropertySymbol>().FirstOrDefault();
+            if (propSymbol == null)
+            {
+                continue;
+            }
+
+            var paramSymbol = new ParameterSymbol(prop.Name, propSymbol.Type, initSymbol)
+            {
+                IsOptional = propSymbol.IsOptional
+            };
+            initSymbol.AddSymbol(paramSymbol);
+        }
+
+        typeSymbol.AddSymbol(initSymbol);
     }
 }
