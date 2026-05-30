@@ -36,8 +36,13 @@ namespace Typeck
         IIdentifierVisitor,
         IImportVisitor,
         IInitCallVisitor,
+        IInvokeExpressionVisitor,
+        IArrayLiteralVisitor,
+        IFunctionReferenceVisitor,
         IInitVisitor,
         IInterpolatedStringVisitor,
+        ILambdaVisitor,
+        IMapLiteralVisitor,
         ILiteralVisitor,
         IModuleVisitor,
         IObjectLiteralVisitor,
@@ -350,6 +355,56 @@ namespace Typeck
             node.Status = ResolutionStatus.Resolved;
         }
 
+        public void Visit(FunctionReferenceNode node)
+        {
+            // Type assignment happens in ExpressionResolver; this pass just marks it resolved.
+            node.Status = ResolutionStatus.Resolved;
+        }
+
+        public void Visit(ArrayLiteralNode node)
+        {
+            foreach (var v in node.Values) { CheckNode(v); }
+            node.Status = ResolutionStatus.Resolved;
+        }
+
+        public void Visit(MapLiteralNode node)
+        {
+            foreach (var k in node.Keys) { CheckNode(k); }
+            foreach (var v in node.Values) { CheckNode(v); }
+            node.Status = ResolutionStatus.Resolved;
+        }
+
+        public void Visit(LambdaNode node)
+        {
+            // Resolve any explicit param annotations; untyped placeholders pass through to
+            // the ExpressionResolver which fills them from contextual function-type info.
+            foreach (var param in node.Parameters)
+            {
+                if (param.TypeNode != null && param.TypeNode.Name != "_inferred_")
+                {
+                    CheckNodeType(param.TypeNode);
+                }
+            }
+            if (node.ReturnType is TypeReferenceNode rt)
+            {
+                CheckNodeType(rt);
+            }
+            // Body resolution happens in ExpressionResolver where scopes are tracked.
+            node.Status = ResolutionStatus.Resolved;
+        }
+
+        public void Visit(InvokeExpressionNode node)
+        {
+            // Defer full resolution to ExpressionResolver — we only need to walk children so
+            // any explicit type annotations inside the lambda/args are normalised here.
+            CheckNode(node.Callee);
+            foreach (var arg in node.Args)
+            {
+                CheckNode(arg.Value);
+            }
+            node.Status = ResolutionStatus.Resolved;
+        }
+
         public void Visit(InterpolatedStringNode node)
         {
             foreach (var seg in node.Segments)
@@ -577,13 +632,66 @@ namespace Typeck
             }
         }
 
+        // Walk up the AST from `start` looking for a class/record/struct/contract/fn whose
+        // GenericArguments contain a parameter with the given name.
+        private static bool IsEnclosingGenericParam(INode start, string name)
+        {
+            INode? cursor = start.Parent;
+            while (cursor != null)
+            {
+                switch (cursor)
+                {
+                    case ClassNode cn when cn.GenericArguments.Any(g => g.Name == name): return true;
+                    case RecordNode rn when rn.GenericArguments.Any(g => g.Name == name): return true;
+                    case StructNode sn when sn.GenericArguments.Any(g => g.Name == name): return true;
+                    case ContractNode con when con.GenericArguments.Any(g => g.Name == name): return true;
+                    case FuncNode fn when fn.GenericArguments.Any(g => g.Name == name): return true;
+                }
+                cursor = cursor.Parent;
+            }
+            return false;
+        }
+
         private TypeReferenceNode? CheckNodeType(INode node)
         {
+            // Function types don't sit in the symbol table — resolve each piece structurally
+            // (param + return) and stamp a System.Func/Action FQN so codegen can pick the right
+            // closed generic.
+            if (node is FunctionTypeNode fnType)
+            {
+                foreach (var p in fnType.ParameterTypes)
+                {
+                    if (p is INode pn) { CheckNodeType(pn); }
+                }
+                if (fnType.ReturnType is INode rn) { CheckNodeType(rn); }
+                var retFqn = fnType.ReturnType?.FullyQualifiedName;
+                var isVoid = retFqn == null || retFqn == "Iona.Builtins.Void" || retFqn == "System.Void";
+                var arity = fnType.ParameterTypes.Count;
+                fnType.FullyQualifiedName = isVoid
+                    ? (arity == 0 ? "System.Action" : $"System.Action`{arity}")
+                    : $"System.Func`{arity + 1}";
+                fnType.Status = INode.ResolutionStatus.Resolved;
+                return fnType;
+            }
+
             if (node is TypeReferenceNode typeNode)
             {
+                // Generic-parameter shortcut: a bare `T` (no dot, no generic args) that matches a
+                // type parameter of any enclosing class/record/struct/contract/fn resolves to
+                // that parameter directly — no symbol-table lookup needed.
+                bool isGen = !typeNode.Name.Contains('.') && typeNode.GenericArguments.Count == 0
+                    && IsEnclosingGenericParam(typeNode, typeNode.Name);
+                if (isGen)
+                {
+                    typeNode.ReferenceKind = TypeReferenceKind.Generic;
+                    typeNode.FullyQualifiedName = typeNode.Name;
+                    typeNode.TypeKind = Kind.Generic;
+                    typeNode.Status = ResolutionStatus.Resolved;
+                    return typeNode;
+                }
                 return CheckTypeReferenceNode(typeNode);
             }
-            
+
             if (node is PropAccessNode propAccess)
             {
                 return CheckPropAccessNode(propAccess);
@@ -726,6 +834,21 @@ namespace Typeck
                     break;
                 case InterpolatedStringNode interp:
                     interp.Accept(this);
+                    break;
+                case FunctionReferenceNode fnRef:
+                    fnRef.Accept(this);
+                    break;
+                case LambdaNode lambda:
+                    lambda.Accept(this);
+                    break;
+                case InvokeExpressionNode invoke:
+                    invoke.Accept(this);
+                    break;
+                case ArrayLiteralNode arrayLit:
+                    arrayLit.Accept(this);
+                    break;
+                case MapLiteralNode mapLit:
+                    mapLit.Accept(this);
                     break;
                 case ModuleNode moduleNode:
                     moduleNode.Accept(this);
@@ -944,17 +1067,27 @@ namespace Typeck
 
                     if (actualType is TypeReferenceNode typeRef)
                     {
-                        // Set the type of the parameter (symbol)
-                        var typeSymbol = _symbolTable.FindTypeByFQN(param.Root, typeRef.FullyQualifiedName);
-
-                        if (typeSymbol != null)
+                        // Generic parameters don't live in the symbol table — the DeclPass
+                        // already synthesised the right TypeSymbol on the symbol earlier.
+                        if (typeRef.ReferenceKind == TypeReferenceKind.Generic
+                            || typeRef.TypeKind == Kind.Generic)
                         {
-                            symbol.Type = typeSymbol;
+                            // Leave symbol.Type as the placeholder from DeclPass.
                         }
                         else
                         {
-                            param.Status = ResolutionStatus.Failed;
-                            _errorCollector.Collect(CompilerErrorFactory.TopLevelDefinitionError(typeRef.Name, typeRef.Meta));
+                            // Set the type of the parameter (symbol)
+                            var typeSymbol = _symbolTable.FindTypeByFQN(param.Root, typeRef.FullyQualifiedName);
+
+                            if (typeSymbol != null)
+                            {
+                                symbol.Type = typeSymbol;
+                            }
+                            else
+                            {
+                                param.Status = ResolutionStatus.Failed;
+                                _errorCollector.Collect(CompilerErrorFactory.TopLevelDefinitionError(typeRef.Name, typeRef.Meta));
+                            }
                         }
                     }
 

@@ -25,6 +25,7 @@ namespace AST.Nodes
         public List<INode> Refinements { get; set; } = new List<INode>();
         public FileNode Root => Utils.GetRoot(this);
         public List<GenericArgument> GenericArguments { get; set; } = new List<GenericArgument>();
+        public List<AttributeNode> Attributes { get; set; } = new();
         public BlockNode? Body { get; set; }
         public ResolutionStatus Status { get; set; } = ResolutionStatus.Unresolved;
         public Metadata Meta { get; set; }

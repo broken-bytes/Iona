@@ -760,6 +760,13 @@ namespace Symbols
                 return true;
             }
 
+            // Generic-parameter slot: at the call site we don't enforce the bound yet, so any
+            // argument type satisfies a `T`-typed parameter. Constraint checking lands later.
+            if (paramType.TypeKind == TypeKind.Generic)
+            {
+                return true;
+            }
+
             // Walk the inheritance chain of the argument type.
             var argType = ModulesByName.Values
                 .SelectMany(m => CollectAllTypes(m))
@@ -904,10 +911,14 @@ namespace Symbols
                                          .OfType<ParameterSymbol>()
                                          .Zip(node.Args, (p, a) => (p, a)))
                             {
-                                if (
-                                    param.Type.FullyQualifiedName != arg.Value.ResultType!.FullyQualifiedName ||
-                                    param.Name != arg.Name
-                                )
+                                if (param.Name != arg.Name)
+                                {
+                                    return false;
+                                }
+                                // Generic-parameter slots accept any argument type — bounds
+                                // will be enforced later.
+                                if (param.Type.TypeKind == TypeKind.Generic) { continue; }
+                                if (param.Type.FullyQualifiedName != arg.Value.ResultType!.FullyQualifiedName)
                                 {
                                     return false;
                                 }

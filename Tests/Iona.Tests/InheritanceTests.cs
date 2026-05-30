@@ -269,4 +269,203 @@ public class Child : Base {
         Assert.NotEmpty(errors.Errors);
         Assert.Contains(errors.Errors, e => e.Code == "C0033");
     }
+
+    [Fact]
+    public void GenericConstraint_ViolatedAtCallSite_ProducesC0035()
+    {
+        var source = @"
+module TestModule
+
+contract Numeric { }
+
+#over<T> where T: Numeric
+public class Box {
+    public init() {}
+}
+
+public class App {
+    public fn run() -> Int32 {
+        let b = Box<String>()
+        return 0
+    }
+}
+";
+        var (errors, _) = TestHelpers.RunTypeck(source);
+
+        Assert.NotEmpty(errors.Errors);
+        Assert.Contains(errors.Errors, e => e.Code == "C0035");
+    }
+
+    [Fact]
+    public void GenericConstraint_SatisfiedByContractImpl_NoErrors()
+    {
+        var source = @"
+module TestModule
+
+public contract Numeric { }
+
+public class Mass : Numeric {
+    public init() {}
+}
+
+#over<T> where T: Numeric
+public class Box {
+    public init() {}
+}
+
+public class App {
+    public fn run() -> Int32 {
+        let b = Box<Mass>()
+        return 0
+    }
+}
+";
+        var (errors, _) = TestHelpers.RunTypeck(source);
+        Assert.Empty(errors.Errors);
+    }
+
+    [Fact]
+    public void GenericConstraint_MultipleBoundsAllSatisfied_NoErrors()
+    {
+        var source = @"
+module TestModule
+
+public contract Numeric { }
+public contract Comparable { }
+
+public class Mass : Numeric, Comparable {
+    public init() {}
+}
+
+#over<T> where T: Numeric & Comparable
+public class Box {
+    public init() {}
+}
+
+public class App {
+    public fn run() -> Int32 {
+        let b = Box<Mass>()
+        return 0
+    }
+}
+";
+        var (errors, _) = TestHelpers.RunTypeck(source);
+        Assert.Empty(errors.Errors);
+    }
+
+    [Fact]
+    public void GenericConstraint_MultipleBoundsOneViolated_ProducesC0035()
+    {
+        var source = @"
+module TestModule
+
+public contract Numeric { }
+public contract Comparable { }
+
+// `OnlyNumeric` satisfies Numeric but NOT Comparable.
+public class OnlyNumeric : Numeric {
+    public init() {}
+}
+
+#over<T> where T: Numeric & Comparable
+public class Box {
+    public init() {}
+}
+
+public class App {
+    public fn run() -> Int32 {
+        let b = Box<OnlyNumeric>()
+        return 0
+    }
+}
+";
+        var (errors, _) = TestHelpers.RunTypeck(source);
+
+        Assert.NotEmpty(errors.Errors);
+        Assert.Contains(errors.Errors, e => e.Code == "C0035" && e.Message.Contains("Comparable"));
+    }
+
+    [Fact]
+    public void GenericConstraint_MixedBoundsAcrossParams_NoErrors()
+    {
+        var source = @"
+module TestModule
+
+public contract Numeric { }
+public contract Comparable { }
+public contract Clone { }
+
+public class N : Numeric, Comparable { public init() {} }
+public class C : Clone { public init() {} }
+
+#over<T, U>
+where T: Numeric & Comparable, U: Clone
+public class Pair {
+    public init() {}
+}
+
+public class App {
+    public fn run() -> Int32 {
+        let p = Pair<N, C>()
+        return 0
+    }
+}
+";
+        var (errors, _) = TestHelpers.RunTypeck(source);
+        Assert.Empty(errors.Errors);
+    }
+
+    [Fact]
+    public void GenericConstraint_SiblingParam_AcceptsSubtype()
+    {
+        var source = @"
+module TestModule
+
+open public class Animal { public init() {} }
+public class Dog : Animal { public init() {} }
+
+#over<Sub, Parent>
+where Sub: Parent
+public class Wrapper {
+    public init() {}
+}
+
+public class App {
+    public fn run() -> Int32 {
+        let w = Wrapper<Dog, Animal>()
+        return 0
+    }
+}
+";
+        var (errors, _) = TestHelpers.RunTypeck(source);
+        Assert.Empty(errors.Errors);
+    }
+
+    [Fact]
+    public void GenericConstraint_SiblingParam_RejectsUnrelatedType()
+    {
+        var source = @"
+module TestModule
+
+open public class Animal { public init() {} }
+public class Cat { public init() {} }
+
+#over<Sub, Parent>
+where Sub: Parent
+public class Wrapper {
+    public init() {}
+}
+
+public class App {
+    public fn run() -> Int32 {
+        let w = Wrapper<Cat, Animal>()
+        return 0
+    }
+}
+";
+        var (errors, _) = TestHelpers.RunTypeck(source);
+
+        Assert.NotEmpty(errors.Errors);
+        Assert.Contains(errors.Errors, e => e.Code == "C0035" && e.Message.Contains("Animal"));
+    }
 }

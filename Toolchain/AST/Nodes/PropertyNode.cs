@@ -22,6 +22,7 @@ namespace AST.Nodes
         public FileNode Root => Utils.GetRoot(this);
         public AccessLevel AccessLevel { get; set; }
         public bool IsMutable { get; set; }
+        public List<AttributeNode> Attributes { get; set; } = new();
         public StatementType StatementType { get; set; }
         public TypeReferenceNode? TypeNode { get; set; }
         public IExpressionNode? Value { get; set; }

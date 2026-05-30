@@ -1,0 +1,14 @@
+module App
+
+use System
+
+#over<T>
+fn identity(x: T) -> T { return x }
+
+fn main() -> Int32 {
+    let n = identity<Int32>(x: 42)
+    let s = identity<String>(x: "hi")
+    printLn(message: "${n}")
+    printLn(message: s)
+    return 0
+}

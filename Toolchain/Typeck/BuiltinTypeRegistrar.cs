@@ -71,6 +71,12 @@ public static class BuiltinTypeRegistrar
         AddBinaryOp(int32Type, OperatorType.Subtract, floatType, floatType);
         AddBinaryOp(int32Type, OperatorType.Multiply, floatType, floatType);
         AddBinaryOp(int32Type, OperatorType.Divide, floatType, floatType);
+
+        // Generic collection types — registered as open generics under Iona.Builtins. Codegen
+        // maps these to System.Collections.Generic.List<T> / Dictionary<K,V> / HashSet<T>.
+        builtinsModule.AddSymbol(new TypeSymbol("List", TypeKind.Class));
+        builtinsModule.AddSymbol(new TypeSymbol("Map", TypeKind.Class));
+        builtinsModule.AddSymbol(new TypeSymbol("Set", TypeKind.Class));
     }
 
     private static TypeSymbol RegisterNumericType(ModuleSymbol parent, string name, TypeSymbol boolType)

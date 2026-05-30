@@ -1,0 +1,26 @@
+module App
+
+use System
+
+fn apply(f: (Int32) -> Int32, x: Int32) -> Int32 {
+    return f(x: x)
+}
+
+fn implicit(x: Int32) -> Int32 { x + 1 }
+
+fn main() -> Int32 {
+    let r1 = apply(f: |n: Int32| -> Int32 { return n * 3 }, x: 4)
+    printLn(message: "${r1}")
+
+    let r2 = apply(f: |n| n * 10, x: 2)
+    printLn(message: "${r2}")
+
+    let factor = 7
+    let r3 = apply(f: |n| n + factor, x: 5)
+    printLn(message: "${r3}")
+
+    let r5 = implicit(x: 41)
+    printLn(message: "${r5}")
+
+    return 0
+}

@@ -74,6 +74,14 @@ namespace Parser.Parsers
                 token = stream.Peek();
             }
 
+            // `#over<T, …> [where …]` and other `#directive` markers attach to the next
+            // declaration. Parse them upfront, then parse the declaration with the directive
+            // info merged in.
+            if (token.Type == TokenType.Hash)
+            {
+                return ParseDirectiveAndDeclaration(stream, parent);
+            }
+
             if (IsCompoundAssignment(stream) || IsBasicAssignment(stream))
             {
                 return ParseAssignment(stream, parent);
@@ -227,6 +235,250 @@ namespace Parser.Parsers
         }
 
         // ------------------- Helper methods -------------------
+        private INode? ParseDirectiveAndDeclaration(TokenStream stream, INode? parent)
+        {
+            // Collect a stack of `#`-prefixed adornments attached to one declaration:
+            // either generics (`#over<…>`) or user attributes (`#name(args)`). They can
+            // appear in any order and interleave with linebreaks.
+            List<GenericArgument> generics = new();
+            List<AttributeNode> attributes = new();
+
+            while (!stream.IsEmpty() && stream.Peek().Type == TokenType.Hash)
+            {
+                stream.Consume(TokenType.Hash, TokenFamily.Special);
+                var nameTok = stream.Consume(TokenType.Identifier, TokenFamily.Identifier);
+                var directive = nameTok.Value;
+
+                if (directive == "over")
+                {
+                    generics = ParseOverDirective(stream, parent);
+                }
+                else
+                {
+                    // Treat any other `#name(...)` as a user attribute. C#-style mapping is
+                    // applied in codegen — `#range(...)` looks up `RangeAttribute` first.
+                    attributes.Add(ParseAttributeBody(stream, parent, directive, nameTok));
+                }
+
+                while (!stream.IsEmpty() && stream.Peek().Type == TokenType.Linebreak)
+                {
+                    stream.Consume(TokenType.Linebreak, TokenFamily.Special);
+                }
+            }
+
+            var inner = Parse(stream, parent);
+            if (inner == null) { return null; }
+            AttachGenericsToDeclaration(inner, generics);
+            AttachAttributesToDeclaration(inner, attributes);
+            return inner;
+        }
+
+        // `#name(arg1: val1, arg2: val2, …)` or bare `#name`. Args reuse the FuncCallArg shape
+        // so codegen can match them against an attribute constructor's parameters by name.
+        private AttributeNode ParseAttributeBody(TokenStream stream, INode? parent, string name, Token nameTok)
+        {
+            var attr = new AttributeNode(name, parent);
+            Utils.SetStart(attr, nameTok);
+            Utils.SetEnd(attr, nameTok);
+
+            if (stream.IsEmpty() || stream.Peek().Type != TokenType.ParenLeft)
+            {
+                return attr;
+            }
+            stream.Consume(TokenType.ParenLeft, TokenFamily.Operator);
+            while (!stream.IsEmpty() && stream.Peek().Type != TokenType.ParenRight)
+            {
+                string argName = "";
+                // Named: `name: value`. Positional fallback uses an empty name.
+                if (stream.Count() >= 2
+                    && stream.Peek().Type == TokenType.Identifier
+                    && stream.Peek(2)[1].Type == TokenType.Colon)
+                {
+                    argName = stream.Consume(TokenType.Identifier, TokenFamily.Identifier).Value;
+                    stream.Consume(TokenType.Colon, TokenFamily.Operator);
+                }
+                // Slice tokens for one arg expression — stop at the top-level `,` or `)` so
+                // the expression parser sees a bounded stream and doesn't blow past the `)`.
+                var argTokens = new List<Token>();
+                int paren = 0, bracket = 0, brace = 0;
+                while (!stream.IsEmpty())
+                {
+                    var t = stream.Peek();
+                    if (paren == 0 && bracket == 0 && brace == 0
+                        && (t.Type == TokenType.Comma || t.Type == TokenType.ParenRight))
+                    {
+                        break;
+                    }
+                    if (t.Type == TokenType.ParenLeft) { paren++; }
+                    else if (t.Type == TokenType.ParenRight) { paren--; }
+                    else if (t.Type == TokenType.BracketLeft) { bracket++; }
+                    else if (t.Type == TokenType.BracketRight) { bracket--; }
+                    else if (t.Type == TokenType.CurlyLeft) { brace++; }
+                    else if (t.Type == TokenType.CurlyRight) { brace--; }
+                    argTokens.Add(t);
+                    stream.Consume();
+                }
+                var argExpr = expressionParser.Parse(new TokenStream(argTokens), attr);
+                attr.Args.Add(new FuncCallArg(argName, argExpr));
+                if (!stream.IsEmpty() && stream.Peek().Type == TokenType.Comma)
+                {
+                    stream.Consume(TokenType.Comma, TokenFamily.Operator);
+                }
+            }
+            var closeParen = stream.Consume(TokenType.ParenRight, TokenFamily.Operator);
+            Utils.SetEnd(attr, closeParen);
+            return attr;
+        }
+
+        private static void AttachAttributesToDeclaration(INode inner, List<AttributeNode> attrs)
+        {
+            if (attrs.Count == 0) { return; }
+            switch (inner)
+            {
+                case ClassNode c: c.Attributes.AddRange(attrs); break;
+                case RecordNode r: r.Attributes.AddRange(attrs); break;
+                case StructNode s: s.Attributes.AddRange(attrs); break;
+                case ContractNode k: k.Attributes.AddRange(attrs); break;
+                case FuncNode f: f.Attributes.AddRange(attrs); break;
+                case PropertyNode p: p.Attributes.AddRange(attrs); break;
+            }
+            foreach (var a in attrs) { a.Parent = inner; }
+        }
+
+        private List<GenericArgument> ParseOverDirective(TokenStream stream, INode? parent)
+        {
+            var list = new List<GenericArgument>();
+            // `<` is lexed as TokenType.ArrowLeft in this codebase.
+            stream.Consume(TokenType.ArrowLeft, TokenFamily.Operator);
+            while (stream.Peek().Type != TokenType.ArrowRight)
+            {
+                var nameTok = stream.Consume(TokenType.Identifier, TokenFamily.Identifier);
+                var arg = new GenericArgument(nameTok.Value, parent);
+                // Inline constraint(s): `T: Numeric` or `T: Numeric & Comparable & Hashable`.
+                if (stream.Peek().Type == TokenType.Colon)
+                {
+                    stream.Consume(TokenType.Colon, TokenFamily.Operator);
+                    ParseConstraintList(stream, arg);
+                }
+                list.Add(arg);
+                if (stream.Peek().Type == TokenType.Comma)
+                {
+                    stream.Consume(TokenType.Comma, TokenFamily.Operator);
+                }
+            }
+            stream.Consume(TokenType.ArrowRight, TokenFamily.Operator);
+
+            // Optional trailing/next-line `where T: A, S: B, …` clause. The where can sit on
+            // the same line or, more commonly, on its own line for readability.
+            while (!stream.IsEmpty() && stream.Peek().Type == TokenType.Linebreak)
+            {
+                stream.Consume(TokenType.Linebreak, TokenFamily.Special);
+                // We may be looking at the declaration; only continue if `where` follows.
+                if (stream.Peek().Type != TokenType.Identifier
+                    || stream.Peek().Value != "where")
+                {
+                    break;
+                }
+            }
+            if (!stream.IsEmpty() && stream.Peek().Type == TokenType.Identifier
+                && stream.Peek().Value == "where")
+            {
+                stream.Consume(TokenType.Identifier, TokenFamily.Identifier);
+                ParseWhereClause(stream, list);
+            }
+
+            return list;
+        }
+
+        private void ParseWhereClause(TokenStream stream, List<GenericArgument> generics)
+        {
+            // `where T: Constraint, S: Constraint, …`
+            while (true)
+            {
+                var paramName = stream.Consume(TokenType.Identifier, TokenFamily.Identifier).Value;
+                stream.Consume(TokenType.Colon, TokenFamily.Operator);
+                var target = generics.FirstOrDefault(g => g.Name == paramName);
+                if (target != null)
+                {
+                    ParseConstraintList(stream, target);
+                }
+                else
+                {
+                    // Discard the constraint stream to keep alignment when the parameter name
+                    // is unknown — the resolver will flag it later. We still need to walk past
+                    // any `& Other` bounds so the comma loop below stays in sync.
+                    ParseSimpleTypeRef(stream, null);
+                    while (!stream.IsEmpty() && stream.Peek().Type == TokenType.BitAnd)
+                    {
+                        stream.Consume(TokenType.BitAnd, TokenFamily.Operator);
+                        ParseSimpleTypeRef(stream, null);
+                    }
+                }
+                if (!stream.IsEmpty() && stream.Peek().Type == TokenType.Comma)
+                {
+                    stream.Consume(TokenType.Comma, TokenFamily.Operator);
+                    continue;
+                }
+                break;
+            }
+        }
+
+        // Parse `A` or `A & B & C` — intersection-of-contracts shape. Each bound is appended
+        // to the GenericArgument's Constraints list; codegen / resolver semantics treat them
+        // as a logical AND.
+        private static void ParseConstraintList(TokenStream stream, GenericArgument target)
+        {
+            target.Constraints.Add(ParseSimpleTypeRef(stream, target));
+            while (!stream.IsEmpty() && stream.Peek().Type == TokenType.BitAnd)
+            {
+                stream.Consume(TokenType.BitAnd, TokenFamily.Operator);
+                target.Constraints.Add(ParseSimpleTypeRef(stream, target));
+            }
+        }
+
+        private static TypeReferenceNode ParseSimpleTypeRef(TokenStream stream, INode? parent)
+        {
+            var tok = stream.Consume(TokenType.Identifier, TokenFamily.Identifier);
+            var node = new TypeReferenceNode(tok.Value, parent)
+            {
+                FullyQualifiedName = tok.Value
+            };
+            Utils.SetMeta(node, tok);
+            return node;
+        }
+
+        private static void SkipUnknownDirective(TokenStream stream)
+        {
+            // Conservative: if the next token is `<` or `(`, consume the matching close. Done.
+            if (stream.IsEmpty()) { return; }
+            var open = stream.Peek().Type;
+            if (open is not (TokenType.ArrowLeft or TokenType.ParenLeft)) { return; }
+            var close = open == TokenType.ArrowLeft ? TokenType.ArrowRight : TokenType.ParenRight;
+            stream.Consume();
+            int depth = 1;
+            while (!stream.IsEmpty() && depth > 0)
+            {
+                var t = stream.Peek();
+                stream.Consume();
+                if (t.Type == open) { depth++; }
+                else if (t.Type == close) { depth--; }
+            }
+        }
+
+        private static void AttachGenericsToDeclaration(INode node, List<GenericArgument> generics)
+        {
+            if (generics.Count == 0) { return; }
+            switch (node)
+            {
+                case ClassNode cn: cn.GenericArguments = generics; break;
+                case FuncNode fn: fn.GenericArguments = generics; break;
+                case ContractNode con: con.GenericArguments = generics; break;
+                case RecordNode rn: rn.GenericArguments = generics; break;
+                case StructNode sn: sn.GenericArguments = generics; break;
+                // Other declaration kinds silently drop the generics for now.
+            }
+        }
+
         private INode ParseAssignment(TokenStream stream, INode? parent)
         {
             if (IsCompoundAssignment(stream))

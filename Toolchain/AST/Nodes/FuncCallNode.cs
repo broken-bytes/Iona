@@ -26,6 +26,9 @@ namespace AST.Nodes
         public Metadata Meta { get; set; }
         public ExpressionType ExpressionType => ExpressionType.FunctionCall;
         public TypeReferenceNode? ResultType { get; set; }
+        // Set by the resolver when `Target` points at a function-typed binding; tells codegen
+        // to emit `callvirt Invoke` on the loaded value instead of a method lookup.
+        public bool IsDelegateInvocation { get; set; }
 
         public FuncCallNode(IdentifierNode target, INode? parent = null)
         {

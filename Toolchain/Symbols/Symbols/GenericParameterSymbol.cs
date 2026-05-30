@@ -16,7 +16,8 @@ namespace Symbols.Symbols
         public Dictionary<string, List<ISymbol>> SymbolsByName { get; set; } = new Dictionary<string, List<ISymbol>>();
         public SymbolKind Kind { get; set; } = SymbolKind.GenericParameter;
         public ISymbol? Parent { get; set; }
-
-        // TODO: Add constraints
+        // Bounds declared via `#over<T: A & B>` or `where T: A & B`. The supplied type at
+        // each call site must satisfy ALL entries (intersection / logical AND).
+        public List<TypeSymbol> Constraints { get; set; } = new();
     }
 }

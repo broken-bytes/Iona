@@ -85,6 +85,7 @@ public class DeclPassMemberReferenceResolveSubPass :
         }
 
         var symbol = _symbolTable.FindTypeByFQN(node.FullyQualifiedName);
+        if (symbol != null) { ResolveGenericConstraints(symbol, node.GenericArguments, node.Root); }
 
         var previous = _currentSymbol;
         _currentSymbol = symbol;
@@ -92,6 +93,38 @@ public class DeclPassMemberReferenceResolveSubPass :
         node.Body?.Accept(this);
 
         _currentSymbol = previous;
+    }
+
+    // Walk the symbol's GenericParameterSymbol children and bind each to its declared
+    // constraint types. The constraint AST nodes were left as bare TypeReferenceNodes during
+    // parsing; resolution to a TypeSymbol happens here, once the symbol table is populated.
+    // A constraint whose name matches another sibling generic parameter (`where T: U`) is
+    // stored as a placeholder TypeSymbol with TypeKind.Generic so call-site validation can
+    // look up the supplied type for the sibling and route the check through it.
+    private void ResolveGenericConstraints(ISymbol owner, List<GenericArgument> astArgs, FileNode rootFile)
+    {
+        var siblingNames = astArgs.Select(a => a.Name).ToHashSet();
+        foreach (var ga in astArgs)
+        {
+            if (ga.Constraints.Count == 0) { continue; }
+            var paramSym = owner.Symbols.OfType<GenericParameterSymbol>().FirstOrDefault(p => p.Name == ga.Name);
+            if (paramSym == null) { continue; }
+            foreach (var constraintRef in ga.Constraints)
+            {
+                if (siblingNames.Contains(constraintRef.Name))
+                {
+                    // Sibling-generic reference — the supplied type at the matching position
+                    // will be looked up at call sites.
+                    paramSym.Constraints.Add(new TypeSymbol(constraintRef.Name, TypeKind.Generic));
+                    continue;
+                }
+                var resolved = _symbolTable.FindTypeBy(rootFile, constraintRef, null);
+                if (resolved != null)
+                {
+                    paramSym.Constraints.Add(resolved);
+                }
+            }
+        }
     }
 
     public void Visit(ContractNode node)
@@ -102,6 +135,7 @@ public class DeclPassMemberReferenceResolveSubPass :
         }
 
         var symbol = _symbolTable.FindTypeByFQN(node.FullyQualifiedName);
+        if (symbol != null) { ResolveGenericConstraints(symbol, node.GenericArguments, node.Root); }
 
         var previous = _currentSymbol;
         _currentSymbol = symbol;
@@ -168,6 +202,8 @@ public class DeclPassMemberReferenceResolveSubPass :
 
         if (symbol == null) return;
 
+        ResolveGenericConstraints(symbol, node.GenericArguments, node.Root);
+
         foreach (var old in symbol.Symbols.OfType<ParameterSymbol>().ToList())
         {
             symbol.Symbols.Remove(old);
@@ -179,11 +215,35 @@ public class DeclPassMemberReferenceResolveSubPass :
 
         foreach (var param in node.Parameters)
         {
+            ParameterSymbol parameter;
+            if (param.TypeNode is FunctionTypeNode)
+            {
+                // Function-typed params don't sit in the symbol table — synthesise a TypeSymbol
+                // whose Name doubles as the FullyQualifiedName for delegate dispatch.
+                var fnTypeSym = new TypeSymbol(param.TypeNode.FullyQualifiedName, TypeKind.Class);
+                parameter = new ParameterSymbol(param.Name, fnTypeSym, symbol)
+                {
+                    IsOptional = param.TypeNode.IsOptional || param.TypeNode.IsImplicitlyUnwrapped
+                };
+                symbol.AddSymbol(parameter);
+                continue;
+            }
+
+            if (TryResolveGenericParam(param.TypeNode, out var genericSym))
+            {
+                parameter = new ParameterSymbol(param.Name, genericSym!, symbol)
+                {
+                    IsOptional = param.TypeNode.IsOptional || param.TypeNode.IsImplicitlyUnwrapped
+                };
+                symbol.AddSymbol(parameter);
+                continue;
+            }
+
             var paramType = _symbolTable.FindType(node.Root, param.TypeNode.FullyQualifiedName);
 
             if (paramType.IsSuccess)
             {
-                var parameter = new ParameterSymbol(param.Name, paramType.Unwrapped(), symbol)
+                parameter = new ParameterSymbol(param.Name, paramType.Unwrapped(), symbol)
                 {
                     IsOptional = param.TypeNode.IsOptional || param.TypeNode.IsImplicitlyUnwrapped
                 };
@@ -193,43 +253,83 @@ public class DeclPassMemberReferenceResolveSubPass :
             {
                 var typeError =
                     CompilerErrorFactory.TopLevelDefinitionError(param.TypeNode.FullyQualifiedName, param.TypeNode.Meta);
-                
+
                 _errorCollector.Collect(typeError);
 
                 node.Status = INode.ResolutionStatus.Failed;
-                
+
                 break;
             }
         }
 
         if (node.ReturnType is not null)
         {
-            var returnType = _symbolTable.FindType(node.Root, node.ReturnType.FullyQualifiedName);
-
-            if (returnType.IsSuccess)
+            if (TryResolveGenericParam(node.ReturnType, out var genReturn))
             {
-                symbol!.ReturnType = returnType.Unwrapped();
-                var retIsOptional = node.ReturnType.IsOptional;
-                var retIsIUO = node.ReturnType.IsImplicitlyUnwrapped;
-                node.ReturnType = new TypeReferenceNode(returnType.Unwrapped().Name, node)
-                {
-                    FullyQualifiedName = returnType.Unwrapped().FullyQualifiedName,
-                    Assembly = returnType.Unwrapped().Assembly,
-                    IsOptional = retIsOptional,
-                    IsImplicitlyUnwrapped = retIsIUO,
-                };
+                symbol!.ReturnType = genReturn!;
             }
             else
             {
-                node.Status = INode.ResolutionStatus.Failed;
+                var returnType = _symbolTable.FindType(node.Root, node.ReturnType.FullyQualifiedName);
 
-                var error = CompilerErrorFactory.TopLevelDefinitionError(node.ReturnType.FullyQualifiedName, node.ReturnType.Meta);
+                if (returnType.IsSuccess)
+                {
+                    symbol!.ReturnType = returnType.Unwrapped();
+                    var retIsOptional = node.ReturnType.IsOptional;
+                    var retIsIUO = node.ReturnType.IsImplicitlyUnwrapped;
+                    node.ReturnType = new TypeReferenceNode(returnType.Unwrapped().Name, node)
+                    {
+                        FullyQualifiedName = returnType.Unwrapped().FullyQualifiedName,
+                        Assembly = returnType.Unwrapped().Assembly,
+                        IsOptional = retIsOptional,
+                        IsImplicitlyUnwrapped = retIsIUO,
+                    };
+                }
+                else
+                {
+                    node.Status = INode.ResolutionStatus.Failed;
 
-                _errorCollector.Collect(error);
+                    var error = CompilerErrorFactory.TopLevelDefinitionError(node.ReturnType.FullyQualifiedName, node.ReturnType.Meta);
 
-                return;
+                    _errorCollector.Collect(error);
+
+                    return;
+                }
             }
         }
+    }
+
+    // If `typeNode` is a bare identifier matching a generic parameter on any enclosing
+    // class/record/struct/contract/fn, synthesise a TypeSymbol that codegen can later turn
+    // into the right Cecil generic-parameter reference.
+    private static bool TryResolveGenericParam(TypeReferenceNode typeNode, out TypeSymbol? sym)
+    {
+        sym = null;
+        if (typeNode.Name.Contains('.') || typeNode.GenericArguments.Count > 0) { return false; }
+        INode? cursor = ((INode)typeNode).Parent;
+        while (cursor != null)
+        {
+            var generics = cursor switch
+            {
+                ClassNode cn => cn.GenericArguments,
+                RecordNode rn => rn.GenericArguments,
+                StructNode sn => sn.GenericArguments,
+                ContractNode con => con.GenericArguments,
+                FuncNode fn => fn.GenericArguments,
+                _ => null
+            };
+            if (generics != null && generics.Any(g => g.Name == typeNode.Name))
+            {
+                sym = new TypeSymbol(typeNode.Name, TypeKind.Generic);
+                typeNode.TypeKind = AST.Types.Kind.Generic;
+                typeNode.ReferenceKind = TypeReferenceKind.Generic;
+                typeNode.FullyQualifiedName = typeNode.Name;
+                typeNode.Status = INode.ResolutionStatus.Resolved;
+                return true;
+            }
+            cursor = cursor.Parent;
+        }
+        return false;
     }
 
     public void Visit(InitNode node)
@@ -275,6 +375,25 @@ public class DeclPassMemberReferenceResolveSubPass :
 
         foreach (var param in node.Parameters)
         {
+            if (param.TypeNode is FunctionTypeNode)
+            {
+                var fnTypeSym = new TypeSymbol(param.TypeNode.FullyQualifiedName, TypeKind.Class);
+                var fnParam = new ParameterSymbol(param.Name, fnTypeSym, symbol)
+                {
+                    IsOptional = param.TypeNode.IsOptional || param.TypeNode.IsImplicitlyUnwrapped
+                };
+                symbol!.AddSymbol(fnParam);
+                continue;
+            }
+            if (TryResolveGenericParam(param.TypeNode, out var genParam))
+            {
+                var p = new ParameterSymbol(param.Name, genParam!, symbol)
+                {
+                    IsOptional = param.TypeNode.IsOptional || param.TypeNode.IsImplicitlyUnwrapped
+                };
+                symbol!.AddSymbol(p);
+                continue;
+            }
             var paramType = _symbolTable.FindType(node.Root, param.TypeNode.FullyQualifiedName);
 
             if (paramType.IsSuccess)
@@ -362,8 +481,27 @@ public class DeclPassMemberReferenceResolveSubPass :
         });        
         foreach (var param in node.Parameters)
         {
+            if (param.TypeNode is FunctionTypeNode)
+            {
+                var fnTypeSym = new TypeSymbol(param.TypeNode.FullyQualifiedName, TypeKind.Class);
+                var fnParam = new ParameterSymbol(param.Name, fnTypeSym, symbol)
+                {
+                    IsOptional = param.TypeNode.IsOptional || param.TypeNode.IsImplicitlyUnwrapped
+                };
+                symbol.AddSymbol(fnParam);
+                continue;
+            }
+            if (TryResolveGenericParam(param.TypeNode, out var genP))
+            {
+                var p = new ParameterSymbol(param.Name, genP!, symbol)
+                {
+                    IsOptional = param.TypeNode.IsOptional || param.TypeNode.IsImplicitlyUnwrapped
+                };
+                symbol!.AddSymbol(p);
+                continue;
+            }
             var paramType = _symbolTable.FindType(node.Root, param.TypeNode.FullyQualifiedName);
-            
+
             if (paramType.IsSuccess)
             {
                 var parameter = new ParameterSymbol(param.Name, paramType.Unwrapped(), symbol)
@@ -376,17 +514,22 @@ public class DeclPassMemberReferenceResolveSubPass :
             {
                 var typeError =
                     CompilerErrorFactory.TopLevelDefinitionError(param.TypeNode.FullyQualifiedName, param.TypeNode.Meta);
-                
+
                 _errorCollector.Collect(typeError);
 
                 node.Status = INode.ResolutionStatus.Failed;
-                
+
                 break;
             }
         }
 
         if (node.ReturnType is not null)
         {
+            if (TryResolveGenericParam(node.ReturnType, out var genR))
+            {
+                if (symbol != null) { symbol.ReturnType = genR!; }
+                return;
+            }
             var returnType = _symbolTable.FindType(node.Root, node.ReturnType.FullyQualifiedName);
 
             if (returnType.IsSuccess)
@@ -427,6 +570,11 @@ public class DeclPassMemberReferenceResolveSubPass :
 
         if (node.TypeNode is not null)
         {
+            if (TryResolveGenericParam(node.TypeNode, out var genPropSym))
+            {
+                if (symbol != null) { symbol.Type = genPropSym!; }
+                return;
+            }
             var type = _symbolTable.FindType(node.Root, node!.TypeNode!.FullyQualifiedName);
 
             if (type.IsSuccess)
@@ -473,6 +621,7 @@ public class DeclPassMemberReferenceResolveSubPass :
         }
 
         var symbol = _symbolTable.FindTypeByFQN(node.FullyQualifiedName);
+        if (symbol != null) { ResolveGenericConstraints(symbol, node.GenericArguments, node.Root); }
 
         var previous = _currentSymbol;
         _currentSymbol = symbol;
@@ -492,6 +641,7 @@ public class DeclPassMemberReferenceResolveSubPass :
         }
 
         var symbol = _symbolTable.FindTypeByFQN(node.FullyQualifiedName);
+        if (symbol != null) { ResolveGenericConstraints(symbol, node.GenericArguments, node.Root); }
 
         var previous = _currentSymbol;
         _currentSymbol = symbol;

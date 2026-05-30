@@ -172,6 +172,9 @@ namespace Parser.Parsers
 
                 while (stream.Peek().Type != TokenType.ParenRight)
                 {
+                    // Optional `#name(args)` attributes per parameter (e.g. `#fromBody`).
+                    var paramAttrs = AttributeReader.ReadAttributes(stream, expressionParser, func);
+
                     // Name of the parameter
                     var paramName = stream.Consume(TokenType.Identifier, TokenType.ParenRight).Value;
 
@@ -183,8 +186,10 @@ namespace Parser.Parsers
 
                     if (paramType != null)
                     {
-                        // Add the parameter to the function
-                        func.Parameters.Add(new ParameterNode(paramName, paramType, func));
+                        var paramNode = new ParameterNode(paramName, paramType, func);
+                        paramNode.Attributes.AddRange(paramAttrs);
+                        foreach (var a in paramAttrs) { a.Parent = paramNode; }
+                        func.Parameters.Add(paramNode);
                     }
 
                     // If the next token is a comma, consume it

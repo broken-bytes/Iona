@@ -44,6 +44,7 @@ namespace Shared
         InheritingFromClosedClass,
         OverrideOfNonOpenMember,
         OverrideMissingBaseMember,
-        MissingOverrideOnShadow
+        MissingOverrideOnShadow,
+        GenericConstraintNotSatisfied
     }
 }

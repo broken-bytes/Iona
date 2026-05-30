@@ -16,6 +16,9 @@ namespace AST.Types
     public class GenericArgument : INode
     {
         public string Name { get; set; }
+        // Constraints declared via `#over<T: Numeric & Comparable>` or `where T: A & B`.
+        // Each entry is one bound; the type must satisfy them all (intersection / logical AND).
+        public List<TypeReferenceNode> Constraints { get; set; } = new();
         public INode? Parent { get; set; }
         public NodeType Type { get; set; }
         public FileNode Root => Utils.GetRoot(this);

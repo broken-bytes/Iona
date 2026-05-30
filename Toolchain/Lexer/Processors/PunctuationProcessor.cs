@@ -26,6 +26,12 @@ namespace Lexer.Processors
                 return Utils.MakeToken(TokenType.Comma, Special.Comma.AsString());
             }
 
+            // `#` is the declaration-directive marker (`#over<T>`, `#packed`, `#align(8)`).
+            if (source[0] == '#')
+            {
+                return Utils.MakeToken(TokenType.Hash, "#");
+            }
+
             return null;
         }
     }

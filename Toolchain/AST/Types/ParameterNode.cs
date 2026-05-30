@@ -18,6 +18,7 @@ namespace AST.Types
     {
         public string Name { get; set; }
         public TypeReferenceNode TypeNode { get; set; }
+        public List<AttributeNode> Attributes { get; set; } = new();
         public INode? Parent { get; set; }
         public NodeType Type { get; set; }
         public FileNode Root => Utils.GetRoot(this);

@@ -1,0 +1,10 @@
+module App
+
+use System
+
+fn main() -> Int32 {
+    let xs = [10, 20, 30]
+    let m = ["a": 1, "b": 2]
+    printLn(message: "made it")
+    return 0
+}

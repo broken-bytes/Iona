@@ -25,6 +25,7 @@ namespace AST.Nodes
         public StatementType StatementType { get; set; }
         public List<ParameterNode> Parameters { get; set; } = [];
         public List<GenericArgument> GenericArguments { get; set; } = [];
+        public List<AttributeNode> Attributes { get; set; } = new();
         public TypeReferenceNode? ReturnType { get; set; }
         public bool IsMutable { get; set; }
         public bool IsStatic { get; set; }

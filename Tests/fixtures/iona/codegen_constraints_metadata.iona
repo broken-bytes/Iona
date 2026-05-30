@@ -1,0 +1,22 @@
+module App
+
+use System
+
+public contract Numeric { }
+public contract Comparable { }
+
+public class Mass : Numeric, Comparable {
+    public init() {}
+}
+
+#over<T>
+where T: Numeric & Comparable
+public class Box {
+    public init() {}
+}
+
+fn main() -> Int32 {
+    let b = Box<Mass>()
+    printLn(message: "ok")
+    return 0
+}

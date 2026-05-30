@@ -225,6 +225,8 @@ namespace Shared
                     return "C0033";
                 case CompilerErrorCode.MissingOverrideOnShadow:
                     return "C0034";
+                case CompilerErrorCode.GenericConstraintNotSatisfied:
+                    return "C0035";
                 default:
                     return "UnknownError";
             }

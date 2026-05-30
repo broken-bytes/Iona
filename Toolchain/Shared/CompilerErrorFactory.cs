@@ -362,5 +362,14 @@ namespace Shared
                 meta
             );
         }
+
+        public static CompilerError GenericConstraintNotSatisfied(string suppliedType, string paramName, string constraintName, Metadata meta)
+        {
+            return new CompilerError(
+                CompilerErrorCode.GenericConstraintNotSatisfied,
+                $"Type `{suppliedType}` does not satisfy constraint `{paramName}: {constraintName}`",
+                meta
+            );
+        }
     }
 }

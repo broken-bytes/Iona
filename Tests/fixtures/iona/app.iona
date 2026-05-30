@@ -8,7 +8,7 @@ record Point {
 fn main() -> Int32 {
     let point = Point(x: 0.0, y: 1.0)
 
-    printLn(message: "${point.x}")
+    printLn(message: |_| -> "Foo")
 
     return 0
 }

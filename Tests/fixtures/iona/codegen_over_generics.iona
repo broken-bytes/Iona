@@ -1,0 +1,22 @@
+module App
+
+use System
+
+#over<T>
+class Box {
+    public let value: T
+    public init(value: T) {}
+}
+
+#over<T, S>
+class Pair {
+    public init() {}
+}
+
+fn main() -> Int32 {
+    let b = Box<Int32>(value: 42)
+    let s = Box<String>(value: "hi")
+    let p = Pair<Int32, String>()
+    printLn(message: "ok")
+    return 0
+}

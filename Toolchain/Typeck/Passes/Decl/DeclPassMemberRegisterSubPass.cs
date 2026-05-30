@@ -78,6 +78,7 @@ public class DeclPassMemberRegisterSubPass :
         }
 
         var symbol = new TypeSymbol(node.Name, TypeKind.Class) { IsOpen = node.IsOpen };
+        RegisterGenericParameters(symbol, node.GenericArguments);
 
         _currentSymbol.AddSymbol(symbol);
 
@@ -88,6 +89,17 @@ public class DeclPassMemberRegisterSubPass :
 
         _currentSymbol = previous;
     }
+
+    // Mirror the FuncSymbol pattern: register each generic parameter as a child symbol.
+    // Constraint resolution happens in the reference-resolve sub-pass once the symbol table
+    // has all types loaded.
+    private static void RegisterGenericParameters(ISymbol owner, List<GenericArgument> args)
+    {
+        foreach (var ga in args)
+        {
+            owner.AddSymbol(new GenericParameterSymbol(ga.Name));
+        }
+    }
     
     public void Visit(ContractNode node)
     {
@@ -97,6 +109,7 @@ public class DeclPassMemberRegisterSubPass :
         }
 
         var symbol = new TypeSymbol(node.Name, TypeKind.Contract);
+        RegisterGenericParameters(symbol, node.GenericArguments);
 
         _currentSymbol.AddSymbol(symbol);
 
@@ -223,6 +236,7 @@ public class DeclPassMemberRegisterSubPass :
         }
 
         var symbol = new TypeSymbol(node.Name, TypeKind.Record);
+        RegisterGenericParameters(symbol, node.GenericArguments);
 
         _currentSymbol.AddSymbol(symbol);
 
@@ -287,6 +301,7 @@ public class DeclPassMemberRegisterSubPass :
         }
 
         var symbol = new TypeSymbol(node.Name, TypeKind.Struct);
+        RegisterGenericParameters(symbol, node.GenericArguments);
 
         _currentSymbol.AddSymbol(symbol);
 

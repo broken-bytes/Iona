@@ -31,6 +31,13 @@ namespace Parser.Parsers
 
             var nameBuilder = new StringBuilder();
 
+            // Function type: `(T1, T2) -> R` (or `() -> R`). Distinguished from a grouped
+            // type by the `->` after the closing `)`.
+            if (token.Type == TokenType.ParenLeft && IsFunctionTypeAhead(stream))
+            {
+                return ParseFunctionType(stream, parent);
+            }
+
             if (token.Type == TokenType.BracketLeft)
             {
                 token = stream.Consume(TokenType.BracketLeft, TokenFamily.Keyword);
@@ -135,6 +142,65 @@ namespace Parser.Parsers
             }
 
             return type;
+        }
+
+        // Cheap lookahead: walk a parenthesised region, counting depth, then check whether
+        // the immediately-following token is `->`. Stops at the first imbalance.
+        private static bool IsFunctionTypeAhead(TokenStream stream)
+        {
+            int depth = 0;
+            int idx = 0;
+            var snapshot = stream.Peek(Math.Min(stream.Count(), 256));
+            foreach (var t in snapshot)
+            {
+                if (t.Type == TokenType.ParenLeft) { depth++; }
+                else if (t.Type == TokenType.ParenRight)
+                {
+                    depth--;
+                    if (depth == 0)
+                    {
+                        idx++;
+                        return idx < snapshot.Count && snapshot[idx].Type == TokenType.Arrow;
+                    }
+                }
+                idx++;
+            }
+            return false;
+        }
+
+        private FunctionTypeNode ParseFunctionType(TokenStream stream, INode? parent)
+        {
+            var lparen = stream.Consume(TokenType.ParenLeft, TokenFamily.Grouping);
+            var fnType = new FunctionTypeNode(parent);
+            Utils.SetStart(fnType, lparen);
+
+            while (stream.Peek().Type != TokenType.ParenRight)
+            {
+                var paramType = Parse(stream, fnType);
+                if (paramType != null)
+                {
+                    fnType.ParameterTypes.Add(paramType);
+                }
+                if (stream.Peek().Type == TokenType.Comma)
+                {
+                    stream.Consume(TokenType.Comma, TokenFamily.Operator);
+                }
+            }
+            stream.Consume(TokenType.ParenRight, TokenFamily.Grouping);
+            stream.Consume(TokenType.Arrow, TokenFamily.Operator);
+
+            fnType.ReturnType = Parse(stream, fnType);
+
+            // Encode arity in the FQN so DeclPass can register a parent-less TypeSymbol with
+            // the right name before TypeResolver runs later.
+            var arity = fnType.ParameterTypes.Count;
+            var retName = fnType.ReturnType?.Name;
+            var isVoid = retName == "Void";
+            fnType.FullyQualifiedName = isVoid
+                ? (arity == 0 ? "System.Action" : $"System.Action`{arity}")
+                : $"System.Func`{arity + 1}";
+
+            return (FunctionTypeNode)ApplyOptionalOrWeak(stream, fnType);
         }
 
         private void EmitTypeNotFoundError(string typeName, Metadata meta)

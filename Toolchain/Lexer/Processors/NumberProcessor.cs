@@ -48,6 +48,13 @@ namespace Lexer.Processors
                 {
                     break;
                 }
+                else
+                {
+                    // Anything else — whitespace, comma, bracket, paren — terminates the number.
+                    // (Previously falling through here silently skipped chars and concatenated
+                    // adjacent numbers, e.g. `10, 20, 30` became `102030`.)
+                    break;
+                }
             }
 
             if (number.Length == 0)

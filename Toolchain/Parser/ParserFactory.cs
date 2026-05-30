@@ -77,6 +77,7 @@ namespace Parser
             propertyParser.Setup(statementParser);
             recordParser.Setup(statementParser);
             structParser.Setup(statementParser);
+            expressionParser.SetStatementParser(statementParser);
 
             return new Parser(statementParser, errorCollector);
         }

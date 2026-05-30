@@ -173,8 +173,10 @@ namespace Parser.Parsers
         private TokenStream GetParameterExpression(TokenStream stream)
         {
             int functionNesting = 0;
+            int bracketDepth = 0;
+            int braceDepth = 0;
             var tokens = new List<Token>();
-            
+
             // (..) is one subexpression. We use it to check if we are still in a param expression or hit the enclosing `)`
             var subExpressions = 0;
 
@@ -184,8 +186,9 @@ namespace Parser.Parsers
             {
                 if (token.Type is TokenType.Comma)
                 {
-                    // When we are inside of another function call we do not want to break
-                    if (functionNesting == 0)
+                    // Commas inside nested calls, bracket literals, or brace blocks are part of
+                    // the current arg value — keep going until we see a *top-level* comma.
+                    if (functionNesting == 0 && bracketDepth == 0 && braceDepth == 0)
                     {
                         break;
                     }
@@ -197,7 +200,7 @@ namespace Parser.Parsers
                     {
                         functionNesting--;
                     }
-                    else
+                    else if (bracketDepth == 0 && braceDepth == 0)
                     {
                         if (subExpressions == 0)
                         {
@@ -211,7 +214,7 @@ namespace Parser.Parsers
                 if (token.Type == TokenType.ParenLeft)
                 {
                     // Nested function call
-                    if (tokens.Last().Type is TokenType.Identifier)
+                    if (tokens.Count > 0 && tokens.Last().Type is TokenType.Identifier)
                     {
                         functionNesting++;
                     }
@@ -220,11 +223,15 @@ namespace Parser.Parsers
                         subExpressions++;
                     }
                 }
-                
+                else if (token.Type == TokenType.BracketLeft) { bracketDepth++; }
+                else if (token.Type == TokenType.BracketRight) { bracketDepth--; }
+                else if (token.Type == TokenType.CurlyLeft) { braceDepth++; }
+                else if (token.Type == TokenType.CurlyRight) { braceDepth--; }
+
                 tokens.Add(token);
 
                 stream.Consume();
-                
+
                 token = stream.Peek();
             }
 

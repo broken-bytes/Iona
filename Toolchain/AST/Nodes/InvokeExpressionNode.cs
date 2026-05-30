@@ -1,4 +1,4 @@
-﻿//|--- InitCallNode.cs -----------------------------------------|
+//|--- InvokeExpressionNode.cs ---------------------------------|
 //
 // This source code file is part of the Iona project.
 //
@@ -14,29 +14,26 @@ using static AST.Nodes.INode;
 
 namespace AST.Nodes
 {
-    public class InitCallNode : ICallNode
+    public class InvokeExpressionNode : IExpressionNode
     {
-        public string TypeFullName { get; set; }
         public INode? Parent { get; set; }
         public NodeType Type { get; set; }
         public FileNode Root => Utils.GetRoot(this);
+        public IExpressionNode Callee { get; set; }
         public List<FuncCallArg> Args { get; set; } = [];
-        // Generic type arguments supplied at the call site, e.g. `Box<Int32>()`. Empty for
-        // non-generic constructions.
-        public List<GenericArgument> GenericArgs { get; set; } = new();
         public ResolutionStatus Status { get; set; } = ResolutionStatus.Unresolved;
         public Metadata Meta { get; set; }
         public ExpressionType ExpressionType => ExpressionType.FunctionCall;
         public TypeReferenceNode? ResultType { get; set; }
 
-        public InitCallNode(string typeFQN, INode? parent = null)
+        public InvokeExpressionNode(IExpressionNode callee, INode? parent = null)
         {
-            TypeFullName = typeFQN;
             Type = NodeType.FuncCall;
             Parent = parent;
+            Callee = callee;
         }
 
-        public void Accept(IInitCallVisitor visitor)
+        public void Accept(IInvokeExpressionVisitor visitor)
         {
             visitor.Visit(this);
         }

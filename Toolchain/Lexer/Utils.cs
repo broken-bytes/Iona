@@ -117,6 +117,7 @@ namespace Lexer
                 // Special
                 case TokenType.Comma:
                 case TokenType.Colon:
+                case TokenType.Hash:
                 case TokenType.Linebreak:
                     return TokenFamily.Special;
 

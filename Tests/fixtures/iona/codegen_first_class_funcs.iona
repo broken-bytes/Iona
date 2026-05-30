@@ -1,0 +1,20 @@
+module App
+
+use System
+
+fn double(x: Int32) -> Int32 {
+    return x + x
+}
+
+fn apply(f: (Int32) -> Int32, x: Int32) -> Int32 {
+    return f(x: x)
+}
+
+fn main() -> Int32 {
+    let g = ::double
+    let r1 = g(x: 5)
+    let r2 = apply(f: ::double, x: 7)
+    printLn(message: "${r1}")
+    printLn(message: "${r2}")
+    return 0
+}

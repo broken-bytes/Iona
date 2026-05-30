@@ -148,6 +148,7 @@ namespace Generator
             }
 
             var typeDef = new TypeDefinition(ns, node.Name, attrs, baseRef);
+            AttachGenericParameters(typeDef, node.GenericArguments);
 
             // Contracts → interfaces
             foreach (var contract in node.Contracts)
@@ -159,6 +160,7 @@ namespace Generator
             }
 
             _module.Types.Add(typeDef);
+            ApplyUserAttributes(typeDef, node.Attributes);
 
             var prevType = _currentType;
             _currentType = typeDef;
@@ -171,6 +173,46 @@ namespace Generator
             _currentType = prevType;
         }
 
+        // Translate Iona `#over<T, S>` (AST-level GenericArgument list) into Cecil
+        // GenericParameter entries on the receiving TypeDefinition, and append the standard
+        // `\`N` arity suffix to the type's name — Cecil doesn't do this automatically and
+        // .NET's metadata loader expects it for generic types.
+        // Each declared `& Constraint` is also serialised through GenericParameter.Constraints
+        // so C# tooling sees the bound. Sibling-generic constraints (`where T: U`) are skipped
+        // here — they're resolved at typeck time but don't have a stable Cecil representation
+        // until we map them through the parameter index.
+        private void AttachGenericParameters(TypeDefinition typeDef, List<GenericArgument> args)
+        {
+            if (args.Count == 0) { return; }
+            foreach (var ga in args)
+            {
+                var gp = new Mono.Cecil.GenericParameter(ga.Name, typeDef);
+                AddGenericParamConstraints(gp, ga, args);
+                typeDef.GenericParameters.Add(gp);
+            }
+            typeDef.Name = typeDef.Name + "`" + args.Count;
+        }
+
+        // Shared between TypeDefinition and MethodDefinition GenericParameter emission. Walks
+        // each `& Constraint` in the AST and adds a Cecil GenericParameterConstraint. Sibling
+        // refs (constraint name matches another generic param on the same owner) are skipped
+        // here — those exist as call-site validation only.
+        private void AddGenericParamConstraints(
+            Mono.Cecil.GenericParameter gp,
+            GenericArgument astArg,
+            List<GenericArgument> siblings)
+        {
+            foreach (var constraintRef in astArg.Constraints)
+            {
+                if (siblings.Any(s => s.Name == constraintRef.Name))
+                {
+                    continue;
+                }
+                var typeRef = ResolveTypeReference(constraintRef);
+                gp.Constraints.Add(new GenericParameterConstraint(typeRef));
+            }
+        }
+
         private void EmitRecord(RecordNode node, string ns)
         {
             // Records are immutable value types (stack-allocated, structural equality via
@@ -180,6 +222,7 @@ namespace Generator
 
             var valueTypeRef = _module.ImportReference(typeof(System.ValueType));
             var typeDef = new TypeDefinition(ns, node.Name, attrs, valueTypeRef);
+            AttachGenericParameters(typeDef, node.GenericArguments);
 
             foreach (var contract in node.Contracts)
             {
@@ -190,6 +233,7 @@ namespace Generator
             }
 
             _module.Types.Add(typeDef);
+            ApplyUserAttributes(typeDef, node.Attributes);
 
             var prevType = _currentType;
             _currentType = typeDef;
@@ -211,6 +255,7 @@ namespace Generator
 
             var valueTypeRef = _module.ImportReference(typeof(System.ValueType));
             var typeDef = new TypeDefinition(ns, node.Name, attrs, valueTypeRef);
+            AttachGenericParameters(typeDef, node.GenericArguments);
 
             foreach (var contract in node.Contracts)
             {
@@ -221,6 +266,7 @@ namespace Generator
             }
 
             _module.Types.Add(typeDef);
+            ApplyUserAttributes(typeDef, node.Attributes);
 
             var prevType = _currentType;
             _currentType = typeDef;
@@ -347,6 +393,7 @@ namespace Generator
             var typeDef = new TypeDefinition(ns, node.Name, attrs, null);
 
             _module.Types.Add(typeDef);
+            ApplyUserAttributes(typeDef, node.Attributes);
 
             var prevType = _currentType;
             _currentType = typeDef;
@@ -395,6 +442,7 @@ namespace Generator
                 var paramType = ResolveTypeReference(param.TypeNode);
                 var paramDef = new Mono.Cecil.ParameterDefinition(param.Name, ParameterAttributes.None, paramType);
                 ApplyNullableAttribute(paramDef, param.TypeNode, paramType);
+                ApplyUserAttributes(paramDef, param.Attributes);
                 method.Parameters.Add(paramDef);
             }
 
@@ -473,6 +521,7 @@ namespace Generator
                 var fieldAttrs = CecilFieldAccess(node.AccessLevel);
                 var fieldDef = new Mono.Cecil.FieldDefinition(node.Name, fieldAttrs, fieldType);
                 ApplyNullableAttribute(fieldDef, node.TypeNode, fieldType);
+                ApplyUserAttributes(fieldDef, node.Attributes);
                 _currentType.Fields.Add(fieldDef);
             }
             else
@@ -514,6 +563,7 @@ namespace Generator
                 }
 
                 ApplyNullableAttribute(propDef, node.TypeNode, fieldType);
+                ApplyUserAttributes(propDef, node.Attributes);
                 _currentType.Properties.Add(propDef);
             }
         }
@@ -536,7 +586,6 @@ namespace Generator
                 return;
             }
 
-            var returnType = ResolveTypeReference(retTypeRef);
             var attrs2 = CecilMethodAccess(node.AccessLevel) | MethodAttributes.HideBySig;
 
             if (node.IsStatic)
@@ -552,24 +601,56 @@ namespace Generator
                 attrs2 |= MethodAttributes.Virtual;
             }
 
+            // Build the MethodDefinition with a void placeholder return type, then attach
+            // generic parameters BEFORE resolving the real return / param types. That way any
+            // `T` reference in the signature can be bound against the method's own type params
+            // through ResolveTypeReference's _currentMethod lookup.
+            var voidRef = _module.ImportReference(typeof(void));
             var method = new MethodDefinition(
                 Shared.Utils.IonaToCSharpName(node.Name),
                 attrs2,
-                returnType);
+                voidRef);
 
-            // Apply [Nullable] to return type for reference types
-            if (retTypeRef.Name != "Void")
+            AttachMethodGenericParameters(method, node.GenericArguments);
+
+            var prevMethodForSig = _currentMethod;
+            _currentMethod = method;
+            try
             {
-                ApplyNullableAttribute(method.MethodReturnType, retTypeRef, returnType);
-            }
+                method.ReturnType = ResolveTypeReference(retTypeRef);
 
-            BuildMethodParams(method, node.Parameters, !node.IsStatic);
+                if (retTypeRef.Name != "Void")
+                {
+                    ApplyNullableAttribute(method.MethodReturnType, retTypeRef, method.ReturnType);
+                }
+
+                BuildMethodParams(method, node.Parameters, !node.IsStatic);
+            }
+            finally
+            {
+                _currentMethod = prevMethodForSig;
+            }
 
             method.Body = new Mono.Cecil.Cil.MethodBody(method);
 
             _currentType.Methods.Add(method);
+            ApplyUserAttributes(method, node.Attributes);
 
             EmitMethodBody(method, node.Body, !node.IsStatic);
+        }
+
+        // Translate FuncNode.GenericArguments into Cecil MethodDefinition.GenericParameters.
+        // Methods (unlike types) don't get a `\`N` suffix on their Name — the metadata format
+        // attaches arity through the GenericParameters collection directly. Constraints land
+        // through the same AddGenericParamConstraints helper as types.
+        private void AttachMethodGenericParameters(MethodDefinition method, List<GenericArgument> args)
+        {
+            foreach (var ga in args)
+            {
+                var gp = new Mono.Cecil.GenericParameter(ga.Name, method);
+                AddGenericParamConstraints(gp, ga, args);
+                method.GenericParameters.Add(gp);
+            }
         }
 
         private void EmitInit(InitNode node)
@@ -658,20 +739,36 @@ namespace Generator
                 return;
             }
 
-            var returnType = ResolveTypeReference(retTypeRef);
             var attrs2 = CecilMethodAccess(node.AccessLevel) | MethodAttributes.Static | MethodAttributes.HideBySig;
 
+            var voidRef = _module.ImportReference(typeof(void));
             var method = new MethodDefinition(
                 Shared.Utils.IonaToCSharpName(node.Name),
                 attrs2,
-                returnType);
+                voidRef);
 
-            ApplyNullableAttribute(method.MethodReturnType, retTypeRef, returnType);
+            AttachMethodGenericParameters(method, node.GenericArguments);
 
-            BuildMethodParams(method, node.Parameters, isInstance: false);
+            // Set _currentMethod so any `T` references in the signature can be resolved against
+            // the method's own generic parameters (same trick as for instance methods).
+            var prevMethodForSig = _currentMethod;
+            _currentMethod = method;
+            Mono.Cecil.TypeReference returnType;
+            try
+            {
+                returnType = ResolveTypeReference(retTypeRef);
+                method.ReturnType = returnType;
+                ApplyNullableAttribute(method.MethodReturnType, retTypeRef, returnType);
+                BuildMethodParams(method, node.Parameters, isInstance: false);
+            }
+            finally
+            {
+                _currentMethod = prevMethodForSig;
+            }
 
             method.Body = new Mono.Cecil.Cil.MethodBody(method);
             moduleType.Methods.Add(method);
+            ApplyUserAttributes(method, node.Attributes);
 
             EmitMethodBody(method, node.Body, isInstance: false);
 
@@ -732,6 +829,7 @@ namespace Generator
                 var paramType = ResolveTypeReference(param.TypeNode);
                 var paramDef = new Mono.Cecil.ParameterDefinition(param.Name, ParameterAttributes.None, paramType);
                 ApplyNullableAttribute(paramDef, param.TypeNode, paramType);
+                ApplyUserAttributes(paramDef, param.Attributes);
                 method.Parameters.Add(paramDef);
             }
         }
@@ -785,6 +883,14 @@ namespace Generator
                     EmitFuncCall(funcCall);
                     // Pop result if used as statement and method returns non-void
                     if (funcCall.ResultType != null && funcCall.ResultType.FullyQualifiedName != "Iona.Builtins.Void")
+                    {
+                        _il!.Emit(OpCodes.Pop);
+                    }
+                    break;
+                case InvokeExpressionNode invokeStmt:
+                    EmitInvokeExpression(invokeStmt);
+                    if (invokeStmt.ResultType != null
+                        && invokeStmt.ResultType.FullyQualifiedName != "Iona.Builtins.Void")
                     {
                         _il!.Emit(OpCodes.Pop);
                     }
@@ -1261,6 +1367,21 @@ namespace Generator
                 case InterpolatedStringNode interp:
                     EmitInterpolatedString(interp);
                     break;
+                case FunctionReferenceNode fnRef:
+                    EmitFunctionReference(fnRef);
+                    break;
+                case LambdaNode lambda:
+                    EmitLambda(lambda);
+                    break;
+                case InvokeExpressionNode invoke:
+                    EmitInvokeExpression(invoke);
+                    break;
+                case ArrayLiteralNode arrayLit:
+                    EmitArrayLiteral(arrayLit);
+                    break;
+                case MapLiteralNode mapLit:
+                    EmitMapLiteral(mapLit);
+                    break;
                 case IdentifierNode identifier:
                     EmitIdentifier(identifier);
                     break;
@@ -1432,15 +1553,26 @@ namespace Generator
                 EmitLdcI4(i);
                 EmitExpression(node.Segments[i]);
 
-                // Box value types so the object[] slot is well-typed.
+                // Box value types so the object[] slot is well-typed. For a generic-parameter
+                // typed value we don't know at compile time whether T is a value type — the
+                // safe `box !!N` instruction is a no-op for reference types at runtime, so it
+                // covers both cases.
                 var segExpr = node.Segments[i] as IExpressionNode;
                 if (segExpr?.ResultType != null)
                 {
-                    var segType = ResolveTypeByFQN(segExpr.ResultType.FullyQualifiedName, segExpr.ResultType.TypeKind);
-                    var segDef = segType.Resolve();
-                    if (segDef != null && segDef.IsValueType)
+                    if (segExpr.ResultType.TypeKind == Kind.Generic
+                        || segExpr.ResultType.ReferenceKind == TypeReferenceKind.Generic)
                     {
-                        _il.Emit(OpCodes.Box, segType);
+                        _il.Emit(OpCodes.Box, ResolveTypeReference((TypeReferenceNode)segExpr.ResultType));
+                    }
+                    else
+                    {
+                        var segType = ResolveTypeByFQN(segExpr.ResultType.FullyQualifiedName, segExpr.ResultType.TypeKind);
+                        var segDef = segType.Resolve();
+                        if (segDef != null && segDef.IsValueType)
+                        {
+                            _il.Emit(OpCodes.Box, segType);
+                        }
                     }
                 }
                 _il.Emit(OpCodes.Stelem_Ref);
@@ -1452,6 +1584,14 @@ namespace Generator
         private void EmitIdentifier(IdentifierNode node)
         {
             if (_il == null) return;
+
+            // Closure capture: identifier resolves to a hoisted field on the closure `this`.
+            if (_activeCaptureFields != null && _activeCaptureFields.TryGetValue(node.Value, out var captureField))
+            {
+                _il.Emit(OpCodes.Ldarg_0);
+                _il.Emit(OpCodes.Ldfld, captureField);
+                return;
+            }
 
             // Async: check hoisted locals and params first
             if (_isAsyncMoveNext)
@@ -1639,6 +1779,13 @@ namespace Generator
         {
             if (_il == null) return;
 
+            // Resolver tagged this as `f(args)` on a function-typed binding — delegate Invoke.
+            if (node.IsDelegateInvocation)
+            {
+                EmitDelegateInvocation(node);
+                return;
+            }
+
             // Push arguments
             foreach (var arg in node.Args)
             {
@@ -1762,11 +1909,31 @@ namespace Generator
                 Mono.Cecil.TypeReference? ownerType = null;
                 if (node.Object is SelfNode && _currentType != null)
                 {
-                    ownerType = _currentType;
+                    // Inside an instance method on a generic type, `self` is the closed
+                    // instance — synthesise a GenericInstanceType so member binding closes T.
+                    if (_currentType.HasGenericParameters)
+                    {
+                        var closed = new GenericInstanceType(_currentType);
+                        foreach (var gp in _currentType.GenericParameters)
+                        {
+                            closed.GenericArguments.Add(gp);
+                        }
+                        ownerType = closed;
+                    }
+                    else
+                    {
+                        ownerType = _currentType;
+                    }
                 }
-                else if (node.Object is IExpressionNode objExpr && objExpr.ResultType != null)
+                else
                 {
-                    ownerType = ResolveTypeByFQN(objExpr.ResultType.FullyQualifiedName, objExpr.ResultType.TypeKind);
+                    // Pull the closed Cecil type straight off the local/parameter slot — the
+                    // AST ResultType loses generic args during symbol-table round-trips.
+                    ownerType = TryGetReceiverOwnerType(node.Object);
+                    if (ownerType == null && node.Object is IExpressionNode objExpr && objExpr.ResultType != null)
+                    {
+                        ownerType = ResolveTypeReference((TypeReferenceNode)objExpr.ResultType);
+                    }
                 }
                 EmitFieldOrPropertyLoad(propIdent, ownerType);
             }
@@ -1788,6 +1955,36 @@ namespace Generator
                 else
                 {
                     methodRef = ResolveMethodReference(funcCall);
+                    // Bind to the closed receiver — if the receiver is `Box<Int32>`, the slot
+                    // resolution needs the closed type, not the open `Box\`1`. Handle both the
+                    // direct MethodDefinition case (non-generic method) and the
+                    // GenericInstanceMethod case (generic method already wrapped by
+                    // `CloseGenericMethodIfNeeded`); for the latter, rebind the underlying
+                    // element method and reapply the type-argument instantiation.
+                    var receiverOwner = TryGetReceiverOwnerType(node.Object);
+                    if (receiverOwner != null)
+                    {
+                        if (methodRef is MethodDefinition methodDef)
+                        {
+                            methodRef = BindMethodToOwner(methodDef, receiverOwner);
+                        }
+                        else if (methodRef is GenericInstanceMethod gim
+                                 && gim.ElementMethod is MethodDefinition elemDef)
+                        {
+                            var rebound = BindMethodToOwner(elemDef, receiverOwner);
+                            // Promote rebound to a generic-param-carrying ref so we can wrap.
+                            foreach (var gp in elemDef.GenericParameters)
+                            {
+                                rebound.GenericParameters.Add(new Mono.Cecil.GenericParameter(gp.Name, rebound));
+                            }
+                            var reInst = new GenericInstanceMethod(rebound);
+                            foreach (var ga in gim.GenericArguments)
+                            {
+                                reInst.GenericArguments.Add(ga);
+                            }
+                            methodRef = reInst;
+                        }
+                    }
                 }
 
                 if (methodRef != null)
@@ -1825,13 +2022,31 @@ namespace Generator
             // Resolve the owning type from the object's static type — not _currentType,
             // which would only be right for `self.x = ...` and break `other.x = ...`.
             Mono.Cecil.TypeDefinition? ownerDef = null;
+            Mono.Cecil.TypeReference? ownerRef = null;
             if (propAccess.Object is SelfNode)
             {
                 ownerDef = _currentType;
+                // Inside an instance method on a generic type, `self` is the closed instance —
+                // build a GenericInstanceType from the current TypeDef's GenericParameters so
+                // stfld targets the closed slot.
+                if (_currentType != null && _currentType.HasGenericParameters)
+                {
+                    var selfClosed = new GenericInstanceType(_currentType);
+                    foreach (var gp in _currentType.GenericParameters)
+                    {
+                        selfClosed.GenericArguments.Add(gp);
+                    }
+                    ownerRef = selfClosed;
+                }
             }
-            else if (propAccess.Object is IExpressionNode objExpr && objExpr.ResultType != null)
+            else
             {
-                ownerDef = ResolveTypeByFQN(objExpr.ResultType.FullyQualifiedName, objExpr.ResultType.TypeKind).Resolve();
+                ownerRef = TryGetReceiverOwnerType(propAccess.Object);
+                if (ownerRef == null && propAccess.Object is IExpressionNode objExpr && objExpr.ResultType != null)
+                {
+                    ownerRef = ResolveTypeReference((TypeReferenceNode)objExpr.ResultType);
+                }
+                ownerDef = ownerRef?.Resolve();
             }
             ownerDef ??= _currentType;
             if (ownerDef == null) return;
@@ -1839,7 +2054,7 @@ namespace Generator
             var field = ownerDef.Fields.FirstOrDefault(f => f.Name == propIdent.Value || f.Name == propIdent.ILValue);
             if (field != null)
             {
-                var fieldRef = field.Module == _module ? (FieldReference)field : _module.ImportReference(field);
+                var fieldRef = BindFieldToOwner(field, ownerRef);
                 _il.Emit(OpCodes.Stfld, fieldRef);
                 return;
             }
@@ -1871,7 +2086,7 @@ namespace Generator
             var field = ownerDef.Fields.FirstOrDefault(f => f.Name == ident.Value || f.Name == ident.ILValue);
             if (field != null)
             {
-                var fieldRef = field.Module == _module ? (FieldReference)field : _module.ImportReference(field);
+                var fieldRef = BindFieldToOwner(field, ownerType);
                 _il.Emit(field.IsStatic ? OpCodes.Ldsfld : OpCodes.Ldfld, fieldRef);
                 return;
             }
@@ -1880,9 +2095,71 @@ namespace Generator
             var prop = ownerDef.Properties.FirstOrDefault(p => p.Name == ident.Value || p.Name == ident.ILValue);
             if (prop?.GetMethod != null)
             {
-                var getter = _module.ImportReference(prop.GetMethod);
+                var getter = BindMethodToOwner(prop.GetMethod, ownerType);
                 _il.Emit(prop.GetMethod.IsStatic ? OpCodes.Call : OpCodes.Callvirt, getter);
             }
+        }
+
+        // Returns a closed receiver type for a PropAccess.Object — used when re-binding
+        // member references on calls like `box.method()` where the receiver carries generic
+        // arguments that must propagate through the IL. Reading the Cecil type of the local
+        // or parameter directly is more reliable than going through the AST ResultType,
+        // which often drops the generic-arg list during symbol-table round-trips.
+        private Mono.Cecil.TypeReference? TryGetReceiverOwnerType(INode? receiver)
+        {
+            if (receiver is IdentifierNode ident)
+            {
+                if (_locals.TryGetValue(ident.Value, out var local)) { return local.VariableType; }
+                if (_currentMethod != null && _parameterIndices.TryGetValue(ident.Value, out var pi))
+                {
+                    var offset = _currentMethodIsInstance ? 1 : 0;
+                    var idx = pi - offset;
+                    if (idx >= 0 && idx < _currentMethod.Parameters.Count)
+                    {
+                        return _currentMethod.Parameters[idx].ParameterType;
+                    }
+                }
+            }
+            if (receiver is IExpressionNode expr && expr.ResultType != null)
+            {
+                return ResolveTypeReference((TypeReferenceNode)expr.ResultType);
+            }
+            return null;
+        }
+
+        // Bind a FieldDefinition (defined on the open generic type) to its closed-generic
+        // receiver — otherwise `ldfld T Box`1::value` fails at JIT because the field offset
+        // can't be resolved without the type closure.
+        private FieldReference BindFieldToOwner(FieldDefinition field, Mono.Cecil.TypeReference? ownerType)
+        {
+            if (ownerType is GenericInstanceType closed
+                && closed.ElementType.FullName == field.DeclaringType.FullName)
+            {
+                return new FieldReference(field.Name, field.FieldType, closed);
+            }
+            return field.Module == _module ? (FieldReference)field : _module.ImportReference(field);
+        }
+
+        // Bind a MethodDefinition to a closed-generic receiver, same reason: `callvirt`
+        // against an open generic's method ref can't resolve the slot at JIT time.
+        private MethodReference BindMethodToOwner(MethodDefinition method, Mono.Cecil.TypeReference? ownerType)
+        {
+            if (ownerType is GenericInstanceType closed
+                && closed.ElementType.FullName == method.DeclaringType.FullName)
+            {
+                var bound = new MethodReference(method.Name, method.ReturnType, closed)
+                {
+                    HasThis = method.HasThis,
+                    ExplicitThis = method.ExplicitThis,
+                    CallingConvention = method.CallingConvention
+                };
+                foreach (var p in method.Parameters)
+                {
+                    bound.Parameters.Add(new ParameterDefinition(p.ParameterType));
+                }
+                return bound;
+            }
+            return _module.ImportReference(method);
         }
 
         private MethodReference? EmitScopeResolution(ScopeResolutionNode node)
@@ -2113,7 +2390,43 @@ namespace Generator
 
         internal Mono.Cecil.TypeReference ResolveTypeReference(TypeReferenceNode node)
         {
+            // Function types lower to a closed-over System.Func<...> / System.Action<...>.
+            if (node is FunctionTypeNode fnType)
+            {
+                return BuildDelegateType(fnType);
+            }
+
+            // Generic parameter (`T` inside a `#over<T>` class) — look it up on the enclosing
+            // type or method we're currently emitting into. The Cecil GenericParameter was
+            // attached at type-declaration time by AttachGenericParameters.
+            if (node.ReferenceKind == AST.Nodes.TypeReferenceKind.Generic
+                || node.TypeKind == Kind.Generic)
+            {
+                var fromType = _currentType?.GenericParameters.FirstOrDefault(p => p.Name == node.Name);
+                if (fromType != null) { return fromType; }
+                var fromMethod = _currentMethod?.GenericParameters.FirstOrDefault(p => p.Name == node.Name);
+                if (fromMethod != null) { return fromMethod; }
+                // Fall through to the normal lookup if we can't bind the name — better to fail
+                // visibly than to emit a malformed reference.
+            }
+
             var baseType = ResolveTypeByFQN(node.FullyQualifiedName, node.TypeKind);
+
+            // Close generic types from their TypeReferenceNode arguments — e.g. List<Int32>
+            // becomes a closed `System.Collections.Generic.List<int>`.
+            if (node.GenericArguments.Count > 0 && baseType is TypeReference openGeneric
+                && openGeneric.GenericParameters.Count > 0)
+            {
+                var closed = new GenericInstanceType(openGeneric);
+                foreach (var g in node.GenericArguments)
+                {
+                    if (g is TypeReferenceNode gRef)
+                    {
+                        closed.GenericArguments.Add(ResolveTypeReference(gRef));
+                    }
+                }
+                baseType = closed;
+            }
 
             // For optional value types (Int?, Bool?, etc.), wrap in Nullable<T>
             if (node.IsOptional && baseType.IsValueType)
@@ -2127,6 +2440,440 @@ namespace Generator
             // Reference type optionals don't need wrapping — they're inherently nullable.
             // NullableAttribute metadata is added separately by the caller.
             return baseType;
+        }
+
+        // Lower `(T1, T2) -> R` to a closed System.Func<T1,T2,R> (or System.Action<T1,T2>
+        // when R is Void). Arity is encoded in the open generic name (`Action`1`, `Func`2`).
+        private Mono.Cecil.TypeReference BuildDelegateType(FunctionTypeNode fnType)
+        {
+            var arity = fnType.ParameterTypes.Count;
+            var retFqn = fnType.ReturnType?.FullyQualifiedName;
+            var isVoid = retFqn == null || retFqn == "Iona.Builtins.Void" || retFqn == "System.Void";
+
+            Mono.Cecil.TypeReference openDelegate;
+            if (isVoid)
+            {
+                openDelegate = arity switch
+                {
+                    0 => _module.ImportReference(typeof(System.Action)),
+                    1 => _module.ImportReference(typeof(System.Action<>)),
+                    2 => _module.ImportReference(typeof(System.Action<,>)),
+                    3 => _module.ImportReference(typeof(System.Action<,,>)),
+                    4 => _module.ImportReference(typeof(System.Action<,,,>)),
+                    _ => throw new NotSupportedException($"Action arity {arity} not supported yet")
+                };
+            }
+            else
+            {
+                openDelegate = arity switch
+                {
+                    0 => _module.ImportReference(typeof(System.Func<>)),
+                    1 => _module.ImportReference(typeof(System.Func<,>)),
+                    2 => _module.ImportReference(typeof(System.Func<,,>)),
+                    3 => _module.ImportReference(typeof(System.Func<,,,>)),
+                    4 => _module.ImportReference(typeof(System.Func<,,,,>)),
+                    _ => throw new NotSupportedException($"Func arity {arity} not supported yet")
+                };
+            }
+
+            if (arity == 0 && isVoid)
+            {
+                return openDelegate;
+            }
+
+            var closed = new GenericInstanceType(openDelegate);
+            foreach (var p in fnType.ParameterTypes)
+            {
+                closed.GenericArguments.Add(ResolveTypeReference((TypeReferenceNode)p));
+            }
+            if (!isVoid)
+            {
+                closed.GenericArguments.Add(ResolveTypeReference((TypeReferenceNode)fnType.ReturnType!));
+            }
+            return closed;
+        }
+
+        // `[1, 2, 3]` → `newobj List<T>; dup; ldc 1; callvirt Add; …` repeated per element.
+        // The element type comes from the literal's inferred ResultType generic argument.
+        private void EmitArrayLiteral(ArrayLiteralNode node)
+        {
+            if (_il == null || node.ResultType == null) { return; }
+            var listType = ResolveTypeReference(node.ResultType);
+            var listDef = listType.Resolve();
+            if (listDef == null) { return; }
+
+            var openCtor = listDef.Methods.First(m => m.IsConstructor && m.Parameters.Count == 0);
+            var openAdd = listDef.Methods.First(m => m.Name == "Add" && m.Parameters.Count == 1);
+
+            // The ctor + Add we just found are on the OPEN generic. Re-bind them to the closed
+            // generic instance so the JIT picks the right element type.
+            var ctorRef = MakeGenericRef(openCtor, listType);
+            var addRef = MakeGenericRef(openAdd, listType);
+
+            _il.Emit(OpCodes.Newobj, ctorRef);
+            foreach (var v in node.Values)
+            {
+                _il.Emit(OpCodes.Dup);
+                EmitExpression(v);
+                _il.Emit(OpCodes.Callvirt, addRef);
+            }
+        }
+
+        // `["a": 1, "b": 2]` → `newobj Dictionary<K, V>; dup; ldstr "a"; ldc 1; callvirt Add; …`.
+        private void EmitMapLiteral(MapLiteralNode node)
+        {
+            if (_il == null || node.ResultType == null) { return; }
+            var mapType = ResolveTypeReference(node.ResultType);
+            var mapDef = mapType.Resolve();
+            if (mapDef == null) { return; }
+
+            var openCtor = mapDef.Methods.First(m => m.IsConstructor && m.Parameters.Count == 0);
+            var openAdd = mapDef.Methods.First(m => m.Name == "Add" && m.Parameters.Count == 2);
+
+            var ctorRef = MakeGenericRef(openCtor, mapType);
+            var addRef = MakeGenericRef(openAdd, mapType);
+
+            _il.Emit(OpCodes.Newobj, ctorRef);
+            for (int i = 0; i < node.Keys.Count; i++)
+            {
+                _il.Emit(OpCodes.Dup);
+                EmitExpression(node.Keys[i]);
+                EmitExpression(node.Values[i]);
+                _il.Emit(OpCodes.Callvirt, addRef);
+            }
+        }
+
+        // Re-bind a method defined on an open generic type to a closed generic instance — the
+        // closed-type ctor/Add references that JIT-compiled code needs.
+        private MethodReference MakeGenericRef(MethodDefinition openMethod, Mono.Cecil.TypeReference closedType)
+        {
+            var imported = _module.ImportReference(openMethod);
+            var bound = new MethodReference(imported.Name, imported.ReturnType, closedType)
+            {
+                HasThis = imported.HasThis,
+                ExplicitThis = imported.ExplicitThis,
+                CallingConvention = imported.CallingConvention
+            };
+            foreach (var p in imported.Parameters)
+            {
+                bound.Parameters.Add(new ParameterDefinition(p.ParameterType));
+            }
+            return bound;
+        }
+
+        private int _lambdaCounter;
+
+        // Synthesize a closure class for the lambda, copy captured values into its fields,
+        // then return a delegate that points at its `Invoke` method. The class lives at
+        // the module namespace level with a `<>__Closure_<n>` name (matching C#'s convention).
+        private void EmitLambda(LambdaNode node)
+        {
+            if (_il == null || _currentMethod == null) return;
+
+            var fnType = node.ResultType as FunctionTypeNode;
+            if (fnType == null) { return; }
+
+            // Resolve each piece of the closure-method signature.
+            var paramCecil = node.Parameters
+                .Select(p => ResolveTypeReference(p.TypeNode))
+                .ToList();
+            var returnCecil = node.ReturnType != null
+                ? ResolveTypeReference(node.ReturnType)
+                : _module.ImportReference(typeof(void));
+
+            // Closure class
+            var closureName = $"<>__Closure_{_lambdaCounter++}";
+            var closureType = new TypeDefinition(
+                _module.Types.FirstOrDefault(t => t.Name == "Module")?.Namespace ?? "",
+                closureName,
+                TypeAttributes.NotPublic | TypeAttributes.Sealed | TypeAttributes.BeforeFieldInit,
+                _module.ImportReference(typeof(object)));
+            _module.Types.Add(closureType);
+
+            // Default parameterless ctor calling object::.ctor
+            var objCtor = _module.ImportReference(typeof(object).GetConstructor(System.Type.EmptyTypes)!);
+            var ctor = new MethodDefinition(".ctor",
+                MethodAttributes.Public | MethodAttributes.HideBySig
+                    | MethodAttributes.SpecialName | MethodAttributes.RTSpecialName,
+                _module.ImportReference(typeof(void)));
+            ctor.Body = new Mono.Cecil.Cil.MethodBody(ctor);
+            var ctorIl = ctor.Body.GetILProcessor();
+            ctorIl.Emit(OpCodes.Ldarg_0);
+            ctorIl.Emit(OpCodes.Call, objCtor);
+            ctorIl.Emit(OpCodes.Ret);
+            closureType.Methods.Add(ctor);
+
+            // Capture fields — one per captured outer name.
+            var captureFields = new Dictionary<string, FieldDefinition>();
+            foreach (var captureName in node.Captures)
+            {
+                var captureType = ResolveCaptureType(captureName);
+                if (captureType == null) { continue; }
+                var fd = new FieldDefinition(captureName, FieldAttributes.Public, captureType);
+                closureType.Fields.Add(fd);
+                captureFields[captureName] = fd;
+            }
+
+            // The Invoke method that holds the lambda body.
+            var invokeMethod = new MethodDefinition("Invoke",
+                MethodAttributes.Public | MethodAttributes.HideBySig,
+                returnCecil);
+            for (int i = 0; i < node.Parameters.Count; i++)
+            {
+                invokeMethod.Parameters.Add(new ParameterDefinition(
+                    node.Parameters[i].Name, ParameterAttributes.None, paramCecil[i]));
+            }
+            invokeMethod.Body = new Mono.Cecil.Cil.MethodBody(invokeMethod);
+            closureType.Methods.Add(invokeMethod);
+
+            // Emit body in the closure-method context. Save outer state, swap it for the
+            // lambda's, emit, then restore.
+            var prevType = _currentType;
+            var prevMethod = _currentMethod;
+            var prevIl = _il;
+            var prevLocals = new Dictionary<string, VariableDefinition>(_locals);
+            var prevParamIndices = new Dictionary<string, int>(_parameterIndices);
+            var prevIsInstance = _currentMethodIsInstance;
+            var prevCaptureFields = _activeCaptureFields;
+
+            _currentType = closureType;
+            _currentMethod = invokeMethod;
+            _il = invokeMethod.Body.GetILProcessor();
+            _locals.Clear();
+            _parameterIndices.Clear();
+            _currentMethodIsInstance = true;
+            _activeCaptureFields = captureFields;
+            for (int i = 0; i < node.Parameters.Count; i++)
+            {
+                _parameterIndices[node.Parameters[i].Name] = i + 1; // +1 for `this`
+            }
+
+            // Body: either a single expression (implicit return) or a BlockNode.
+            if (node.Body is IExpressionNode bodyExpr)
+            {
+                EmitExpression(bodyExpr);
+                if (returnCecil.FullName != "System.Void")
+                {
+                    _il.Emit(OpCodes.Ret);
+                }
+                else
+                {
+                    _il.Emit(OpCodes.Pop);
+                    _il.Emit(OpCodes.Ret);
+                }
+            }
+            else if (node.Body is BlockNode block)
+            {
+                EmitBlock(block);
+                if (invokeMethod.Body.Instructions.Count == 0
+                    || invokeMethod.Body.Instructions.Last().OpCode != OpCodes.Ret)
+                {
+                    _il.Emit(OpCodes.Ret);
+                }
+            }
+
+            _currentType = prevType;
+            _currentMethod = prevMethod;
+            _il = prevIl;
+            _locals.Clear();
+            foreach (var (k, v) in prevLocals) { _locals[k] = v; }
+            _parameterIndices.Clear();
+            foreach (var (k, v) in prevParamIndices) { _parameterIndices[k] = v; }
+            _currentMethodIsInstance = prevIsInstance;
+            _activeCaptureFields = prevCaptureFields;
+
+            // Use site: build the closure instance, populate captures, then build the delegate.
+            _il.Emit(OpCodes.Newobj, ctor);
+            foreach (var captureName in node.Captures)
+            {
+                if (!captureFields.TryGetValue(captureName, out var fd)) { continue; }
+                _il.Emit(OpCodes.Dup);
+                EmitCaptureValueLoad(captureName);
+                _il.Emit(OpCodes.Stfld, fd);
+            }
+
+            var delegateType = BuildDelegateType(fnType);
+            var delegateDef = delegateType.Resolve();
+            var delegateCtor = delegateDef.Methods.First(m => m.IsConstructor);
+            var delegateCtorRef = new MethodReference(delegateCtor.Name, delegateCtor.ReturnType, delegateType)
+            {
+                HasThis = delegateCtor.HasThis,
+                CallingConvention = delegateCtor.CallingConvention,
+            };
+            foreach (var p in delegateCtor.Parameters)
+            {
+                delegateCtorRef.Parameters.Add(new ParameterDefinition(p.ParameterType));
+            }
+
+            _il.Emit(OpCodes.Dup);  // closure instance for delegate's `this`
+            _il.Emit(OpCodes.Ldftn, invokeMethod);
+            _il.Emit(OpCodes.Newobj, delegateCtorRef);
+            // Stack now: [closure-instance, delegate]. We only want the delegate.
+            // Use a temp to discard the duplicated closure instance — actually we duplicated
+            // *before* the ldftn, so the consumed sequence was [closure, closure, IntPtr] for
+            // newobj. After newobj of delegate, stack is [closure, delegate]. Swap & pop:
+            var tmp = new VariableDefinition(delegateType);
+            _currentMethod!.Body.Variables.Add(tmp);
+            _il.Emit(OpCodes.Stloc, tmp);
+            _il.Emit(OpCodes.Pop);   // drop the leftover closure-instance
+            EmitLdloc(tmp);
+        }
+
+        // Closure-relative storage: when emitting inside a lambda's Invoke method, captured
+        // names load from `this.<fieldName>` instead of an outer local.
+        private Dictionary<string, FieldDefinition>? _activeCaptureFields;
+
+        private void EmitCaptureValueLoad(string name)
+        {
+            // The capture value is loaded from the *outer* method's local/parameter map.
+            if (_il == null) return;
+            if (_locals.TryGetValue(name, out var local))
+            {
+                EmitLdloc(local);
+                return;
+            }
+            if (_parameterIndices.TryGetValue(name, out var pi))
+            {
+                EmitLdarg(pi);
+                return;
+            }
+        }
+
+        private TypeReference? ResolveCaptureType(string name)
+        {
+            if (_locals.TryGetValue(name, out var local)) { return local.VariableType; }
+            if (_currentMethod != null && _parameterIndices.TryGetValue(name, out var pi))
+            {
+                var offset = _currentMethodIsInstance ? 1 : 0;
+                var idx = pi - offset;
+                if (idx >= 0 && idx < _currentMethod.Parameters.Count)
+                {
+                    return _currentMethod.Parameters[idx].ParameterType;
+                }
+            }
+            return null;
+        }
+
+        // Emit `ldftn <method>; newobj <delegateType>::.ctor(object, IntPtr)`.
+        private void EmitFunctionReference(FunctionReferenceNode node)
+        {
+            if (_il == null || node.ResultType is not FunctionTypeNode fnType) { return; }
+
+            var delegateType = BuildDelegateType(fnType);
+            var delegateDef = delegateType.Resolve();
+            if (delegateDef == null) { return; }
+
+            // Resolve the target method. Free funcs live on the synthesized `Module` class
+            // in the same namespace. Static methods on a named scope work the same way.
+            var csharpName = Shared.Utils.IonaToCSharpName(node.Name);
+            MethodReference? target = null;
+            foreach (var t in _module.Types)
+            {
+                var m = t.Methods.FirstOrDefault(mm => mm.Name == csharpName
+                    && mm.Parameters.Count == fnType.ParameterTypes.Count);
+                if (m != null) { target = m; break; }
+            }
+            if (target == null) { return; }
+
+            // For static methods, target reference is null.
+            _il.Emit(OpCodes.Ldnull);
+            _il.Emit(OpCodes.Ldftn, target);
+
+            var ctor = delegateDef.Methods.First(m => m.IsConstructor);
+            var ctorRef = new MethodReference(ctor.Name, ctor.ReturnType, delegateType)
+            {
+                HasThis = ctor.HasThis,
+                ExplicitThis = ctor.ExplicitThis,
+                CallingConvention = ctor.CallingConvention
+            };
+            foreach (var p in ctor.Parameters)
+            {
+                ctorRef.Parameters.Add(new ParameterDefinition(p.ParameterType));
+            }
+            _il.Emit(OpCodes.Newobj, ctorRef);
+        }
+
+        // For `f(args)` where the resolver tagged the call as a delegate invocation.
+        // Rust-style IIFE codegen — emit the callee (a lambda that pushes a delegate value)
+        // and any args, then `callvirt` the delegate's `Invoke` slot. Mirrors
+        // EmitDelegateInvocation but takes the receiver from `node.Callee` rather than a named
+        // binding; that lets us drive the delegate type straight from `node.Callee.ResultType`.
+        private void EmitInvokeExpression(InvokeExpressionNode node)
+        {
+            if (_il == null) { return; }
+
+            EmitExpression(node.Callee);
+            foreach (var arg in node.Args)
+            {
+                EmitExpression(arg.Value);
+            }
+
+            if (node.Callee.ResultType is not FunctionTypeNode fnType) { return; }
+            var delegateType = BuildDelegateType(fnType);
+            var delegateDef = delegateType.Resolve();
+            var invoke = delegateDef?.Methods.FirstOrDefault(m => m.Name == "Invoke");
+            if (invoke == null) { return; }
+
+            var invokeRef = new MethodReference("Invoke", invoke.ReturnType, delegateType)
+            {
+                HasThis = invoke.HasThis,
+                ExplicitThis = invoke.ExplicitThis,
+                CallingConvention = invoke.CallingConvention
+            };
+            foreach (var p in invoke.Parameters)
+            {
+                invokeRef.Parameters.Add(new ParameterDefinition(p.ParameterType));
+            }
+            _il.Emit(OpCodes.Callvirt, invokeRef);
+        }
+
+        private void EmitDelegateInvocation(FuncCallNode node)
+        {
+            if (_il == null) { return; }
+
+            // Push the delegate value (the binding).
+            EmitIdentifier(node.Target);
+
+            // Push args.
+            foreach (var arg in node.Args)
+            {
+                EmitExpression(arg.Value);
+            }
+
+            // Find the Invoke method on the delegate's resolved type. The binding's local
+            // variable type carries the closed generic instance we need.
+            var delegateType = TryResolveBindingDelegateType(node.Target);
+            if (delegateType == null) { return; }
+            var delegateDef = delegateType.Resolve();
+            var invoke = delegateDef.Methods.FirstOrDefault(m => m.Name == "Invoke");
+            if (invoke == null) { return; }
+
+            var invokeRef = new MethodReference("Invoke", invoke.ReturnType, delegateType)
+            {
+                HasThis = invoke.HasThis,
+                ExplicitThis = invoke.ExplicitThis,
+                CallingConvention = invoke.CallingConvention
+            };
+            foreach (var p in invoke.Parameters)
+            {
+                invokeRef.Parameters.Add(new ParameterDefinition(p.ParameterType));
+            }
+            _il.Emit(OpCodes.Callvirt, invokeRef);
+        }
+
+        private Mono.Cecil.TypeReference? TryResolveBindingDelegateType(IdentifierNode ident)
+        {
+            if (_locals.TryGetValue(ident.Value, out var local)) { return local.VariableType; }
+            if (_currentMethod != null && _parameterIndices.TryGetValue(ident.Value, out var idx))
+            {
+                var offset = _currentMethodIsInstance ? 1 : 0;
+                var paramIndex = idx - offset;
+                if (paramIndex >= 0 && paramIndex < _currentMethod.Parameters.Count)
+                {
+                    return _currentMethod.Parameters[paramIndex].ParameterType;
+                }
+            }
+            return null;
         }
 
         private Mono.Cecil.TypeReference? TryResolveCecilReturnType(INode value)
@@ -2226,14 +2973,27 @@ namespace Generator
                 case "Iona.Builtins.UInt": return _module.ImportReference(typeof(nuint));
                 case "Iona.Builtins.String": return _module.ImportReference(typeof(string));
                 case "Iona.Builtins.Void": return _module.ImportReference(typeof(void));
+                // Generic collection aliases — open generic shape only; ResolveTypeReference
+                // closes them with the right generic arguments when the TypeReferenceNode
+                // carries them.
+                case "Iona.Builtins.List": return _module.ImportReference(typeof(System.Collections.Generic.List<>));
+                case "Iona.Builtins.Map": return _module.ImportReference(typeof(System.Collections.Generic.Dictionary<,>));
+                case "Iona.Builtins.Set": return _module.ImportReference(typeof(System.Collections.Generic.HashSet<>));
             }
 
             // Check types already in the module — match on full name first, then bare name so
             // that an unresolved `Animal` (no namespace) still finds `App.Animal` in our module.
-            var localType = _module.Types.FirstOrDefault(t => $"{t.Namespace}.{t.Name}" == fqn);
+            // Also strip the `\`N` generic-arity suffix when matching against the Name so a
+            // call site like `Box<Int32>` (fqn="Box") finds the local `Box\`1` typedef.
+            string StripArity(string name)
+            {
+                var idx = name.IndexOf('`');
+                return idx >= 0 ? name.Substring(0, idx) : name;
+            }
+            var localType = _module.Types.FirstOrDefault(t => $"{t.Namespace}.{StripArity(t.Name)}" == fqn);
             if (localType == null && !fqn.Contains('.'))
             {
-                localType = _module.Types.FirstOrDefault(t => t.Name == fqn);
+                localType = _module.Types.FirstOrDefault(t => StripArity(t.Name) == fqn);
             }
             if (localType != null) return localType;
 
@@ -2259,6 +3019,303 @@ namespace Generator
             var isValueType = kind == Kind.Struct || kind == Kind.Enum;
 
             return new Mono.Cecil.TypeReference(ns, name, _module, _module) { IsValueType = isValueType };
+        }
+
+        // -------------------------------------------------------------------
+        //  User attributes (`#name(args)`)
+        // -------------------------------------------------------------------
+
+        // Resolve `#name(args)` to a CLR attribute Type via loaded assemblies. Try the
+        // C#-conventional `NameAttribute` first, then the bare `Name`, across all imported
+        // assemblies. Returns null when no match is found — caller emits a warning.
+        private System.Type? ResolveAttributeType(string ionaName)
+        {
+            var pascal = Shared.Utils.IonaToCSharpName(ionaName);
+            string[] candidates = { pascal + "Attribute", pascal };
+            foreach (var name in candidates)
+            {
+                foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
+                {
+                    try
+                    {
+                        foreach (var t in asm.GetExportedTypes())
+                        {
+                            if (t.Name == name && typeof(System.Attribute).IsAssignableFrom(t))
+                            {
+                                return t;
+                            }
+                        }
+                    }
+                    catch { }
+                }
+            }
+            return null;
+        }
+
+        private void ApplyUserAttributes(ICustomAttributeProvider provider, List<AttributeNode> attrs)
+        {
+            if (attrs == null || attrs.Count == 0) { return; }
+            foreach (var attr in attrs)
+            {
+                var clrType = ResolveAttributeType(attr.Name);
+                if (clrType == null) { continue; }
+
+                // Constant-fold arg expressions to CLR values. Anything we can't fold (a
+                // method call, identifier, etc.) makes the whole attribute unrepresentable
+                // and we skip it. Mirrors C# attribute-argument restrictions.
+                var foldedArgs = new List<(string name, object? value, System.Type valueType)>();
+                bool allFolded = true;
+                foreach (var a in attr.Args)
+                {
+                    if (!TryFoldAttrArg(a.Value, out var v, out var vt))
+                    {
+                        allFolded = false;
+                        break;
+                    }
+                    foldedArgs.Add((a.Name, v, vt));
+                }
+                if (!allFolded) { continue; }
+
+                // Pick the constructor we can satisfy: walk every overload, try to fit each
+                // arg either as a positional ctor parameter (matched by name when named,
+                // else next-free positional) or as a named property/field. We score each
+                // viable overload by how closely the arg's CLR type matches the ctor's
+                // declared param type — exact match scores 2, assignable 1, anything-goes 0.
+                // The best score wins, so `DefaultValueAttribute(value: 0)` picks the `int`
+                // ctor rather than whichever ctor reflection happens to enumerate first.
+                System.Reflection.ConstructorInfo? bestCtor = null;
+                List<(int paramIdx, object? value)>? bestPositional = null;
+                List<(string memberName, bool isProperty, object? value, System.Type memberType)>? bestNamed = null;
+                int bestScore = -1;
+
+                var foldedTypes = foldedArgs.Select(f => f.valueType).ToList();
+
+                foreach (var ctor in clrType.GetConstructors())
+                {
+                    var ctorParams = ctor.GetParameters();
+                    var taken = new bool[ctorParams.Length];
+                    var positional = new List<(int paramIdx, object? value)>();
+                    var named = new List<(string memberName, bool isProperty, object? value, System.Type memberType)>();
+                    bool ok = true;
+                    int nextFree = 0;
+                    foreach (var (name, value, _) in foldedArgs)
+                    {
+                        if (!string.IsNullOrEmpty(name))
+                        {
+                            // Named arg: try ctor param first (Iona conventions name everything),
+                            // then writable property, then public field.
+                            int matchIdx = -1;
+                            for (int i = 0; i < ctorParams.Length; i++)
+                            {
+                                if (taken[i]) { continue; }
+                                if (string.Equals(ctorParams[i].Name, name, StringComparison.OrdinalIgnoreCase))
+                                {
+                                    matchIdx = i;
+                                    break;
+                                }
+                            }
+                            if (matchIdx >= 0)
+                            {
+                                positional.Add((matchIdx, value));
+                                taken[matchIdx] = true;
+                                continue;
+                            }
+                            var pascalName = Shared.Utils.IonaToCSharpName(name);
+                            var prop = clrType.GetProperty(pascalName);
+                            if (prop != null && prop.CanWrite)
+                            {
+                                named.Add((prop.Name, true, value, prop.PropertyType));
+                                continue;
+                            }
+                            var field = clrType.GetField(pascalName);
+                            if (field != null)
+                            {
+                                named.Add((field.Name, false, value, field.FieldType));
+                                continue;
+                            }
+                            ok = false; break;
+                        }
+                        else
+                        {
+                            while (nextFree < taken.Length && taken[nextFree]) { nextFree++; }
+                            if (nextFree >= ctorParams.Length) { ok = false; break; }
+                            positional.Add((nextFree, value));
+                            taken[nextFree] = true;
+                            nextFree++;
+                        }
+                    }
+                    if (!ok) { continue; }
+                    // Every ctor param without a default must be filled.
+                    bool allFilled = true;
+                    for (int i = 0; i < ctorParams.Length; i++)
+                    {
+                        if (!taken[i] && !ctorParams[i].HasDefaultValue) { allFilled = false; break; }
+                    }
+                    if (!allFilled) { continue; }
+
+                    // Score this overload by how well arg CLR types match the param types.
+                    int score = 0;
+                    foreach (var (pIdx, val) in positional)
+                    {
+                        var pt = ctorParams[pIdx].ParameterType;
+                        var vt = val?.GetType() ?? typeof(object);
+                        if (pt == vt) { score += 2; }
+                        else if (pt.IsAssignableFrom(vt)) { score += 1; }
+                    }
+                    if (score > bestScore)
+                    {
+                        bestScore = score;
+                        bestCtor = ctor;
+                        bestPositional = positional;
+                        bestNamed = named;
+                    }
+                }
+
+                if (bestCtor == null) { continue; }
+
+                var cecilCtor = _module.ImportReference(bestCtor);
+                var custom = new CustomAttribute(cecilCtor);
+
+                var bestParams = bestCtor.GetParameters();
+                // Sort positional by paramIdx so ConstructorArguments are added in order.
+                bestPositional!.Sort((a, b) => a.paramIdx.CompareTo(b.paramIdx));
+                int fillIdx = 0;
+                foreach (var (paramIdx, value) in bestPositional!)
+                {
+                    while (fillIdx < paramIdx)
+                    {
+                        var def = bestParams[fillIdx];
+                        custom.ConstructorArguments.Add(new CustomAttributeArgument(
+                            _module.ImportReference(def.ParameterType),
+                            CoerceAttrValue(def.DefaultValue, def.ParameterType)));
+                        fillIdx++;
+                    }
+                    var pType = bestParams[paramIdx].ParameterType;
+                    custom.ConstructorArguments.Add(new CustomAttributeArgument(
+                        _module.ImportReference(pType),
+                        CoerceAttrValue(value, pType)));
+                    fillIdx++;
+                }
+                while (fillIdx < bestParams.Length)
+                {
+                    var def = bestParams[fillIdx];
+                    custom.ConstructorArguments.Add(new CustomAttributeArgument(
+                        _module.ImportReference(def.ParameterType),
+                        CoerceAttrValue(def.DefaultValue, def.ParameterType)));
+                    fillIdx++;
+                }
+                foreach (var (memberName, isProperty, value, memberType) in bestNamed!)
+                {
+                    var cArg = new CustomAttributeArgument(_module.ImportReference(memberType),
+                        CoerceAttrValue(value, memberType));
+                    var named = new CustomAttributeNamedArgument(memberName, cArg);
+                    if (isProperty) { custom.Properties.Add(named); }
+                    else { custom.Fields.Add(named); }
+                }
+                provider.CustomAttributes.Add(custom);
+            }
+        }
+
+        // Iona literal/expression → CLR constant. Only forms permitted in C# attribute args
+        // are accepted: strings, integers, doubles, bools, char, typeof(X), Enum.Member.
+        // Returns false for anything we don't know how to encode at compile time.
+        private bool TryFoldAttrArg(IExpressionNode expr, out object? value, out System.Type valueType)
+        {
+            value = null;
+            valueType = typeof(object);
+
+            // `typeof(X)` — emit as a System.Type CustomAttributeArgument. We pass the Cecil
+            // TypeReference as the value; Cecil writes the assembly-qualified name for us.
+            if (expr is TypeOfExpressionNode tof)
+            {
+                var cecilRef = ResolveTypeReference(tof.Operand);
+                value = cecilRef;
+                valueType = typeof(System.Type);
+                return true;
+            }
+
+            // `Enum.Member` (e.g. `BindingFlags.Public`). Looks up the receiver as a CLR enum
+            // type via loaded assemblies, then resolves the static field by name. The CLR
+            // attribute encoding stores enum values as their underlying integer.
+            if (expr is PropAccessNode pa
+                && pa.Object is IdentifierNode enumIdent
+                && pa.Property is IdentifierNode memberIdent
+                && TryResolveEnumMember(enumIdent.Value, memberIdent.Value, out var enumType, out var enumVal))
+            {
+                value = enumVal;
+                valueType = enumType!;
+                return true;
+            }
+
+            if (expr is LiteralNode lit)
+            {
+                switch (lit.LiteralType)
+                {
+                    case LiteralType.String:
+                        value = lit.Value?.ToString() ?? "";
+                        valueType = typeof(string);
+                        return true;
+                    case LiteralType.Integer:
+                        value = System.Convert.ToInt32(lit.Value);
+                        valueType = typeof(int);
+                        return true;
+                    case LiteralType.Double:
+                        value = System.Convert.ToDouble(lit.Value);
+                        valueType = typeof(double);
+                        return true;
+                    case LiteralType.Float:
+                        value = System.Convert.ToSingle(lit.Value);
+                        valueType = typeof(float);
+                        return true;
+                    case LiteralType.Boolean:
+                        value = System.Convert.ToBoolean(lit.Value);
+                        valueType = typeof(bool);
+                        return true;
+                    case LiteralType.Char:
+                        value = System.Convert.ToChar(lit.Value);
+                        valueType = typeof(char);
+                        return true;
+                }
+            }
+            return false;
+        }
+
+        // Walk loaded assemblies for an exported enum type named `enumName`; return its
+        // boxed underlying-integer value for the member named `memberName`. The Cecil writer
+        // serialises this as the enum-typed CustomAttributeArgument.
+        private static bool TryResolveEnumMember(string enumName, string memberName,
+            out System.Type? enumType, out object? value)
+        {
+            foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
+            {
+                try
+                {
+                    foreach (var t in asm.GetExportedTypes())
+                    {
+                        if (!t.IsEnum || t.Name != enumName) { continue; }
+                        var field = t.GetField(memberName,
+                            System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
+                        if (field == null) { continue; }
+                        var raw = field.GetValue(null);
+                        var underlying = System.Enum.GetUnderlyingType(t);
+                        value = System.Convert.ChangeType(raw, underlying);
+                        enumType = t;
+                        return true;
+                    }
+                }
+                catch { }
+            }
+            enumType = null;
+            value = null;
+            return false;
+        }
+
+        private static object? CoerceAttrValue(object? raw, System.Type targetType)
+        {
+            if (raw == null) { return null; }
+            if (targetType.IsInstanceOfType(raw)) { return raw; }
+            try { return System.Convert.ChangeType(raw, targetType); }
+            catch { return raw; }
         }
 
         // -------------------------------------------------------------------
@@ -2368,14 +3425,14 @@ namespace Generator
             if (_currentType != null)
             {
                 var localMethod = _currentType.Methods.FirstOrDefault(m => m.Name == csharpName);
-                if (localMethod != null) return localMethod;
+                if (localMethod != null) return CloseGenericMethodIfNeeded(localMethod, node);
             }
 
             // Search in all module types (including free-function Module classes)
             foreach (var type in _module.Types)
             {
                 var method = type.Methods.FirstOrDefault(m => m.Name == csharpName);
-                if (method != null) return method;
+                if (method != null) return CloseGenericMethodIfNeeded(method, node);
             }
 
             // Try .NET framework methods via reflection
@@ -2409,17 +3466,71 @@ namespace Generator
             return null;
         }
 
+        // When a FuncCall provides type arguments (`identity<Int32>(x: 42)`) and the resolved
+        // method is generic, build a closed `GenericInstanceMethod` so the IL `call` carries
+        // the binding. Non-generic calls or calls without type arguments return the method
+        // reference unchanged.
+        private MethodReference CloseGenericMethodIfNeeded(MethodReference method, FuncCallNode node)
+        {
+            if (node.GenericArgs.Count == 0 || method.GenericParameters.Count == 0)
+            {
+                return method;
+            }
+            var inst = new GenericInstanceMethod(method);
+            foreach (var ga in node.GenericArgs)
+            {
+                var argRef = new TypeReferenceNode(ga.Name, node)
+                {
+                    FullyQualifiedName = ga.Name
+                };
+                inst.GenericArguments.Add(ResolveTypeReference(argRef));
+            }
+            return inst;
+        }
+
         private MethodReference? ResolveCtorReference(InitCallNode node)
         {
             var typeRef = ResolveTypeByFQN(node.TypeFullName);
             var resolved = typeRef.Resolve();
-            if (resolved != null)
+            if (resolved == null) { return null; }
+
+            var openCtor = resolved.Methods.FirstOrDefault(m => m.IsConstructor && m.Parameters.Count == node.Args.Count);
+            if (openCtor == null) { return null; }
+
+            // Non-generic call site — just import the constructor straight.
+            if (resolved.GenericParameters.Count == 0)
             {
-                var ctor = resolved.Methods.FirstOrDefault(m => m.IsConstructor && m.Parameters.Count == node.Args.Count);
-                if (ctor != null) return _module.ImportReference(ctor);
+                return _module.ImportReference(openCtor);
             }
 
-            return null;
+            // Close the open generic with the call-site type arguments, then re-bind the ctor
+            // to the closed type so the JIT sees the right per-instantiation signature.
+            // Use the imported reference so the closed generic's metadata picks up the right
+            // assembly scope when the type lives in this module.
+            var openRef = _module.ImportReference(typeRef);
+            var closed = new GenericInstanceType(openRef);
+            foreach (var ga in node.GenericArgs)
+            {
+                // Pass the bare name through — ResolveTypeByFQN's local-type lookup will pick
+                // up either an Iona builtin or a user-defined type in this module.
+                var argRef = new TypeReferenceNode(ga.Name, node)
+                {
+                    FullyQualifiedName = ga.Name,
+                };
+                closed.GenericArguments.Add(ResolveTypeReference(argRef));
+            }
+
+            var bound = new MethodReference(openCtor.Name, openCtor.ReturnType, closed)
+            {
+                HasThis = openCtor.HasThis,
+                ExplicitThis = openCtor.ExplicitThis,
+                CallingConvention = openCtor.CallingConvention
+            };
+            foreach (var p in openCtor.Parameters)
+            {
+                bound.Parameters.Add(new ParameterDefinition(p.ParameterType));
+            }
+            return bound;
         }
 
         // -------------------------------------------------------------------

@@ -94,10 +94,10 @@ namespace Parser.Parsers
                 ));
 
                 throw new ParserException(
-                    ParserExceptionCode.Unknown, 
-                    exception.ErrorToken.Line, 
-                    exception.ErrorToken.ColumnStart, 
-                    exception.ErrorToken.ColumnEnd, 
+                    ParserExceptionCode.Unknown,
+                    exception.ErrorToken.Line,
+                    exception.ErrorToken.ColumnStart,
+                    exception.ErrorToken.ColumnEnd,
                     exception.ErrorToken.File
                 );
             }

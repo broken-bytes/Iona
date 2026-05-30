@@ -15,6 +15,7 @@ namespace AST.Types
         Contract,
         Enum,
         Function,
+        Generic,
         Record,
         Struct,
         Unknown
